@@ -6,56 +6,91 @@ g = 9.81
 x0, y0, grades, v0 = 0, 0, 45, 30 # Initial condition
 t = np.linspace(0, 10, 100) #Time
 alpha = grades*np.pi/ 180
-k = [0, 0.05, 0.1, 0.2, 0.5]
+k_value = [0, 0.05, 0.1, 0.2, 0.5]
 v0x = v0*np.cos(alpha)
 v0y = v0*np.sin(alpha)
-x = np.zeros((len(t), len(k)))
-y = np.zeros((len(t), len(k)))
+x = np.zeros((len(t), len(k_value)))
+y = np.zeros((len(t), len(k_value)))
+
+e = 0.5 #Rebote 0 < e < 1
 
 #In this kind of motion the acceleration parameterer is function of velocity through this equations:
-for i in range(len(k)):
+
+for i, k in enumerate(k_value): 
+    if k == 0: 
+        x[:, i] = v0x * t + x0 
+        y[:, i] = -0.5*g*t**2 + v0y*t + y0 
+
+        y_col = y[:, i]
+        idx_ground = np.where(y_col < 0)[0]
+
+        if len(idx_ground) > 0:
+            first_hit = idx_ground[0]
+            y_col[first_hit:] = 0
+
+    else: 
+        x[:, i] = v0x/k * (1 - np.exp(-k*t)) + x0 
+        y[:, i] = -g*t/k + (k*v0y + g)/k**2 * (1 - np.exp(-k*t)) + y0#
+
+        y_col = y[:, i]
+        idx_ground = np.where(y_col < 0)[0]
+
+        if len(idx_ground) > 0:
+            first_hit = idx_ground[0]
+            y_col[first_hit:] = 0
+#                                                    Numerical error (Euler's method) - ref animation.py
+
+dt = t[1] - t[0]
+
+x_approx = np.zeros((len(t), len(k_value)))
+y_approx = np.zeros((len(t), len(k_value)))
+
+for i, k in enumerate(k_value):
+    x_pos = x0
+    y_pos = y0
+    vx = v0x
+    vy = v0y
     for j in range(len(t)):
-        if k[i] == 0: # parabolic motion
-            x[j][i] = v0x * t[j] + x0
-            y[j][i] = -0.5 * g*t[j]**2 + v0y*t[j] + y0
-        else:
-            x[j][i] = v0x/k[i]*(1 - np.exp( - k[i]*t[j])) + x0
-            y[j][i] = -g*t[j]/k[i] + (k[i]*v0y+g)/k[i]**2 * (1 - np.exp(-k[i]*t[j])) + y0
 
-plt.figure()
+        x_approx[j][i] = x_pos
+        y_approx[j][i] = y_pos
 
-for i in range(len(k)):
-    plt.plot(x[:,i], y[:,i], label=f'k={k[i]}')
+        #Current velocity
+        vx += - k * vx * dt
+        vy += - g * dt - k * vy * dt
+        # Current position
+        x_pos += vx * dt
+        y_pos += vy * dt
 
-plt.grid()
-plt.xlim(0, max(x.max(), 0))
-plt.ylim(0, max(y.max(), 50))
-plt.xlabel('x (m)')
-plt.ylabel('y (m)')
-plt.title('Projectile motion along several coefficient')
-plt.legend()
+        if y_pos < 0:
+            y_pos = 0
+            vy = -e * vy
+        if y_pos == 0 and abs(vy)<1e-2:
+            vy = 0
+            break
+fig, axs = plt.subplots(2,2, figsize=(10, 8))
+axs = axs.flatten()
+
+for idx, k in enumerate(k_value[1:]):   
+    col = idx + 1 
+
+    mask_exact = y[:, col] >= 0
+    mask_num   = y_approx[:, col] >= 0
+
+    axs[idx].plot(x[mask_exact, col], y[mask_exact, col], label="Exacta")
+    axs[idx].plot(x_approx[mask_num, col], y_approx[mask_num, col], '--', label="Euler")
+
+    axs[idx].set_title(f"k = {k}")
+    axs[idx].set_xlabel("x (m)")
+    axs[idx].set_ylabel("y (m)")
+    axs[idx].grid()
+    axs[idx].legend()
+
+plt.tight_layout()
 plt.show()
 
-#                                                    Numerical error (Euler's method) - animation.py
-dt = 0.1
 
-x_approx = [x0]
-y_approx = [y0]
-vx = v0x
-vy = v0y
-
-for i in range(len(k)):
-    for j in range(len(t)):
-        vx += - k[i] * vx * dt
-        vy += - g * dt - k[i] * vy * dt
-
-        # Current position
-        x_approx.append(x_approx[-1] + vx * dt)
-        y_approx.append(y_approx[-1] + vy * dt)
-
-
-
-#                                            Analitical aproximations for range and time of flight
+#                                                  Analitical aproximations for range and time of flight
 #Aprox k --> min
 
 T_aprox = []
@@ -73,11 +108,13 @@ for k in k1:
         T_aprox.append(2*v0y/g*(1 - k*v0y / (3*g)))
         R_aprox.append(v0x*(T_aprox[-1] - 0.5*k*T_aprox[-1]**2))
 
-        #Solving transcendental equation for T numerically
+        #Solving transcendental equation for T -- numerically
         func = lambda t: t - (k*v0y+g)/(g*k)*(1 - np.exp(-k*t))
         T_real = fsolve(func, T_aprox[-1])[0]
         T.append(T_real)
         R.append(v0x*T_real)
+
+
 
 plt.figure()
 plt.plot(k1, T, label='Real time')

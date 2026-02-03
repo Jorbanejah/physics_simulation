@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-# Para que el movimiento de la trayectoria se ve suave cuando cambie de medio,
+# Para que el movimiento de la trayectoria se vea suave cuando cambie de medio,
 # tenemos que hacer un metodo de incremental (pasando a la formulas diferenciales) con un tiempo t = 0.1 que sentara las bases del siguiente para x,y
 
 class AnimatedProjectileMotion:
