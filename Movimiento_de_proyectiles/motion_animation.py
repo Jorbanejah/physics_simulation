@@ -13,8 +13,8 @@ class AnimatedProjectileMotion:
 
         self.x = x0
         self.y = x0
-
-        alpha = grades * np.pi / 180
+        self.v0 = v0
+        alpha = np.radians(grades)
         self.vx = v0 * np.cos(alpha)
         self.vy = v0 * np.sin(alpha)
 
@@ -26,8 +26,11 @@ class AnimatedProjectileMotion:
         self.fig, self.ax = plt.subplots() #return a tuple where: self.fig stores the figure object and self.ax stores the axes object
         self.point, = self.ax.plot([], [], marker='o', markersize=12, color='red')
 
-        self.ax.set_xlim(0, 1000)
-        self.ax.set_ylim(0, 300)
+        H = self.v0 **2 * np.sin(alpha)**2 / (2*self.g)
+        R = self.v0 **2 * np.sin(2*alpha) / self.g
+        self.ax.set_xlim(0, R)
+        self.ax.set_ylim(0, H + 10)
+
         self.ax.set_xlabel("x (m)")
         self.ax.set_ylabel("y (m)")
         self.ax.set_title("Proyectil atravesando distintos medios")
@@ -68,9 +71,10 @@ class AnimatedProjectileMotion:
         # y >= 0
         if self.y < 0:
             self.y = 0
-            raise StopIteration
+            self.anim.event_source.stop()
 
-        self.point.set_data([self.x], [self.y])
+
+        self.point.set_data([self.x], [self.y + 2])
         return self.point,
 
     def animate(self):
