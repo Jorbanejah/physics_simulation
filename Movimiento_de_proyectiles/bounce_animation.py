@@ -35,7 +35,7 @@ class Bounce_animation:
         #Graphics features
         self.ax.set_xlabel('x (m)')
         self.ax.set_ylabel('y (m)')
-        self.ax.set_title('Movimiento del proyectil. \f{e} y \f{k}')
+        self.ax.set_title(f"Bounce coefficient e = {self.e}" f"Resistance parameter k = {self.k}")
 
     def update(self, frame):
         
@@ -64,5 +64,5 @@ class Bounce_animation:
         plt.show()
 
 if __name__ == '__main__':
-    projectile_motion = Bounce_animation(0, 0, 100, 45, 0, 0.4)
+    projectile_motion = Bounce_animation(0, 0, 100, 45, 0.2, 1)
     projectile_motion.animate()

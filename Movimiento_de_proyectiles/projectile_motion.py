@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import fsolve
 
 #################################################   Initial parameters   ###################
 
@@ -19,12 +18,15 @@ e = 0.8 #Rebote 0 < e < 1
 #  Analitical
 x = np.zeros((len(t), len(k_value)))
 y = np.zeros((len(t), len(k_value)))
+vx = []
+vy = []
 
 for i, k in enumerate(k_value): 
     if k == 0: 
         x[:, i] = v0x * t + x0 
         y[:, i] = -0.5*g*t**2 + v0y*t + y0 
-
+        vx.append(v0x)
+        vy.append(v0y - g*t)
         y_col = y[:, i]
         idx_ground = np.where(y_col < 0)[0]
 
@@ -36,6 +38,8 @@ for i, k in enumerate(k_value):
     else: 
         x[:, i] = v0x/k * (1 - np.exp(-k*t)) + x0 
         y[:, i] = -g*t/k + (k*v0y + g)/k**2 * (1 - np.exp(-k*t)) + y0
+        vx.append(v0x * np.exp( - k * t))
+        vy.append(-g/k + (k*v0y + g)/k * np.exp(- k * t))
 
         y_col = y[:, i]
         idx_ground = np.where(y_col < 0)[0]
@@ -49,6 +53,8 @@ for i, k in enumerate(k_value):
 
 x_numeric = np.zeros((len(t), len(k_value)))
 y_numeric = np.zeros((len(t), len(k_value)))
+vx_numeric = []
+vy_numeric = []
 
 for i, k in enumerate(k_value):
     x_pos = x0
@@ -59,6 +65,8 @@ for i, k in enumerate(k_value):
 
         x_numeric[j][i] = x_pos
         y_numeric[j][i] = y_pos
+        vx_numeric.append(vx)
+        vy_numeric.append(vy)
 
         #Current velocity
         vx += - k * vx * dt
