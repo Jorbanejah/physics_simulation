@@ -64,5 +64,5 @@ class Bounce_animation:
         plt.show()
 
 if __name__ == '__main__':
-    projectile_motion = Bounce_animation(0, 0, 100, 45, 0.2, 1)
+    projectile_motion = Bounce_animation(0, 0, 100, 30, 0.1, 1)
     projectile_motion.animate()

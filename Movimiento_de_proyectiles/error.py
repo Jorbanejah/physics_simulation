@@ -2,12 +2,48 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.optimize import fsolve
+from openpyxl import load_workbook, Workbook
 
-g = 9.81 #Gravity
-x0, y0, grades, v0 = 0, 0, 45, 30 # Initial condition
-alpha = np.radians(grades)
-v0x = v0*np.cos(alpha)
-v0y = v0*np.sin(alpha)
+wb =load_workbook('projectile_motion_data.xlsx')
+ws = wb.active
+
+def read_column_and_data_values(ws, nombre_columna, filas):
+    col = None
+    for cell in ws[1]:
+        if cell.value == nombre_columna:
+            col = cell.column_letter
+            break
+
+    if col is None:
+        raise ValueError(f"Does not exist column '{nombre_columna}'")
+
+    return [ws[f"{col}{i}"].value for i in range(2, filas + 1)]
+
+
+# k= 0
+x_0  = read_column_and_data_values(ws, "x_a_k=0", 433)
+y_0  = read_column_and_data_values(ws, "y_a_k=0", 433)
+vx_0 = read_column_and_data_values(ws, "vx_a_k=0", 433)
+vy_0 = read_column_and_data_values(ws, "vy_a_k=0", 433)
+
+x_num_0 = read_column_and_data_values(ws, "x_n_k=0", 433)
+y_num_0 = read_column_and_data_values(ws, "y_n_k=0", 433)
+vx_num_0 = read_column_and_data_values(ws, "vx_n_k=0", 433)
+vy_num_0 = read_column_and_data_values(ws, "vy_n_k=0", 433)
+
+# k= 0.1
+x_01 = read_column_and_data_values(ws, "x_a_k=0.1", 410)
+y_01 = read_column_and_data_values(ws, "y_a_k=0.1", 410)
+vx_01 = read_column_and_data_values(ws, "vx_a_k=0.1", 410)
+vy_01 = read_column_and_data_values(ws, "vy_a_k=0.1", 410)
+
+x_num_01 = read_column_and_data_values(ws, "x_n_k=0.1", 410)
+y_num_01 = read_column_and_data_values(ws, "y_n_k=0.1", 410)
+vx_num_01 = read_column_and_data_values(ws, "vx_n_k=0.1", 410)
+vy_num_01 = read_column_and_data_values(ws, "vy_n_k=0.1", 410)
+
+t = read_column_and_data_values(ws, "t", 433)
+t1 = read_column_and_data_values(ws, "t", 410)
 m = 0.8
 
 def energy(m, g, x, y, vx, vy, E0=None):
@@ -18,10 +54,10 @@ def energy(m, g, x, y, vx, vy, E0=None):
     - E_p: potencial energy
     - P_ext: losses
     """
-    x = np.array(x)
-    y = np.array(y)
-    vx = np.array(vx)
-    vy = np.array(vy)
+    x = np.array([float(v) if v not in (None, '') else 0 for v in x])
+    y = np.array([float(v) if v not in (None, '') else 0 for v in y])
+    vx = np.array([float(v) if v not in (None, '') else 0 for v in vx])
+    vy = np.array([float(v) if v not in (None, '') else 0 for v in vy])
 
     Ek = 0.5 * m * (vx**2 + vy**2)
     Ep = m * g * y 
@@ -33,83 +69,40 @@ def energy(m, g, x, y, vx, vy, E0=None):
     P_ext = E0 - Em
     return Em, Ek, Ep, P_ext
 
-# Time array
-t = np.linspace(0, 10, 100) #Time
-dt = t[1] - t[0] #Step
-k_value = [0, 0.1]
 
-# Calculate analytical and numerical solutions for each k
-results = {}
+######
+# Plot energies over time
+######
+g = 9.81
+Em_0, Ek_0, Ep_0, P_ext_0 = energy(m, g, x_0, y_0, vx_0, vy_0)
+Em_0_num, Ek_0_num, Ep_0_num, P_ext_0_num = energy(m, g, x_num_0, y_num_0, vx_num_0, vy_num_0, E0=Em_0[0])
+Em_01, Ek_01, Ep_01, P_ext_01 = energy(m, g, x_01, y_01, vx_01, vy_01, E0=Em_0[0])  
+Em_01_num, Ek_01_num, Ep_01_num, P_ext_01_num = energy(m, g, x_num_01, y_num_01, vx_num_01, vy_num_01, E0=Em_0[0])
 
-for k in k_value:
-    # Analytical method
+fig, axs = plt.subplots(2, 2, figsize=(12, 8))
+axs[0, 0].plot(t, Em_0, label='E_mec k=0')
+axs[0, 0].plot(t, Em_0_num, label='E_mec num k=0')
+axs[0, 0].set_title('Mechanic energy vs time for k=0')
 
-    x_ana = v0x/k * (1 - np.exp(-k*t)) + x0 if k != 0 else v0x * t + x0
-    y_ana = (-g*t/k + (k*v0y + g)/k**2 * (1 - np.exp(-k*t)) + y0) if k != 0 else (-0.5*g*t**2 + v0y*t + y0)
-    vx_ana = v0x * np.exp(-k*t) if k != 0 else np.full_like(t, v0x)
-    vy_ana = (-g/k + (k*v0y + g)/k * np.exp(-k*t)) if k != 0 else (v0y - g*t)
-    
-    # Numerical method (Euler)
-    x_num, y_num, vx_num, vy_num = [x0], [y0], [v0x], [v0y]
-    
-    for _ in range(len(t)-1):
-        vx_new = vx_num[-1] - k * vx_num[-1] * dt
-        vy_new = vy_num[-1] - g * dt - k * vy_num[-1] * dt
-        x_new = x_num[-1] + vx_new * dt
-        y_new = y_num[-1] + vy_new * dt
-        
-        if y_new < 0:
-            y_new = 0
-        
-        x_num.append(x_new)
-        y_num.append(y_new)
-        vx_num.append(vx_new)
-        vy_num.append(vy_new)
-    
-    # Calculate energies
-    Em_ana, Ek_ana, Ep_ana, P_ana = energy(m, g, x_ana, y_ana, vx_ana, vy_ana)
-    Em_num, Ek_num, Ep_num, P_num = energy(m, g, x_num, y_num, vx_num, vy_num)
-    
-    results[k] = {
-        'Em_ana': Em_ana, 'Em_num': Em_num,
-        'Ek_ana': Ek_ana, 'Ek_num': Ek_num,
-        'Ep_ana': Ep_ana, 'Ep_num': Ep_num,
-        'P_ana': P_ana, 'P_num': P_num
-    }
-    # Plot energies over time
-    
-fig, axes = plt.subplots(1, 1, figsize=(14, 5))
-axes = axes.flatten()
-for idx, k in enumerate(k_value):
-    axes[idx].plot(t, results[k]['Ek_ana'], label='Ek (analytical)', linewidth=2)
-    axes[idx].plot(t, results[k]['Ek_num'], '--', label='Ek (numerical)', linewidth=2)
-    axes[idx].plot(t, results[k]['Ep_ana'], label='Ep (analytical)', linewidth=2)
-    axes[idx].plot(t, results[k]['Ep_num'], '--', label='Ep (numerical)', linewidth=2)    
+axs[0, 1].plot(t1, Em_01, label='E_mec k=0.1')
+axs[0, 1].plot(t1, Em_01_num, label='E_mec num k=0.1')
+axs[0, 1].set_title('Mechanic energy vs time for k=0.1')
 
-    axes[idx].set_xlabel('Time (s)')
-    axes[idx].set_ylabel('Energy (J)')
-    axes[idx].set_title(f'Energy vs Time (k = {k})')
-    axes[idx].legend()
-    axes[idx].axhline(0, color='gray', lw=0.5, ls='--')
+axs[1, 0].plot(t, Ek_0, label='E_k')
+axs[1, 0].plot(t, Ek_0_num, label='E_k num')
+axs[1, 0].plot(t, Ep_0, label='E_p')
+axs[1, 0].plot(t, Ep_0_num, label='E_p num')
+axs[1, 0].set_title('Kinetic and potential energy vs time for k=0')
+
+axs[1, 1].plot(t1, Ek_01, label='E_k ')
+axs[1, 1].plot(t1, Ep_01, label='E_p ')
+axs[1, 1].plot(t1, Ek_01_num, label='E_k num')
+axs[1, 1].plot(t1, Ep_01_num, label='E_p num')
+axs[1, 1].set_title('Kinetic and potential energy vs time for k=0.1')
+
+plt.show()
 
 
-plt.tight_layout()
-    
-fig1, ax1 = plt.subplots(1, 1, figsize=(7, 5))
-
-for idx, k in enumerate(k_value):
-    ax1.plot(t, results[k]['Em_ana'], label='Em (analytical)', linewidth=2)
-    ax1.plot(t, results[k]['Em_num'], '--', label='Em (numerical)', linewidth=2)
-    ax1.plot(t, results[k]['P_ana'], label='Losses', linewidth=2)
-    ax1.plot(t, results[k]['P_num'], '--', label='Losses (numerical)', linewidth=2)
-
-    ax1.set_xlabel('Time (s)')
-    ax1.set_ylabel('Energy (J)')
-    ax1.set_title(f'Mechanical Energy and Losses vs Time (k = {k})')
-    ax1.legend()
-    ax1.axhline(0, color='gray', lw=0.5, ls='--')
-
-plt.tight_layout()
 
 #                                                 Analitical method - Range, Height and time
 # Everybody knows how to get the range and height of a parabolic motion. Through the parabolic equation when y = 0 we can solve it and see that 
@@ -117,6 +110,11 @@ plt.tight_layout()
 # However, now we are trying to figure out how to deal with parabolic equation through different medium. So, putting y = 0 we can see a trascental equation that we can solve by numerical method (for example 
 # plotting both parts right and left, and show where interline) or doing some approximation such as exponential Taylor expansion.
 
+g = 9.81 #Gravity
+x0, y0, grades, v0 = 0, 0, 45, 30 # Initial condition
+alpha = np.radians(grades)
+v0x = v0*np.cos(alpha)
+v0y = v0*np.sin(alpha)
 
 T_aprox = [] # Approx time
 R_aprox = [] # Approx range
