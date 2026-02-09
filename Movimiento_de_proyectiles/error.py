@@ -32,23 +32,22 @@ vx_num_0 = read_column_and_data_values(ws, "vx_n_k=0", 433)
 vy_num_0 = read_column_and_data_values(ws, "vy_n_k=0", 433)
 
 # k= 0.1
-x_01 = read_column_and_data_values(ws, "x_a_k=0.1", 410)
-y_01 = read_column_and_data_values(ws, "y_a_k=0.1", 410)
-vx_01 = read_column_and_data_values(ws, "vx_a_k=0.1", 410)
-vy_01 = read_column_and_data_values(ws, "vy_a_k=0.1", 410)
+x_01 = read_column_and_data_values(ws, "x_a_k=0.1", 400)
+y_01 = read_column_and_data_values(ws, "y_a_k=0.1", 400)
+vx_01 = read_column_and_data_values(ws, "vx_a_k=0.1", 400)
+vy_01 = read_column_and_data_values(ws, "vy_a_k=0.1", 400)
 
-x_num_01 = read_column_and_data_values(ws, "x_n_k=0.1", 410)
-y_num_01 = read_column_and_data_values(ws, "y_n_k=0.1", 410)
-vx_num_01 = read_column_and_data_values(ws, "vx_n_k=0.1", 410)
-vy_num_01 = read_column_and_data_values(ws, "vy_n_k=0.1", 410)
+x_num_01 = read_column_and_data_values(ws, "x_n_k=0.1", 400)
+y_num_01 = read_column_and_data_values(ws, "y_n_k=0.1", 400)
+vx_num_01 = read_column_and_data_values(ws, "vx_n_k=0.1", 400)
+vy_num_01 = read_column_and_data_values(ws, "vy_n_k=0.1", 400)
 
 t = read_column_and_data_values(ws, "t", 433)
-t1 = read_column_and_data_values(ws, "t", 410)
+t1 = read_column_and_data_values(ws, "t", 400)
 m = 0.8
 
 def energy(m, g, x, y, vx, vy, E0=None):
     """
-    Calcula energías para cada k:
     - E_mec: total mechanic energy
     - E_k: kinetic energy
     - E_p: potencial energy
@@ -100,7 +99,7 @@ axs[1, 1].plot(t1, Ek_01_num, label='E_k num')
 axs[1, 1].plot(t1, Ep_01_num, label='E_p num')
 axs[1, 1].set_title('Kinetic and potential energy vs time for k=0.1')
 
-plt.show()
+plt.savefig('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\Movimiento_de_proyectiles\\energy.png')
 
 
 
@@ -158,7 +157,7 @@ plt.title('Time in air vs resistance')
 plt.xlabel('k (1/s)')
 plt.ylabel('Time (s)')
 plt.legend()
-plt.show()
+plt.savefig('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\Movimiento_de_proyectiles\\time.png')
 
 
 plt.figure(2)
@@ -168,7 +167,7 @@ plt.title('Maximum range vs resistance')
 plt.xlabel('k (1/s)')
 plt.ylabel('Range (m)')
 plt.legend()
-plt.show()
+plt.savefig('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\Movimiento_de_proyectiles\\range.png')
 
 
 plt.figure(3)
@@ -177,4 +176,4 @@ plt.xlabel('k (1/s)')
 plt.ylabel('Height (m)')
 plt.title('Maximum height vs resistance')
 plt.legend()
-plt.show()
+plt.savefig('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\Movimiento_de_proyectiles\\height.png')

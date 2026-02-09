@@ -171,6 +171,16 @@ def euler_rebound(k):
 # Printing results
 # =========================================================
 
+fig = plt.figure(figsize=(10, 6))
+x, y, _, _ = analytic_motion(k_values[0])
+plt.plot(x, y, label="Analitical")
+plt.xlim(0, np.max(x) + 10)
+plt.ylim(0, np.max(y) + 10)
+plt.xlabel("x (m)")
+plt.ylabel("y (m)")
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\Movimiento_de_proyectiles\\projectile_motion_analytic.png", dpi=300, bbox_inches='tight')
+
+
 fig, axs = plt.subplots(2, 2, figsize=(10, 8))
 axs = axs.flatten()
 
@@ -178,7 +188,7 @@ for i, k in enumerate(k_values[1:]):
     xa, ya, _, _ = analytic_motion(k)
     xn, yn, _, _ = euler_motion(k)
 
-    axs[i].plot(xa, ya, label="Analítica")
+    axs[i].plot(xa, ya, label="Analitical")
     axs[i].plot(xn, yn, "--", label="Euler")
     axs[i].set_title(f"k = {k}")
     axs[i].set_xlabel("x (m)")
@@ -187,7 +197,7 @@ for i, k in enumerate(k_values[1:]):
     axs[i].legend()
 
 plt.tight_layout()
-plt.show()
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\Movimiento_de_proyectiles\\projectile_motion_comparison.png", dpi=300, bbox_inches='tight')
 
 fig, axs = plt.subplots(2, 2, figsize=(10, 8))
 axs = axs.flatten()
@@ -196,17 +206,17 @@ for i, k in enumerate(k_values[1:]):
     xa, ya, _, _ = analytic_rebound(k)
     xn, yn, _, _ = euler_rebound(k)
 
-    axs[i].plot(xa, ya, label="Analítica")
-    axs[i].plot(xn, yn, "--", label="Euler")
+    axs[i].plot(xa, ya, label="Analitical")
+    axs[i].plot(xn, yn, "--", label="Euler's method")
     axs[i].set_title(f"k = {k}")
     axs[i].grid()
     axs[i].legend()
 
 plt.tight_layout()
-plt.show()
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\Movimiento_de_proyectiles\\projectile_motion_rebound_comparison.png", dpi=300, bbox_inches='tight')
 
 # =========================================================
-# EXPORTACIÓN A EXCEL
+# Exporting data to .xlsx
 # =========================================================
 
 data = {}
@@ -234,4 +244,4 @@ ws = wb.active
 for row in dataframe_to_rows(df, index=False, header=True):
     ws.append(row)
 
-wb.save("projectile_motion_data.xlsx")
+wb.save("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\Movimiento_de_proyectiles\\projectile_motion_data.xlsx")

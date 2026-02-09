@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+from matplotlib.animation import FuncAnimation, PillowWriter
 
 class Bounce_animation:
 
@@ -59,10 +59,11 @@ class Bounce_animation:
         return self.point,
 
     def animate(self):
-        self.animate = FuncAnimation(self.fig, self.update, frames =100, interval = 50, blit = False)
-        
-        plt.show()
+        self.animate = FuncAnimation(self.fig, self.update, frames =500, interval = 50, blit = False)
+        write = PillowWriter(fps=30)
+        self.animate.save('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\Movimiento_de_proyectiles\\bounce_animation.gif', writer=write)
 
 if __name__ == '__main__':
     projectile_motion = Bounce_animation(0, 0, 100, 30, 0.1, 1)
     projectile_motion.animate()
+    

@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+from matplotlib.animation import FuncAnimation, PillowWriter
 # Para que el movimiento de la trayectoria se vea suave cuando cambie de medio,
 # tenemos que hacer un metodo de incremental (pasando a la formulas diferenciales) con un tiempo t = 0.1 que sentara las bases del siguiente para x,y
 
@@ -33,7 +33,7 @@ class AnimatedProjectileMotion:
 
         self.ax.set_xlabel("x (m)")
         self.ax.set_ylabel("y (m)")
-        self.ax.set_title("Proyectil atravesando distintos medios")
+        self.ax.set_title("Projectile motion with varying resistance")
         
     def get_medium(self,frame):
         return frame//20
@@ -80,7 +80,8 @@ class AnimatedProjectileMotion:
     def animate(self):
 
         self.anim = FuncAnimation(self.fig, self.update, frames=100, interval=50, blit=False)
-        plt.show()
+        write = PillowWriter(fps=20)
+        self.anim.save("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\Movimiento_de_proyectiles\\projectile_motion.gif", writer=write)
 
 if __name__ == "__main__":
     projectile_motion = AnimatedProjectileMotion(x0=0, grades=25, v0=100)
