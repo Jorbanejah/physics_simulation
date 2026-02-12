@@ -19,7 +19,7 @@ class Bounce_animation:
         self.e = e #Bounce coefficient Restitution parameter
 
         self.dt = 0.1 # Time step
-
+        
         self.fig, self.ax = plt.subplots()
         self.point, = self.ax.plot([], [], marker='o', markersize=12, color='blue')
 
