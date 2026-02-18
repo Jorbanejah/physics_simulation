@@ -54,7 +54,7 @@ class Pendulum:
         return theta, omega
 
     def step_rk4(self):
-        """Runge–Kutta 4"""
+        """Runge-Kutta 4"""
 
         def f_theta(theta, omega):
             return omega
@@ -200,73 +200,139 @@ class Pendulum:
 
         return self.line, self.point
 
-class Spring():
+class Spring:
 
-    g = 9.81
+    def __init__(self, k, m, A, delta, y0, x0, Anim = False, t_max=15, dt=0.05):
 
-    def __init__(self, k, m, A, delta, y0, x0, Anim = False, t_max = 15):
         if k <= 0:
             raise ValueError("k must be positive")
         if m <= 0:
             raise ValueError("m must be positive")
 
-        self.x = x0
+        # PHYSICAL PARAMETERS
+        self.A = A
+        self.delta = delta
+        self.k = k
+        self.m = m
         self.y0 = y0
-        self.k = k 
-        self.m = m 
-        self.A = A 
-        self.delta = delta 
-        self.omega = np.sqrt(k/m) 
-        self.t_max = t_max 
-        self.Anima = Anim
-        self.t = np.linspace(0, t_max, 100)
-        self.time = 0
+        self.x = x0
 
-        if self.Anima:
+        # Time
+        self.t = 0
+        self.dt = dt
+        self.t_max = t_max
 
-            self.Ek, self.Ep, self.Ep_s, self.Em = [], [], [], []
-            self.y_hist = []
-            self.t_hist = []
-            self.Animation()
+        # Natural frequency
+        self.omega = np.sqrt(k/m)
+        self.v_max = self.A * self.omega
 
-    def compute(self, t):
+        # Histories
+        self.t_hist = []
+        self.y_hist = []
+        self.Ek_hist = []
+        self.Ep_hist = []
+        self.Em_hist = []
 
-        y =  self.A * np.cos(self.omega * t + self.delta) + self.y0
-        vy =  - self.A * self.omega * np.sin(self.omega * t + self.delta)
+        # Animation
 
-        Ek = 0.5 * self.m * vy**2
-        Ep_s = 0.5 * self.k * (y - self.y0)**2
-        Em = Ek + Ep_s
+        self.Anim = Anim
+        if Anim:
+            self._setup_animation()
+        else:
+            self.run()  
 
-        return y, Ek, Em, Ep_s
+    # ---------------------------------------------------------
+    # ------------------ Spring physics  ------------------
+    # ---------------------------------------------------------
+
+    def compute_motion(self):
+
+        y =  self.A * np.cos(self.omega * self.t + self.delta) + self.y0
+        vy =  - self.A * self.omega * np.sin(self.omega * self.t + self.delta)
+
+        return y, vy
+
+    # ---------------------------------------------------------
+    # ------------------  ENERGY  ---------------------------
+    # ---------------------------------------------------------
+
+    def compute_energy(self, y, v):
+
+        Ek = 0.5 * self.m * v**2
+        Ep = 0.5 * self.k * (y - self.y0)**2
+        Em = Ek + Ep
+
+        return Ek, Ep, Em
+
+    # ---------------------------------------------------------
+    # ------------------  SIMULATION WITHOUT ANIMATION ------------
+    # ---------------------------------------------------------
+
+    def run(self):
+
+        while self.t <= self.t_max:
+
+            y, v = self.compute_motion()
+            Ek, Ep, Em = self.compute_energy(y, v)
+
+            self.t_hist.append(self.t)
+            self.y_hist.append(y)
+            self.Ek_hist.append(Ek)
+            self.Ep_hist.append(Ep)
+            self.Em_hist.append(Em)
+
+            self.t += self.dt
+
+    # ---------------------------------------------------------
+    # ------------------  ANIMATION  --------------------------
+    # ---------------------------------------------------------
+
+    def _setup_animation(self):
+
+        self.fig, self.ax = plt.subplots(1, 3, figsize=(14, 6))
+
+        self.spring_line, = self.ax[0].plot([], [], 'k-', lw=2)
+        self.point, = self.ax[0].plot([], [], 'ro', markersize=10)
+        self.ax[0].axhline(0, color='black', lw=0.5)
+        self.ax[0].set_xlim(- np.abs(self.x - 10), np.abs(self.x + 10))
+        self.ax[0].set_ylim( -np.abs(self.y0*2), np.abs(self.y0 * 0.5))
+        self.ax[0].set_xlabel("x (m)")
+        self.ax[0].set_ylabel("y (m)")
     
-    def update(self, frame):
         
-        y, Ek, Em, Ep_s = self.compute(frame)
+        self.point1, = self.ax[1].plot([], [], 'b-')
+        self.ax[1].axhline(self.y0, color='black', lw=0.5)
+        self.ax[1].set_xlim(0, self.t_max)
+        self.ax[1].set_ylim( self.y0 - self.A - 2, self.y0 + self.A + 2)
+        self.ax[1].set_ylabel("y (m)")
+        self.ax[1].set_xlabel("Time (s)")
 
-        xs, ys = self.spring_shape(y)
 
-        self.Ek.append(Ek)
-        self.Em.append(Em)
-        self.Ep_s.append(Ep_s)
+        self.line_Ek, = self.ax[2].plot([], [], 'r-', label='Ek')
+        self.line_Ep, = self.ax[2].plot([], [], 'b-', label='Ep')
+        self.line_Em, = self.ax[2].plot([], [], 'g-', label='Em')
+        self.ax[2].axhline(0, color='black', lw=0.5)
+        self.ax[2].set_xlim(0, self.t_max)
+        self.ax[2].set_ylim(-np.abs(0.5 * self.m * self.v_max**2) - 2, np.abs(0.5 * self.m * self.v_max**2) + 2)
+        self.ax[2].set_ylabel("E (J)")
+        self.ax[2].set_xlabel("Time (s)")
+        self.ax[2].legend()
 
-        self.y_hist.append(y)
-        self.t_hist.append(frame)
+        # Titles
+        self.ax[0].set_title("Spring")
+        self.ax[1].set_title("y(t)")
+        self.ax[2].set_title("Energy")  
 
-        self.point.set_data([self.x], [y])
-        self.spring_line.set_data(xs, ys)
+        self.fig.tight_layout()
 
-        self.point1.set_data(self.t_hist, self.y_hist)
-        self.line_Ek.set_data(self.t_hist, self.Ek)
-        self.line_Em.set_data(self.t_hist, self.Em)
-        self.line_Ep_s.set_data(self.t_hist, self.Ep_s)
+        # Create the animation
+        self.anim = FuncAnimation(
+            self.fig, self._update_animation,
+            frames=np.arange(0, self.t_max, self.dt),
+            interval=50, blit=False
+        )
+        plt.show()
 
-        if frame >= self.t_max - self.dt:
-            self.anim.event_source.stop()
-
-        return self.point, self.spring_line, self.point1, self.line_Ek, self.line_Em, self.line_Ep_s,
-
-        
     def spring_shape(self, y_mass, n_coils=12, amplitude=0.3):
    
         y_top = 0
@@ -281,45 +347,33 @@ class Spring():
 
         return xs, ys
     
-    def Animation(self):
+    def _update_animation(self, frame):
 
-        self.fig, self.ax = plt.subplots(1, 3, figsize= (14, 6))
+        y, v = self.compute_motion()
+        Ek, Ep, Em = self.compute_energy(y, v)
 
-        self.ax[0].axvline(self.x, color='black', lw=0.5)
-        self.spring_line, = self.ax[0].plot([], [], color='black', linewidth=2)
-        self.point, = self.ax[0].plot([], [], marker='o', markersize=12, color='red')
-        self.point1, = self.ax[1].plot([], [], linewidth=2, color='blue')
-        self.line_Ek, = self.ax[2].plot([], [], linewidth=2, color='red', label='Ek')
-        self.line_Em, = self.ax[2].plot([], [], linewidth = 2, color='green', label='Em')
-        self.line_Ep_s, = self.ax[2].plot([], [], linewidth = 2, color = 'blue', label ='Ep_s')
-        
+        self.t_hist.append(self.t)
+        self.y_hist.append(y)
+        self.Ek_hist.append(Ek)
+        self.Ep_hist.append(Ep)
+        self.Em_hist.append(Em)
 
-        self.ax[0].axhline(0, color='black', lw=0.5)
-        self.ax[0].set_xlim(- np.abs(self.x - 10), np.abs(self.x + 10))
-        self.ax[0].set_ylim( -np.abs(self.y0*2), np.abs( self.y0 * 0.5))
-        self.ax[0].set_xlabel("x (m)")
-        self.ax[0].set_ylabel("y (m)")
-        self.ax[0].set_title("Spring")
+        xs, ys = self.spring_shape(y)
 
-        self.ax[1].set_xlim(0, self.t_max)
-        self.ax[1].set_ylim( - np.abs(self.y0 + self.y0 * 1.2),  np.abs(self.y0 - self.y0 *1.2))
-        self.ax[1].axhline(self.y0, color='black', lw=0.5)
-        self.ax[1].set_ylabel("y (m)")
-        self.ax[1].set_xlabel("Time (s)")
+        self.point.set_data([self.x], [y])
+        self.spring_line.set_data(xs, ys)
 
-        self.ax[2].set_xlim(0, self.t_max)
-        self.ax[2].axhline(0, color='black', lw=0.5)
-        self.ax[2].set_ylim(-np.abs(self.m * self.k * self.y0), np.abs(self.m * self.k * self.y0))
-        self.ax[2].set_ylabel("E (J)")
-        self.ax[2].set_xlabel("Time (s)")
-        self.ax[2].legend()
+        self.point1.set_data(self.t_hist, self.y_hist)
+        self.line_Ek.set_data(self.t_hist, self.Ek_hist)
+        self.line_Ep.set_data(self.t_hist, self.Ep_hist)
+        self.line_Em.set_data(self.t_hist, self.Em_hist)
 
+        self.t += self.dt
 
-        self.fig.tight_layout()
+        if frame >= self.t_max - self.dt:
+            self.anim.event_source.stop()
 
-        self.dt = 0.1
-        self.anim = FuncAnimation(self.fig, self.update, frames = np.arange(0, self.t_max, self.dt), interval = 50, blit = False)
-        plt.show()
+        return self.point, self.spring_line
 
 if __name__ == '__main__':
-    animation = Spring(5, 1, 1,0, -2, 0, True)
+    animation = Spring(k = 10, m = 1, A = 1.5, delta = 0, y0 = -2, x0 = 0, Anim=True, t_max=10, dt=0.05)
