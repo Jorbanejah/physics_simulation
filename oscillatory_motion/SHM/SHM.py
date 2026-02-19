@@ -12,7 +12,7 @@ class Pendulum:
         # Physics parameters
         self.L = L
         self.m = m
-        self.theta = theta0          # angular position
+        self.theta = theta0          # angular position          
         self.omega = omega0          # angular velocity
         self.delta = delta
         self.approx = approx
@@ -23,7 +23,7 @@ class Pendulum:
         self.t_max = t_max
 
         # Natural frequency
-        self.omega0 = np.sqrt(self.g / L)
+        self.natural_frequency = np.sqrt(self.g / L)
 
         self.t_hist = []
         self.x_hist = []
@@ -44,14 +44,13 @@ class Pendulum:
 
     def step_approx(self):
         """Approximation."""
+        #if abs(self.theta) > np.deg2rad(15):
+        #    raise ValueError("The angle cannot be exceed 15 degrees")
 
-        if abs(self.theta) > np.deg2rad(15):
-            raise ValueError("The angle cannot be exceed 15 degrees")
-
-        theta = self.theta * np.cos(self.omega0 * self.t + self.delta)
-        omega = -self.theta * self.omega0 * np.sin(self.omega0 * self.t + self.delta)
-
-        return theta, omega
+        alpha = -(self.g / self.L) * self.theta
+        self.omega += alpha * self.dt
+        self.theta += self.omega * self.dt
+        return self.theta, self.omega
 
     def step_rk4(self):
         """Runge-Kutta 4"""
@@ -150,7 +149,7 @@ class Pendulum:
         self.Em_line, = self.ax[2].plot([], [], 'g-', label="Em")
         self.ax[2].axhline(0, color='black', lw=0.5)
         self.ax[2].set_xlim(0, self.t_max)
-        self.ax[2].set_ylim(-self.g, self.g)
+        self.ax[2].set_ylim(-0.5 * self.m * (self.L * self.natural_frequency)**2, 0.5 * self.m * (self.L * self.natural_frequency)**2)
         self.ax[2].set_title("Energy")
         self.ax[2].set_xlabel("Time (s)")
         self.ax[2].set_ylabel("E (J)")
@@ -376,4 +375,5 @@ class Spring:
         return self.point, self.spring_line
 
 if __name__ == '__main__':
-    animation = Spring(k = 10, m = 1, A = 1.5, delta = 0, y0 = -2, x0 = 0, Anim=True, t_max=10, dt=0.05)
+    animation = Pendulum(L = 1, theta0=np.deg2rad(10), omega0=0, m=1, delta=0,
+                 t_max=10, dt=0.1, approx=True, animate=True)
