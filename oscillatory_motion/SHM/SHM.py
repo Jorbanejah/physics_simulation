@@ -244,10 +244,10 @@ class Spring:
     # ------------------ Spring physics  ------------------
     # ---------------------------------------------------------
 
-    def compute_motion(self):
+    def compute_motion(self, t):
 
-        y =  self.A * np.cos(self.omega * self.t + self.delta) + self.y0
-        vy =  - self.A * self.omega * np.sin(self.omega * self.t + self.delta)
+        y =  self.A * np.cos(self.omega * t + self.delta) + self.y0
+        vy =  - self.A * self.omega * np.sin(self.omega * t + self.delta)
 
         return y, vy
 
@@ -271,7 +271,7 @@ class Spring:
 
         while self.t <= self.t_max:
 
-            y, v = self.compute_motion()
+            y, v = self.compute_motion(self.t)
             Ek, Ep, Em = self.compute_energy(y, v)
 
             self.t_hist.append(self.t)
@@ -281,7 +281,6 @@ class Spring:
             self.Em_hist.append(Em)
 
             self.t += self.dt
-
     # ---------------------------------------------------------
     # ------------------  ANIMATION  --------------------------
     # ---------------------------------------------------------
@@ -340,15 +339,15 @@ class Spring:
 
         for i in range(len(ys)):
             if i == 0 or i == len(ys)-1:
-                xs.append(0)
+                xs.append(self.x)
             else:
-                xs.append(amplitude * (-1)**i)
+                xs.append(amplitude * (-1)**i + self.x)
 
         return xs, ys
     
     def _update_animation(self, frame):
 
-        y, v = self.compute_motion()
+        y, v = self.compute_motion(frame)
         Ek, Ep, Em = self.compute_energy(y, v)
 
         self.t_hist.append(self.t)
@@ -375,5 +374,5 @@ class Spring:
         return self.point, self.spring_line
 
 if __name__ == '__main__':
-    animation = Pendulum(L = 1, theta0=np.deg2rad(10), omega0=0, m=1, delta=0,
-                 t_max=10, dt=0.1, approx=True, animate=True)
+    #animation = Pendulum(L = 1, theta0=np.deg2rad(10), omega0=0, m=1, delta=0, t_max=10, dt=0.1, approx=True, animate=True)
+    animation = Spring(k = 2, m = 1, A = 1, delta = np.pi/2, y0 = -2, x0 = 1, Anim = True, t_max=15, dt=0.05)

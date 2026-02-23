@@ -68,7 +68,6 @@ for i, ang in enumerate(theta):
 
     T_rk4.append(crossings_rk4)
     T_teo.append(T_teorico(ang))
-   # T_apx.append(get_period(pend_apx, t_max))
 
     Energy_average[0][i] = max_E_rk4
     Energy_average[1][i] = min_E_rk4
@@ -77,7 +76,6 @@ for i, ang in enumerate(theta):
 
     errors.append(error)
 
-"""""
 # Until where the approximation is valid, the energy should be constant and equal to the initial energy.
 # We can see how the energy starts to deviate as the initial angle increases, showing that the approximation is no longer valid. 
 fig1 = plt.figure(figsize=(10, 5))
@@ -102,7 +100,7 @@ plt.plot(np.rad2deg(theta), errors)
 plt.xlabel('Initial Angle (degrees)')
 plt.ylabel('Energy Error')
 plt.title('Error vs Initial Angle')
-"""""
+
 
 fig4 = plt.figure(figsize=(10, 5))
 plt.plot(np.rad2deg(theta), T_rk4, label="Periodo RK4")
