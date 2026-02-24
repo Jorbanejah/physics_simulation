@@ -149,7 +149,8 @@ class Pendulum:
         self.Em_line, = self.ax[2].plot([], [], 'g-', label="Em")
         self.ax[2].axhline(0, color='black', lw=0.5)
         self.ax[2].set_xlim(0, self.t_max)
-        self.ax[2].set_ylim(-0.5 * self.m * (self.L * self.natural_frequency)**2, 0.5 * self.m * (self.L * self.natural_frequency)**2)
+        E_max = 0.5 * self.m * (self.L)**2
+        self.ax[2].set_ylim(-E_max * 1.1, E_max * 1.1)
         self.ax[2].set_title("Energy")
         self.ax[2].set_xlabel("Time (s)")
         self.ax[2].set_ylabel("E (J)")
@@ -374,5 +375,5 @@ class Spring:
         return self.point, self.spring_line
 
 if __name__ == '__main__':
-    #animation = Pendulum(L = 1, theta0=np.deg2rad(10), omega0=0, m=1, delta=0, t_max=10, dt=0.1, approx=True, animate=True)
-    animation = Spring(k = 2, m = 1, A = 1, delta = np.pi/2, y0 = -2, x0 = 1, Anim = True, t_max=15, dt=0.05)
+    animation = Pendulum(L = 1, theta0=np.deg2rad(10), omega0=0, m=1, delta=0, t_max=10, dt=0.1, approx=False, animate=True)
+    #animation = Spring(k = 2, m = 1, A = 1, delta = np.pi/2, y0 = -2, x0 = 1, Anim = True, t_max=15, dt=0.05)
