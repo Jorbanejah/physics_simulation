@@ -79,6 +79,7 @@ plt.plot(k, Energy_average[1], label="Min Energy")
 plt.xlabel("k (N/m)")
 plt.ylabel("Energy (J)")
 plt.title("Energy vs k")
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\energy_spring.png", dpi=300, bbox_inches='tight')
 
 fig2 = plt.figure(figsize=(10, 5))
 plt.plot(time, phase_space['y'][1.0], label = 'k = 1')
@@ -87,6 +88,7 @@ plt.xlabel('Time (s)')
 plt.ylabel('y (m)')
 plt.title('Spring motion for different values of k')
 plt.legend()
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\oscillatory_spring.png", dpi=300, bbox_inches='tight')
 
 fig3 = plt.figure(figsize=(10, 5))
 plt.plot(k, T, label="Period")
@@ -95,6 +97,7 @@ plt.xlabel("k (N/m)")
 plt.ylabel("Period (s)")
 plt.title("Periods vs k")
 plt.legend()    
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\periods_spring.png", dpi=300, bbox_inches='tight')
 
 fig4, ax = plt.subplots(2, 2, figsize=(10, 5))
 
@@ -111,7 +114,7 @@ for i, ang in enumerate(k):
         j += 1
 
 fig4.tight_layout()
-
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\phase_space_spring.png", dpi=300, bbox_inches='tight')
 
 cmap = plt.get_cmap('viridis')
 
@@ -141,5 +144,4 @@ plt.xlabel("y (m)")
 plt.ylabel("vy (m/s)")
 plt.title("Phase space with continuous colormap")
 plt.grid(alpha=0.3)
-
-plt.show()
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\colormap_spring.png", dpi=300, bbox_inches='tight')

@@ -98,6 +98,7 @@ plt.xlabel("Initial Angle (degrees)")
 plt.ylabel("Energy (J)")
 plt.title("Energy vs Initial Angle")
 plt.legend()
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\energy_pendulum.png", dpi=300, bbox_inches='tight')
 
 # The error should be small for small angles and increase as the angle increases, showing that the apoorximation is no longer valid.
 fig2 = plt.figure(figsize=(10, 5))
@@ -105,7 +106,7 @@ plt.plot(np.rad2deg(initial_theta), errors)
 plt.xlabel('Initial Angle (degrees)')
 plt.ylabel('Energy Error (J)')
 plt.title('Error vs Initial Angle')
-
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\energy_error_pendulum.png", dpi=300, bbox_inches='tight')
 
 fig3, ax = plt.subplots(2, 2, figsize=(10, 5))
 
@@ -122,6 +123,7 @@ for i, ang in enumerate(initial_theta):
         j += 1
 
 fig3.tight_layout()
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\phase_space_pendulum.png", dpi=300, bbox_inches='tight')
 
 fig4 = plt.figure(figsize=(10, 5))
 plt.plot(np.rad2deg(initial_theta), T_rk4, label="Periodo RK4")
@@ -130,7 +132,7 @@ plt.xlabel("Initial Angle (degrees)")
 plt.ylabel("Period (s)")
 plt.title("Period vs Initial Angle")
 plt.legend()    
-
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\periods_pendulum.png", dpi=300, bbox_inches='tight')
 
 # Colormap ('viridis', 'plasma', 'turbo', etc.)
 cmap = plt.get_cmap('viridis')
@@ -161,8 +163,7 @@ plt.xlabel("Theta (rad)")
 plt.ylabel("Omega (rad/s)")
 plt.title("Phase space with continuous colormap")
 plt.grid(alpha=0.3)
-
-plt.show()
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\colormap_pendulum.png", dpi=300, bbox_inches='tight')
 
 
 # Pero cuando θ crece: la fuerza restauradora no es proporcional al desplazamiento, el movimiento se vuelve más lento cerca de los extremos, y el periodo aumenta. Ese aumento del periodo no se puede capturar sustituyendo θ en ningún sitio de forma directa
