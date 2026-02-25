@@ -88,20 +88,54 @@ The <code>Pendulum</code> class can generate a <strong>2‑dimensional animation
 </ul>
 
 <h3>🔹 Small‑angle approximation animation</h3>
-<img src="./figures/pendulum_approx.gif" width="400">
+<img src="./figures/pendulum_approx.gif" width="500">
 
 <h3>🔹 Full non‑linear pendulum animation</h3>
-<img src="./figures/pendulum.gif" width="400">
+<img src="./figures/pendulum.gif" width="500">
 
 <hr>
 
 <h2>📌 6. When Does the Approximation Fail?</h2>
 
 <p>The following figure compares the <strong>energy error</strong> between the approximate and exact models:</p>
+<img src ="./figures/energy_pendulum.png" width = "500">
+
+As we can see, the approximation method only works, as we say, to small angle. What kind of error we would commit?
+
 <img src="./figures/energy_error_pendulum.png" width="500">
 
 <p>Comparison of the <strong>period</strong> as a function of the initial angle:</p>
+
 <img src="./figures/periods_pendulum.png" width="500">
+
+What is the tricky part in this figure? Well, if you are using the full non‑linear pendulum equation, the actual period is <strong>not</strong> $T = 2\pi\sqrt{\frac{L}{g}}$, but instead:
+
+$$
+T(\theta_0) = 4\sqrt{\frac{L}{g}}K\left(\sin\frac{\theta_0}{2}\right),
+$$
+
+where $K(k)$ is the complete elliptic integral of the first kind 
+
+$$
+K(k) = \int_{0}^{\frac{\pi}{2}} \frac{d\phi}{\sqrt{1 - k^2 \sin^2 \phi}}
+$$
+
+An equivalent form, often used in pendulum derivations, is:
+
+$$
+K(k) = \int_{0}^{1} \frac{dt}{\sqrt{(1 - t^2)(1 - k^2 t^2)}}
+$$
+
+and $\theta_0$ is the initial angle.
+
+For small amplitudes, this exact expression can be approximated by a Taylor expansion:
+
+$$
+T(\theta_0) \approx 2\pi\sqrt{\frac{L}{g}}
+\left(
+1 + \frac{\theta_0^2}{16} + \frac{11\theta_0^4}{3072} + \cdots
+\right).
+$$
 
 <hr>
 
@@ -125,7 +159,7 @@ For large angles, the trajectory becomes elliptical due to the non‑linear term
 <h2>📌 8. Spring Class</h2>
 
 <p>
-The <code>Spring</code> class models a <strong>1‑D mass–spring system</strong> located at \((x_0, y_0)\).
+The <code>Spring</code> class models a <strong>1‑D mass–spring system</strong> located at $(x_0, y_0)$.
 It computes:
 </p>
 
@@ -142,7 +176,7 @@ It computes:
 
 <hr>
 
-<h2>📌 9. Influence of the Spring Constant \(k\)</h2>
+<h2>📌 9. Influence of the Spring Constant $k$</h2>
 
 <p>The period of a mass–spring system is:</p>
 
@@ -152,22 +186,24 @@ T = 2\pi\sqrt{\frac{m}{k}}
 $$
 </p>
 
-<p>Thus, increasing \(k\) <strong>reduces the period</strong>, as shown here:</p>
+<p>Thus, increasing $k$ <strong>reduces the period</strong>, as shown here:</p>
 
 <img src="./figures/periods_spring.png" width="500">
 
-<p>The phase space also changes with \(k\):</p>
+<p>The phase space also changes with $k$, of course:</p>
 
 <img src="./figures/phase_space_spring.png" width="500">
 
 <p>
-As \(k\) increases:
+As $k$ increases:
 </p>
 
 <ul>
   <li>The system oscillates faster.</li>
   <li>The phase‑space ellipse becomes <strong>narrower in position</strong> and <strong>wider in velocity</strong>.</li>
 </ul>
+
+<img src="./figures/colormap_spring.png" width="500">
 
 <hr>
 
