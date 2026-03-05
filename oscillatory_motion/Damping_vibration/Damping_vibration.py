@@ -26,7 +26,10 @@ class DampedVibration:
         - Spring
     """
     def __init__(self, q0, dq0, m, gamma, t_max=15, dt=0.01, system="pendulum", animate=False, **kwargs):
-
+        
+        if m <= 0:
+            raise ValueError("m must be positive")
+        
         # Initial conditions: generalize coordenates
         self.q0 = q0
         self.dq0 = dq0
@@ -73,6 +76,9 @@ class DampedVibration:
 
             self.k = self.params.get("k")
 
+            if self.k <= 0:
+                raise ValueError("k must be positive")
+            
             if self.k is None:
                 raise ValueError("Spring requires elastic constant k")
 
@@ -99,7 +105,7 @@ class DampedVibration:
         if self.animate:
             self.setup_animation()
     
-    def spring_shape(self, y_mass, x, n_coils=12, amplitude=0.3):
+    def spring_shape(self, y_mass, x, n_coils=12, amplitude=0.2):
    
         y_top = 0
         ys = np.linspace(y_top, y_mass, n_coils*2)
@@ -126,25 +132,28 @@ class DampedVibration:
 
         self.line1, = self.ax[1].plot([],[], 'b-', lw = 2)
 
-        self.ax[1].axhline(0, color = 'black', lw = 0.5)
-        self.ax[1].set_ylim(- max(np.abs(self.q_hist) * 1.5), max(np.abs(self.q_hist) * 1.5))
+        
         self.ax[1].set_xlim(0, self.t_max)
         self.ax[1].set_xlabel('t (s)')
 
         if self.system == 'pendulum':
 
-            self.ax[0].set_xlim(-self.L*1.2, self.L*1.2)
-            self.ax[0].set_ylim(-self.L*1.2, self.L*1.2)
+            self.ax[0].set_xlim(-self.L*1.5, self.L*1.5)
+            self.ax[0].set_ylim(-self.L*1.5, self.L*0.5)
 
+            self.ax[1].axhline(0, color = 'black', lw = 0.5)
+            self.ax[1].set_ylim(- max(np.abs(self.q_hist) * 1.2), 1.2*max(np.abs(self.q_hist)))
             self.ax[1].set_ylabel('x (m)')
 
 
         else: 
 
-            self.ax[0].set_xlim(-1,1)
-            self.ax[0].set_ylim(-1.2* max(np.abs(self.q_hist)), 1.2*max(np.abs(self.q_hist)))
+            self.ax[0].set_xlim(-5,5)
+            self.ax[0].set_ylim(-1.2* max(np.abs(self.q_hist)), 0.5 * max(np.abs(self.q_hist)))
 
+            self.ax[1].set_ylim( (self.q0 + self.q0), (np.abs(self.q0) + self.q0))
             self.ax[1].set_ylabel('y (m)')
+            self.ax[1].axhline(self.q0, color = 'black', lw = 0.5)
         
 
         self.lineEk, = self.ax[2].plot([],[], 'b-', lw=2, label="Ek")
@@ -155,16 +164,17 @@ class DampedVibration:
 
         self.ax[2].set_xlim(0, self.t_max)
         self.ax[2].set_ylim(- np.abs(self.Em_hist[0]) * 1.5, np.abs(self.Em_hist[0]) * 1.5)
+        self.ax[2].axhline(0, color = 'black', lw = 0.5)
         self.ax[2].set_xlabel('t (s)')
         self.ax[2].set_ylabel('E (J)')
         self.ax[2].legend()
     
         #Aimation creation
         self.frame_step = 5
-        self.anim = FuncAnimation(self.fig, self.update, frames = np.arange(0, len(self.t_hist), self.frame_step), interval = 10, blit = False, repeat = False)
+        self.anim = FuncAnimation(self.fig, self.update, frames = np.arange(0, len(self.t_hist), self.frame_step), interval = 50, blit = False, repeat = False)
         #write = PillowWriter(fps = 30)
 
-        #if self.model == 'pendulum':
+        #if self.system == 'pendulum':
         #    self.anim.save('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\pendulum.gif', write)
         #else:
         #    self.anim.save('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\spring.gif', write)
@@ -373,7 +383,8 @@ class Spring():
     def __init__(self, y0, v0, m, k, gamma, dt, t_max):
 
         # state variables
-        self.y = y0
+        self.y0 = y0
+        self.y = y0 
         self.v = v0
 
         self.m = m
@@ -439,7 +450,7 @@ class Spring():
             return v
 
         def f_v(y, v):
-            return -2*self.beta*v - self.omega02*y
+            return -2*self.beta*v - self.omega02*y + self.y0
 
         y = self.y
         v = self.v
@@ -464,12 +475,12 @@ class Spring():
     def energy(self, y, v, dt):
 
         Ek = 0.5 * self.m * v**2
-        Ep = 0.5 * self.k * y **2
+        Ep = 0.5 * self.k * (y - self.y0) **2
         Wp = self.gamma * v**2 * dt
         Em = Ek + Ep 
         return Ek, Ep, Wp, Em
 
 
 if __name__ == '__main__':
-    sim = DampedVibration(q0=-2, dq0=0, m=1, gamma=0.3, t_max=10, dt=0.01, system="spring", animate=True, k=1)
+    sim = DampedVibration(q0=np.deg2rad(40), dq0=2, m=1, gamma=0.5, t_max=10, dt=0.01, system="pendulum", animate=True, L=1)
     sim.run()

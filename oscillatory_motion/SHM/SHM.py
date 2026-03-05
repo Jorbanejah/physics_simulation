@@ -332,8 +332,8 @@ class Spring:
             frames=np.arange(0, self.t_max, self.dt),
             interval=50, blit=False
         )
-        write = PillowWriter(fps=30)
-        self.anim.save('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\spring.gif', writer=write)
+        #write = PillowWriter(fps=30)
+        #self.anim.save('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\SHM\\figures\\spring.gif', writer=write)
 
         plt.show()
 
@@ -380,5 +380,5 @@ class Spring:
         return self.point, self.spring_line
 
 if __name__ == '__main__':
-    animation = Pendulum(L = 1, theta0=np.deg2rad(10), omega0=0, m=1, delta=0, t_max=10, dt=0.1, approx=True, animate=True)
-    #animation = Spring(k = 2, m = 1, A = 1, delta = np.pi/2, y0 = -2, x0 = 1, Anim = True, t_max=15, dt=0.05)
+    #animation = Pendulum(L = 1, theta0=np.deg2rad(10), omega0=0, m=1, delta=0, t_max=10, dt=0.1, approx=True, animate=True)
+    animation = Spring(k = 2, m = 1, A = 1, delta = np.pi/2, y0 = -2, x0 = 1, Anim = True, t_max=15, dt=0.05)
