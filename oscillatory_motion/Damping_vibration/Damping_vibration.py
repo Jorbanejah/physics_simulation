@@ -482,5 +482,5 @@ class Spring():
 
 
 if __name__ == '__main__':
-    sim = DampedVibration(q0=np.deg2rad(40), dq0=2, m=1, gamma=0.5, t_max=10, dt=0.01, system="pendulum", animate=True, L=1)
+    sim = DampedVibration(q0=np.deg2rad(40), dq0=2, m=1, gamma=2.5, t_max=10, dt=0.01, system="pendulum", animate=True, L=1)
     sim.run()
