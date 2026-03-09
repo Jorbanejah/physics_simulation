@@ -78,6 +78,8 @@ class DampedVibration:
 
             if self.k <= 0:
                 raise ValueError("k must be positive")
+            if self.dq0 == 0:
+                raise ValueError("q0 is the equilibriumm point; it must be given an initial velocity")
             
             if self.k is None:
                 raise ValueError("Spring requires elastic constant k")
@@ -163,7 +165,7 @@ class DampedVibration:
         self.lineEt, = self.ax[2].plot([],[], 'y-', lw =2, label = 'Et')
 
         self.ax[2].set_xlim(0, self.t_max)
-        self.ax[2].set_ylim(- np.abs(self.Em_hist[0]) * 1.5, np.abs(self.Em_hist[0]) * 1.5)
+        self.ax[2].set_ylim(- self.m  * 1.5, self.m * 1.5)
         self.ax[2].axhline(0, color = 'black', lw = 0.5)
         self.ax[2].set_xlabel('t (s)')
         self.ax[2].set_ylabel('E (J)')
@@ -420,7 +422,7 @@ class Spring():
 
         while self.t_max > self.t:
 
-            y_new, v_new = self.rk4()
+            y_new, v_new = self.rk4(self.dt)
             
             Ek, Ep, Wp, Em = self.energy(y_new,  v_new, self.dt)
 
@@ -442,15 +444,13 @@ class Spring():
         self.q_hist = self.y_hist
         self.dq_hist = self.v_hist
 
-    def rk4(self):
-
-        dt = self.dt
+    def rk4(self, dt):
 
         def f_y(y, v):
             return v
 
         def f_v(y, v):
-            return -2*self.beta*v - self.omega02*y + self.y0
+            return -2*self.beta*v - self.omega02*(y -self.y0)
 
         y = self.y
         v = self.v
@@ -482,5 +482,5 @@ class Spring():
 
 
 if __name__ == '__main__':
-    sim = DampedVibration(q0=np.deg2rad(40), dq0=2, m=1, gamma=2.5, t_max=10, dt=0.01, system="pendulum", animate=True, L=1)
+    sim = DampedVibration(q0=-2, dq0=1, m=2, gamma=.5, t_max=10, dt=0.01, system="spring", animate=True, k=1)
     sim.run()

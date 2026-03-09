@@ -2,29 +2,56 @@
 import numpy as np
 from Damping_vibration import Spring
 import matplotlib.pyplot as plt
-
+from matplotlib.cm import get_cmap
 
 def draw(t, t_max, spr):
+    """
+    Simulates the motion of a damped spring system over time and calculates energies.
+
+    Parameters:
+        t (float): Initial time.
+        t_max (float): Maximum simulation time.
+        spr (Spring): An instance of the Spring class representing the system.
+
+    Returns:
+        tuple: Lists of potential energy (Ep), kinetic energy (Ek), work done by damping (Wp),
+               total energy (Et), time points (times), positions (y_axes), and velocities (vy_axes).
+    """
+
+    y0 = spr.y
+    v0 =spr.v
+
     Ep = []
     Ek = []
     Wp = []
-    times = []
-    y_axes = []
-    vy_axes= []
-  
-    while t < t_max:
-        y, vy = spr.rk4(t)
+    times = [0]
+    y_axes = [y0]
+    vy_axes= [v0]
 
+    Ek0, Ep0, Wp0, _ = spr.energy(y0, v0, t)
+    Ep.append(Ep0)
+    Ek.append(Ek0)
+    Wp.append(Wp0)
+
+    time_points = np.arange(t, t_max, spr.dt)
+
+    for t in time_points:
+        y_new, vy_new= spr.rk4(spr.dt)
+
+        
         # Store the results for searching for crossings later
-        y_axes.append(y)
+        y_axes.append(y_new)
         times.append(t)
-        vy_axes.append(vy)
+        vy_axes.append(vy_new)
 
         #Energies
-        Ek0, Ep0, Wp0, _ = spr.energy(y, vy, t)
+        Ek0, Ep0, Wp0, _ = spr.energy(y_new, vy_new, spr.dt)
         Ep.append(Ep0)
         Ek.append(Ek0)
-        Wp.append(Wp0)
+        Wp.append(Wp0 + Wp[-1])
+
+        spr.y = y_new
+        spr.v = vy_new
 
         t += spr.dt
 
@@ -33,10 +60,11 @@ def draw(t, t_max, spr):
     return Ep, Ek, Wp, Et, times, y_axes, vy_axes
 
 
-k = [2, 8, 18]
+k = [3, 8, 18]
 m = 2
 gamma = [2, 8, 13]
-
+y = -2
+vy = 1
 # [1, 2, 3] -----> omega
 # [0.5, 2, >3] --------> beta
 # beta < omega
@@ -56,12 +84,12 @@ results = {
 for i, values in enumerate(k):
     t_max = 15
     t = 0
-    spr = Spring(-2, 0, m, values, gamma[i], dt = 0.01, t_max =15)
+    spr = Spring(y, vy, m, values, gamma[i], dt = 0.01, t_max =15)
 
-    Ep, Ek, Wp, Et, times, y, vy = draw(t, t_max, spr)
+    Ep, Ek, Wp, Et, times, y_list, vy_list = draw(t, t_max, spr)
 
-    results['y'][values] = y
-    results['vy'][values] = vy
+    results['y'][values] = y_list
+    results['vy'][values] = vy_list
     results['Ep'][values] = Ep
     results['Ek'][values] = Ek
     results['Wp'][values] = Wp
@@ -72,33 +100,117 @@ for i, values in enumerate(k):
 # --------- Graphics ---------
 ##
 
-# y vs t with different k
 
-figure1 = plt.figure(figsize=(10, 6))
+# ---------------------------------------------------------
+# 1. Colormap
+# ---------------------------------------------------------
+cmap = plt.colormaps["viridis"]
+colors = [cmap(i / len(k)) for i in range(len(k))]
+plt.figure(figsize=(10, 6))
+
 for i, values in enumerate(k):
-    plt.plot(results['times'][values], results['y'][values], label = f'k={values:.1f} (N/m)')
-plt.xlabel('Time (t)')
-plt.ylabel('y (m)')
+    plt.plot(results['vy'][values],
+             results['y'][values],
+             color=colors[i],
+             lw=2,
+             label=rf"$k={values}$ N/m")
+plt.xlim(-1, 1)
+plt.ylim(-4, 0)
+plt.axhline(spr.y0, color="black", lw=1, linestyle="--", label="Equilibrium")
+plt.xlabel("Time $t$ (s)")
+plt.ylabel(" $y$ (m)")
+plt.title("Damping oscillator")
+plt.grid(alpha=0.3)
 plt.legend()
-plt.show()
+plt.tight_layout()
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\colormap_spring.png", dpi=300, bbox_inches='tight')
 
-figure2, ax2 = plt.subplots(1, 3, figsize= (14,8), tight_layout = True)
+
+
+# ---------------------------------------------------------
+# 2. TRAJECTORY GRAPHICS
+# ---------------------------------------------------------
+plt.figure(figsize=(10, 6))
+
 for i, values in enumerate(k):
-    ax2[i].plot(results['times'][values], results['Ek'][values], label = 'Ek')
-    ax2[i].plot(results['times'][values], results['Ep'][values], label = 'Ep')
-    ax2[i].plot(results['times'][values], results['Wp'][values], label = 'Wp')
-    ax2[i].plot(results['times'][values], results['Et'][values], label = 'Et')
+    plt.plot(results['times'][values],
+             results['y'][values],
+             color=colors[i],
+             label=rf"$\omega_0^2 = {values/m:.1f}\,\mathrm{{rad^2/s^2}}$")
 
-    ax2[i].set_xlabel('Time (s)')
-    ax2[i].set_ylabel('Energy (J)')
-    ax2[i].set_title(f'Energy k = {values:.1f} (N/m)')
-    ax2[i].legend()
+plt.axhline(spr.y0, color="black", lw=0.8, linestyle="--", label="Equilibrium")
+plt.xlabel("Time $t$ (s)")
+plt.ylabel(" $y$ (m)")
+plt.title("Damping oscillator")
+plt.legend()
+plt.grid(alpha=0.3)
+plt.tight_layout()
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\trajectory_spring.png", dpi=300, bbox_inches='tight')
 
 
-plt.show()
-##
-# --------- Colormaps ---------
-##
-##
-# --------- Errors RK4 --------
-##
+# ---------------------------------------------------------
+# 3. Energy graphics
+# ---------------------------------------------------------
+fig, axes = plt.subplots(1, 3, figsize=(18, 6), tight_layout=True)
+
+for i, values in enumerate(k):
+    ax = axes[i]
+    ax.plot(results['times'][values], results['Ek'][values], label="Kinetic energy $E_k$")
+    ax.plot(results['times'][values], results['Ep'][values], label="Potencial energy $E_p$")
+    ax.plot(results['times'][values], results['Wp'][values], label= "Dissipated energy $W_p$")
+    ax.plot(results['times'][values], results['Et'][values], label="Total energy $E_t$", lw=2)
+
+    ax.set_xlabel("Time $t$ (s)")
+    ax.set_ylabel("Energy (J)")
+    ax.set_title(rf"Energy for $k = {values}$ N/m")
+    ax.grid(alpha=0.3)
+    ax.legend()
+
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\energy_spring.png", dpi=300, bbox_inches='tight')
+
+# ---------------------------------------------------------
+# 4. Numerical error
+# ---------------------------------------------------------
+def analytic_solution(t, y0, v0, beta, omega0):
+    if beta < omega0:  
+        # Under-damped
+        omega_d = np.sqrt(omega0**2 - beta**2)
+        A = y0
+        B = (v0 + beta*y0) / omega_d
+        return np.exp(-beta*t) * (A*np.cos(omega_d*t) + B*np.sin(omega_d*t))
+
+    elif beta == omega0:
+        # critically damped
+        return np.exp(-beta*t) * (y0 + (v0 + beta*y0)*t)
+
+    else:
+        # over-damped
+        r1 = -beta + np.sqrt(beta**2 - omega0**2)
+        r2 = -beta - np.sqrt(beta**2 - omega0**2)
+        C1 = (v0 - r2*y0)/(r1 - r2)
+        C2 = y0 - C1
+        return C1*np.exp(r1*t) + C2*np.exp(r2*t)
+
+plt.figure(figsize=(10, 6))
+
+for i, values in enumerate(k):
+    times = np.array(results['times'][values])
+    y_num = np.array(results['y'][values])
+
+    omega0 = np.sqrt(values/m)
+    beta = gamma[i] / (2*m)
+
+    y_exact = analytic_solution(times, spr.y0, spr.v, beta, omega0)
+    error = np.abs(y_num - y_exact)
+
+    plt.plot(times, error, color=colors[i],
+             label=rf"$k={values}$ N/m")
+
+plt.xlabel("Time $t$ (s)")
+plt.ylabel(" $|y_\\mathrm{{num}} - y_\\mathrm{{exact}}|$")
+plt.title("Numerical Error Rk4")
+plt.yscale("log")
+plt.grid(alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\numerical_error_spring.png", dpi=300, bbox_inches='tight')
