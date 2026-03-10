@@ -1,8 +1,6 @@
-
 import numpy as np
 from Damping_vibration import Spring
 import matplotlib.pyplot as plt
-from matplotlib.cm import get_cmap
 
 def draw(t, t_max, spr):
     """
@@ -18,53 +16,60 @@ def draw(t, t_max, spr):
                total energy (Et), time points (times), positions (y_axes), and velocities (vy_axes).
     """
 
-    y0 = spr.y
-    v0 =spr.v
+    y = spr.y
+    v =spr.v
+    dt = spr.dt
 
     Ep = []
     Ek = []
     Wp = []
-    times = [0]
-    y_axes = [y0]
-    vy_axes= [v0]
+    times = [t]
+    y_axes = [y]
+    vy_axes= [v]
 
-    Ek0, Ep0, Wp0, _ = spr.energy(y0, v0, t)
+    Ek0, Ep0, Wp0, _ = spr.energy(y, v, t)
     Ep.append(Ep0)
     Ek.append(Ek0)
     Wp.append(Wp0)
 
-    time_points = np.arange(t, t_max, spr.dt)
+    relaxation_time = None
+    found = False
+
+    time_points = np.arange(t, t_max, dt)
 
     for t in time_points:
-        y_new, vy_new= spr.rk4(spr.dt)
 
-        
-        # Store the results for searching for crossings later
-        y_axes.append(y_new)
+        y, vy= spr.rk4(dt)
+
+        # Store the results
+
+        y_axes.append(y)
         times.append(t)
-        vy_axes.append(vy_new)
+        vy_axes.append(vy)
+
+        if (not found) and abs(y) <= abs(y_axes[0]) * np.exp(-1):
+            relaxation_time = t
+            found = True
 
         #Energies
-        Ek0, Ep0, Wp0, _ = spr.energy(y_new, vy_new, spr.dt)
+        Ek0, Ep0, Wp0, _ = spr.energy(y, vy, spr.dt)
         Ep.append(Ep0)
         Ek.append(Ek0)
         Wp.append(Wp0 + Wp[-1])
 
-        spr.y = y_new
-        spr.v = vy_new
-
-        t += spr.dt
+        spr.y = y
+        spr.v = vy
 
     Et = np.array(Ep) + np.array(Ek) + np.array(Wp)
 
-    return Ep, Ek, Wp, Et, times, y_axes, vy_axes
+    return Ep, Ek, Wp, Et, times, y_axes, vy_axes, relaxation_time
 
-
+k_under = np.linspace(0.5, 2.9, 10)
 k = [3, 8, 18]
 m = 2
 gamma = [2, 8, 13]
-y = -2
-vy = 1
+y0 = -2
+vy0 = 1
 # [1, 2, 3] -----> omega
 # [0.5, 2, >3] --------> beta
 # beta < omega
@@ -84,9 +89,9 @@ results = {
 for i, values in enumerate(k):
     t_max = 15
     t = 0
-    spr = Spring(y, vy, m, values, gamma[i], dt = 0.01, t_max =15)
+    spr = Spring(y0, vy0, m, values, gamma[i], dt = 0.01, t_max =15)
 
-    Ep, Ek, Wp, Et, times, y_list, vy_list = draw(t, t_max, spr)
+    Ep, Ek, Wp, Et, times, y_list, vy_list, _ = draw(t, t_max, spr)
 
     results['y'][values] = y_list
     results['vy'][values] = vy_list
@@ -194,13 +199,14 @@ def analytic_solution(t, y0, v0, beta, omega0):
 plt.figure(figsize=(10, 6))
 
 for i, values in enumerate(k):
+
     times = np.array(results['times'][values])
     y_num = np.array(results['y'][values])
 
     omega0 = np.sqrt(values/m)
     beta = gamma[i] / (2*m)
 
-    y_exact = analytic_solution(times, spr.y0, spr.v, beta, omega0)
+    y_exact = analytic_solution(times, y0, vy0, beta, omega0)
     error = np.abs(y_num - y_exact)
 
     plt.plot(times, error, color=colors[i],
