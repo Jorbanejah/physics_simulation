@@ -247,7 +247,7 @@ class Pendulum():
         self.Wp = []
         self.Em = []
 
-        Ek, Ep, Wp, Em = self.energy(theta0, omega0, dt)
+        Ek, Ep, Wp, Em = self.energy(theta0, omega0, 0)
 
         self.Ek.append(Ek)
         self.Ep.append(Ep)
@@ -261,13 +261,13 @@ class Pendulum():
         while self.t < self.t_max:
 
             if self.approx:
-                theta_new, omega_new = self.euler()
+                theta_new, omega_new = self.euler(self.dt)
 
             elif self.beta > 5:
                 theta_new, omega_new = self.crank_nicolson(self.dt)
 
             else:
-                theta_new, omega_new = self.rk4()
+                theta_new, omega_new = self.rk4(self.dt)
 
             Ek, Ep, Wp, Em = self.energy(self.theta, self.omega, self.dt)
 
@@ -288,7 +288,7 @@ class Pendulum():
         self.q_hist = self.theta_hist
         self.dq_hist = self.omega_hist
 
-    def euler(self):
+    def euler(self, dt):
 
         if abs(self.theta) > np.deg2rad(15):
             raise ValueError("Small-angle approximation violated")
@@ -298,14 +298,13 @@ class Pendulum():
             - (self.g / self.L) * self.theta
         )
 
-        omega_new = self.omega + alpha * self.dt
-        theta_new = self.theta + self.omega * self.dt
+        omega_new = self.omega + alpha * dt
+        theta_new = self.theta + self.omega * dt
 
         return theta_new, omega_new
     
-    def rk4(self):
+    def rk4(self, dt):
 
-        dt = self.dt
 
         def f_theta(theta, omega):
             return omega
