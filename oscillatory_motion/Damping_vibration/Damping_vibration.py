@@ -290,8 +290,8 @@ class Pendulum():
 
     def euler(self, dt):
 
-        if abs(self.theta) > np.deg2rad(15):
-            raise ValueError("Small-angle approximation violated")
+        #if abs(self.theta) > np.deg2rad(15):
+        #    raise ValueError("Small-angle approximation violated")
 
         alpha = (
             -self.beta * self.omega
@@ -304,7 +304,6 @@ class Pendulum():
         return theta_new, omega_new
     
     def rk4(self, dt):
-
 
         def f_theta(theta, omega):
             return omega
@@ -481,5 +480,5 @@ class Spring():
 
 
 if __name__ == '__main__':
-    sim = DampedVibration(q0=-2, dq0=1, m=2, gamma=.5, t_max=10, dt=0.01, system="spring", animate=True, k=1)
+    sim = DampedVibration(q0=np.deg2rad(10), dq0=3, m=4, gamma=5.5, t_max=10, dt=0.01, system="pendulum", animate=True, L=1)
     sim.run()
