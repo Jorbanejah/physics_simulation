@@ -359,7 +359,7 @@ def plot_regime_summary(results, gamma_values, methods):
         "Overdamped"
     ]
     cmap = plt.colormaps["viridis"]
-    colors = [cmap(i / len(methods)) for i in range(len(methods))]
+    colors = [cmap(i / len(methods)* 2) for i in range(len(methods))] # Parameter five is used to create a certain distance between the chosen colours.
 
     for col, gamma in enumerate(gamma_values):
 
@@ -410,7 +410,7 @@ def plot_energy_vs_initial_angle(theta_deg_values, results_error, methods, gamma
     (different gamma values).
     """
 
-    fig, axes = plt.subplots(1, 3, figsize=(15,5), sharey=True)
+    fig, ax = plt.subplots(3, 3, figsize=(15,5))
 
     regime_names = [
         "Underdamped",
@@ -418,9 +418,10 @@ def plot_energy_vs_initial_angle(theta_deg_values, results_error, methods, gamma
         "Overdamped"
     ]
 
-    for ax, gamma, regime in zip(axes, gamma_values, regime_names):
+    i = 0
 
-        for method in methods:
+    for gamma, regime in zip(gamma_values, regime_names):
+        for j, method in enumerate(methods):
 
             max_energy = []
             min_energy = []
@@ -432,24 +433,27 @@ def plot_energy_vs_initial_angle(theta_deg_values, results_error, methods, gamma
                 max_energy.append(np.max(r["Et"]))
                 min_energy.append(np.min(r["Et"]))
 
-            ax.plot(theta_deg_values, max_energy,
+            ax[i, j].plot(theta_deg_values, max_energy,
                     label=f"{method} max(E)")
 
-            ax.plot(theta_deg_values, min_energy,
+            ax[i, j].plot(theta_deg_values, min_energy,
                     linestyle="--",
                     label=f"{method} min(E)")
 
-        ax.set_title(f"{regime} (γ = {gamma})")
-        ax.set_xlabel("Initial angle θ₀ (deg)")
-        ax.grid(alpha=0.3)
+            ax[i, j].set_title(rf"{regime} $( \gamma = {gamma})$")
+            ax[i, j].set_xlabel(rf"Initial angle $\theta_0$  (deg)")
+            ax[i ,j].grid(alpha=0.3)
 
-    axes[0].set_ylabel("Total energy (J)")
+            ax[i,j].set_ylabel("Total energy (J)")
+            ax[i ,j].legend()
 
-    axes[0].legend()
+        i += 1
+
+       
 
     fig.suptitle("Energy conservation vs initial angle")
 
-    plt.tight_layout()
+    fig.tight_layout()
 
 
 def plot_convergence(dt_values, errors, method):
@@ -489,10 +493,6 @@ def plot_stability(dt_values, amplitudes, method):
     plt.legend()
     plt.tight_layout()
 
-
-
-
 if __name__=="__main__":
     main_physics()
     main_errors()
-    
