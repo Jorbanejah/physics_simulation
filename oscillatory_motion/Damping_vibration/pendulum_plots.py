@@ -185,7 +185,7 @@ def main_errors():
 
     methods = ["rk4", "euler", "crank_nicolson"]
 
-    dt_values = [0.1, 0.05, 0.01]
+    dt_values = [0.5, 0.1, 0.05, 0.01]
 
     gamma_values = [0.2, 2.0, 6.0]
 
@@ -401,8 +401,19 @@ def plot_regime_summary(results, gamma_values, methods):
     axes[0,2].legend()
 
     plt.tight_layout()
+    plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\regime_sumary_pendulum.png", dpi=300, bbox_inches='tight')
+
+plt.style.use("seaborn-v0_8-paper")
+
+
+method_colors = {
+    "rk4": "#1f77b4",            # Blue
+    "euler": "#ff7f0e",          # Orange
+    "crank_nicolson": "#2ca02c"  # Green
+}
 
 def plot_energy_vs_initial_angle(theta_deg_values, results_error, methods, gamma_values):
+
     """
     Plot maximum and minimum total energy vs initial angle.
 
@@ -410,88 +421,102 @@ def plot_energy_vs_initial_angle(theta_deg_values, results_error, methods, gamma
     (different gamma values).
     """
 
-    fig, ax = plt.subplots(3, 3, figsize=(15,5))
+    fig, ax = plt.subplots(3, 3, figsize=(14, 10), sharex=True, sharey=True)
 
-    regime_names = [
-        "Underdamped",
-        "Critical damping",
-        "Overdamped"
-    ]
+    regime_names = ["Underdamped", "Critical damping", "Overdamped"]
 
-    i = 0
+    for i, (gamma, regime) in enumerate(zip(gamma_values, regime_names)):
 
-    for gamma, regime in zip(gamma_values, regime_names):
         for j, method in enumerate(methods):
 
             max_energy = []
             min_energy = []
 
             for theta_deg in theta_deg_values:
-
                 r = results_error[gamma][theta_deg][method]
-
                 max_energy.append(np.max(r["Et"]))
                 min_energy.append(np.min(r["Et"]))
 
-            ax[i, j].plot(theta_deg_values, max_energy,
-                    label=f"{method} max(E)")
+            ax[i, j].plot(theta_deg_values, max_energy, lw=2)
+            ax[i, j].plot(theta_deg_values, min_energy, lw=2, ls="--")
 
-            ax[i, j].plot(theta_deg_values, min_energy,
-                    linestyle="--",
-                    label=f"{method} min(E)")
+            ax[i, j].set_title(
+                rf"({chr(97 + i*3 + j)}) {regime}  $(\gamma={gamma})$",
+                loc="left",
+                fontsize=11
+            )
 
-            ax[i, j].set_title(rf"{regime} $( \gamma = {gamma})$")
-            ax[i, j].set_xlabel(rf"Initial angle $\theta_0$  (deg)")
-            ax[i ,j].grid(alpha=0.3)
+            ax[i, j].grid(alpha=0.25)
 
-            ax[i,j].set_ylabel("Total energy (J)")
-            ax[i ,j].legend()
+            if j == 0:
+                ax[i, j].set_ylabel("Total energy (J)", fontsize=11)
 
-        i += 1
+            if i == 2:
+                ax[i, j].set_xlabel(rf"Initial angle $\theta_0$ (deg)", fontsize=11)
 
-       
-
-    fig.suptitle("Energy conservation vs initial angle")
-
-    fig.tight_layout()
-
+    fig.suptitle("Max/Min Total Energy vs Initial Angle", fontsize=14, fontweight="bold")
+    plt.tight_layout(rect=[0, 0, 1, 0.97])
+    plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\energy_initial_angle.png", dpi=300, bbox_inches='tight')
 
 def plot_convergence(dt_values, errors, method):
     """
-    Plot log(error) vs log(dt) to estimate the order of convergence.
+    Plot log(error) vs log(dt) and include theoretical slope lines.
     """
+    dt_values = np.array(dt_values, dtype=float)
+    errors = np.array(errors, dtype=float)
 
     plt.figure(figsize=(6,5))
 
-    plt.loglog(dt_values, errors, "o-", label=method)
+    color = method_colors.get(method, "black")
 
-    plt.xlabel("Time step dt")
-    plt.ylabel("Error")
+    # Principal data
+    plt.loglog(dt_values, errors, "o-", lw=2, markersize=6, color=color, label=method)
 
-    plt.title(f"Convergence test ({method})")
+    # Theorical slope 
+    theoretical_order = {
+        "rk4": 4,
+        "crank_nicolson": 2,
+        "euler": 1
+    }.get(method, None)
 
-    plt.grid(True, which="both")
+    if theoretical_order is not None:
+
+        # We get a reference point
+        x0 = dt_values[len(dt_values)//2]
+        y0 = errors[len(errors)//2]
+
+        # We construct the line
+        slope_line = y0 * (dt_values / x0)**theoretical_order
+
+        plt.loglog(dt_values, slope_line, "--", color="gray",
+                   label=rf"slope $\approx$ {theoretical_order}")
+
+    plt.xlabel(r"Time step $\Delta t$", fontsize=11)
+    plt.ylabel("Error", fontsize=11)
+
+    plt.title(rf"Convergence Test ({method})", fontsize=13, loc="left")
+    plt.grid(True, which="both", alpha=0.3)
     plt.legend()
+
     plt.tight_layout()
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\convergence_pendulum_{method}.png", dpi=300, bbox_inches='tight')
 
 def plot_stability(dt_values, amplitudes, method):
-    """
-    Plot numerical stability by measuring the maximum
-    oscillation amplitude for different time steps.
-    """
 
     plt.figure(figsize=(6,5))
 
-    plt.plot(dt_values, amplitudes, "o-", label=method)
+    color = method_colors.get(method, "black")
 
-    plt.xlabel("Time step dt")
-    plt.ylabel("Max |θ|")
+    plt.plot(dt_values, amplitudes, "o-", lw=2, markersize=6, color=color)
 
-    plt.title(f"Numerical stability ({method})")
+    plt.xlabel(r"Time step $\Delta t$", fontsize=11)
+    plt.ylabel(r"Max $|\theta|$", fontsize=11)
 
+    plt.title(rf"Numerical Stability ({method})", fontsize=13, loc="left")
     plt.grid(alpha=0.3)
-    plt.legend()
+
     plt.tight_layout()
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\stability_pendulum_{method}.png", dpi=300, bbox_inches='tight')
 
 if __name__=="__main__":
     main_physics()
