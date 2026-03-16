@@ -77,8 +77,8 @@ Before attempting to solve these equations it is useful to define two important 
 </p>
 
 <ul>
-<li>Damping parameter: $\beta$ -  natural tendency to fluctuate</li>
-<li>Natural angular frequency: $\omega_0$ - Environment's resistance to such fluctuations </li>
+<li>Damping parameter: $\beta$ - Environment's resistance to such fluctuations </li>
+<li>Natural angular frequency: $\omega_0$ - natural tendency to fluctuate </li>
 </ul>
 
 <p>
@@ -287,15 +287,33 @@ Both terms decay exponentially, which means the system eventually
 returns to equilibrium without ever crossing it.
 </p>
 
-<img src="./figures/regime_sumary_pendulum.png" width="500">
-
-
-
 <p>
 For the pendulum system the same qualitative regimes appear, although the
 equation contains the nonlinear term \( \sin(\theta) \). Because of this
 nonlinearity the analytical solutions above are no longer valid, and the
 motion must be obtained numerically.
+</p>
+The following picture corresponds to the trajectory, phase space, and energies of a pendulum in motion.
+
+<img src="./figures/regime_sumary_pendulum.png" width="500">
+
+<p>
+In the last figure—related to the pendulum motion — we illustrate the different behaviors of the three regimes obtained by varying the damping parameter $\gamma$
+
+The first row shows how the motion decays over time.
+The second row presents the phase space, where we can clearly see that the equilibrium point acts as an attractor.
+The third row displays the energies, confirming that the total energy of the system is conserved in the undamped case.
+</p>
+
+<p>
+The figure also compares three numerical methods: Euler (green), RK4 (purple), and Crank–Nicolson (yellow).
+We observe that RK4 and Crank–Nicolson converge to the same physically correct solution, while the Euler method fails to reproduce the oscillatory damped motion.
+Why does this happen? Because the Euler method accumulates numerical errors and lacks stability for oscillatory systems.
+In contrast, both Crank–Nicolson and RK4 are stable and exhibit consistent convergence.
+</p>
+
+<p>
+Now let us discuss numerical methods for dealing with nonlinear systems.
 </p>
 
 <hr>
@@ -338,7 +356,7 @@ we approximate it using the values of the function at discrete time steps.
 </p>
 
 <p>
-If the time axis is divided into steps of size \( \Delta t \),
+If the time axis is divided into steps of size $\Delta$t,
 the first derivative can be approximated using a forward difference
 </p>
 
@@ -390,7 +408,7 @@ $$
 </p>
 
 <p>
-Because the unknown value \(y_{n+1}\) appears on both sides,
+Because the unknown value $y_{n+1}$ appears on both sides,
 the method is implicit and requires solving a nonlinear equation
 at every time step.
 </p>
@@ -440,7 +458,7 @@ $$
 </p>
 
 <p>
-This system contains the unknown variables \( \theta_{n+1} \) and \( v_{n+1} \),
+This system contains the unknown variables $\theta_{n+1}$ and $v_{n+1}$,
 which means the equations must be solved simultaneously.
 </p>
 
@@ -476,14 +494,16 @@ $$
 </p>
 
 <p>
-Since the dissipative force performs negative work, the total mechanical energy must decrease with time.
+Since the dissipative force performs negative work, the total mechanical energy must decrease over time.
+However, the definition of total energy remains the same, so in the following figure we plot the maximum and minimum values of the total energy for different initial angles.
 </p>
 
 <img src="./figures/energy_initial_angle.png" width="500">
 
 <p>
-This plot also highlights a weakness of the Euler method:
-it does not preserve the structure of the equations and can artificially destroy the energy of the system.
+Besides showing that the total energy increases as the initial angle increases, this plot also highlights a well‑known weakness of the Euler method:
+it does not preserve the geometric structure of the equations and can artificially destroy (or create) energy in the system.
+This behavior is expected, since the Euler method accumulates numerical errors and lacks the stability required for oscillatory or weakly damped systems.
 </p>
 
 <hr>
@@ -491,7 +511,7 @@ it does not preserve the structure of the equations and can artificially destroy
 <h2>Error Analysis</h2>
 
 <p>
-For the spring system we can compute the absolute numerical error because the analytical solution is known.
+For the spring system we can compute the absolute numerical error because the analytical solution is known as we have shown.
 </p>
 
 <img src="./figures/numerical_error_spring.png" width="500">
@@ -519,7 +539,7 @@ From these experiments we observe that:
 
 <ul>
 <li>RK4 provides the highest accuracy for oscillatory systems</li>
-<li>Crank–Nicolson offers strong stability due to its implicit nature</li>
+<li>Crank–Nicolson offers strong stability due to its implicit nature and we will use when total time is is so big </li>
 <li>Euler should generally be avoided for long simulations</li>
 </ul>
 
