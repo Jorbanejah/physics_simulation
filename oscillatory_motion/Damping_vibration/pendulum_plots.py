@@ -401,8 +401,8 @@ def plot_regime_summary(results, gamma_values, methods):
     axes[0,2].legend()
 
     plt.tight_layout()
-    plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\regime_sumary_pendulum.png", dpi=300, bbox_inches='tight')
-
+    #plt.savefig("\\regime_sumary_pendulum.png", dpi=300, bbox_inches='tight')
+    plt.show()
 plt.style.use("seaborn-v0_8-paper")
 
 
@@ -456,8 +456,8 @@ def plot_energy_vs_initial_angle(theta_deg_values, results_error, methods, gamma
 
     fig.suptitle("Max/Min Total Energy vs Initial Angle", fontsize=14, fontweight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.97])
-    plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\energy_initial_angle.png", dpi=300, bbox_inches='tight')
-
+    #plt.savefig("\\figures\\energy_initial_angle.png", dpi=300, bbox_inches='tight')
+    plt.show()
 def plot_convergence(dt_values, errors, method):
     """
     Plot log(error) vs log(dt) and include theoretical slope lines.
@@ -499,8 +499,8 @@ def plot_convergence(dt_values, errors, method):
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\convergence_pendulum_{method}.png", dpi=300, bbox_inches='tight')
-
+    #plt.savefig(f"\\figures\\convergence_pendulum_{method}.png", dpi=300, bbox_inches='tight')
+    plt.show()
 def plot_stability(dt_values, amplitudes, method):
 
     plt.figure(figsize=(6,5))
@@ -516,8 +516,8 @@ def plot_stability(dt_values, amplitudes, method):
     plt.grid(alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\stability_pendulum_{method}.png", dpi=300, bbox_inches='tight')
-
+    #plt.savefig(f"\\stability_pendulum_{method}.png", dpi=300, bbox_inches='tight')
+    plt.show()
 if __name__=="__main__":
     main_physics()
     main_errors()

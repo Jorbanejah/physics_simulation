@@ -128,8 +128,8 @@ plt.title("Damping oscillator")
 plt.grid(alpha=0.3)
 plt.legend()
 plt.tight_layout()
-plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\colormap_spring.png", dpi=300, bbox_inches='tight')
-
+#plt.savefig("\\colormap_spring.png", dpi=300, bbox_inches='tight')
+plt.show()
 
 
 # ---------------------------------------------------------
@@ -150,8 +150,8 @@ plt.title("Damping oscillator")
 plt.legend()
 plt.grid(alpha=0.3)
 plt.tight_layout()
-plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\trajectory_spring.png", dpi=300, bbox_inches='tight')
-
+#plt.savefig("\\trajectory_spring.png", dpi=300, bbox_inches='tight')
+plt.show()
 
 # ---------------------------------------------------------
 # 3. Energy graphics
@@ -171,8 +171,8 @@ for i, values in enumerate(k):
     ax.grid(alpha=0.3)
     ax.legend()
 
-plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\energy_spring.png", dpi=300, bbox_inches='tight')
-
+#plt.savefig("\\energy_spring.png", dpi=300, bbox_inches='tight')
+plt.show()
 # ---------------------------------------------------------
 # 4. Numerical error
 # ---------------------------------------------------------
@@ -219,4 +219,5 @@ plt.yscale("log")
 plt.grid(alpha=0.3)
 plt.legend()
 plt.tight_layout()
-plt.savefig("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\numerical_error_spring.png", dpi=300, bbox_inches='tight')
+#plt.savefig("\\numerical_error_spring.png", dpi=300, bbox_inches='tight')
+plt.show()

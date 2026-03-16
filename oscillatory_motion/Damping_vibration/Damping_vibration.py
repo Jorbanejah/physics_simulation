@@ -177,9 +177,9 @@ class DampedVibration:
         #write = PillowWriter(fps = 30)
 
         #if self.system == 'pendulum':
-        #    self.anim.save('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\pendulum.gif', write)
+        #    self.anim.save('physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\pendulum.gif', write)
         #else:
-        #    self.anim.save('C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\spring.gif', write)
+        #    self.anim.save('physics_simulation\\oscillatory_motion\\Damping_vibration\\figures\\spring.gif', write)
         plt.show()
 
     def update(self, i):
@@ -290,8 +290,8 @@ class Pendulum():
 
     def euler(self, dt):
 
-        #if abs(self.theta) > np.deg2rad(15):
-        #    raise ValueError("Small-angle approximation violated")
+        if abs(self.theta) > np.deg2rad(15):
+            raise ValueError("Small-angle approximation violated")
 
         alpha = (
             -self.beta * self.omega
@@ -367,8 +367,8 @@ class Pendulum():
 
         return x_new, v_new
     
-    def  energy(self, theta, omega, dt):
-        # Disipacion de la energia por el teorema de las fuerzas vivas
+    def energy(self, theta, omega, dt):
+        # Energy disipation according to the theorem of live forces
         Ek = 0.5 * self.m * (omega*self.L) **2
         Ep = self.m * self.g * self.L *(1 - np.cos(theta))
         Wp = self.gamma * (omega* self.L) **2 * dt
@@ -481,4 +481,5 @@ class Spring():
 
 if __name__ == '__main__':
     sim = DampedVibration(q0=np.deg2rad(10), dq0=3, m=4, gamma=5.5, t_max=10, dt=0.01, system="pendulum", animate=True, L=1)
+    #sim = DampedVibration(q0 = -2, dq0 = 2, m = 2, gamma= 2, t_max = 15, dt = 0.01, system = 'spring', animate = True, k = 2)
     sim.run()
