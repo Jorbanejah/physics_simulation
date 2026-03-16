@@ -484,24 +484,80 @@ A useful way to verify the correctness of the numerical solutions is to analyze 
 </p>
 
 <p>
-According to the work–energy theorem
+For a damped oscillator, the work–energy theorem states that the rate of change of the total mechanical energy E is equal to the power delivered by the damping force:
 </p>
 
 <p>
 $$
-W = \Delta E
+\frac{dE}{dt} = \mathbf{F}_{\text{damp}} \cdot \mathbf{v}
 $$
 </p>
 
 <p>
-Since the dissipative force performs negative work, the total mechanical energy must decrease over time.
+For a linear viscous damper, the force is given by $\mathbf{F}_{\text{damp}} = -\gamma v$, so the instantaneous power becomes:
+</p>
+
+<p>
+$$
+\frac{dE}{dt} = -\gamma\, v^2
+$$
+</p>
+
+<p>
+This expression shows that energy is lost whenever the pendulum has non‑zero velocity, and that the rate of energy loss is proportional to the square of that velocity.
+</p>
+
+<p>
+Since the total energy of the system satisfies
+</p>
+
+<p>
+$$
+E(t) = E_{\text{mechanical}}(t) + W_{\text{diss}}(t)
+$$
+</p>
+
+<p>
+the dissipated work can be computed explicitly as:
+</p>
+
+<p>
+$$
+W_{\text{diss}}(t) = -\int_0^t \gamma\, v(\tau)^2 \, d\tau
+$$
+</p>
+
+<p>
+In the numerical simulation, this integral is evaluated iteratively. For a time step $\Delta$ t, the dissipated energy is updated as:
+</p>
+
+<p>
+$$
+W_{\text{diss}}(t_{n+1}) = W_{\text{diss}}(t_n) - \gamma\, v(t_n)^2\, \Delta t
+$$
+</p>
+
+<p>
+This allows us to verify that the total energy
+</p>
+
+<p>
+$$
+E_{\text{total}}(t) = E_m(t) + W_{\text{diss}}(t)
+$$
+</p>
+
+<p>
+remains approximately constant, up to numerical errors. Deviations from constancy reveal the stability and accuracy of the numerical method used.
+</p>
+
 However, the definition of total energy remains the same, so in the following figure we plot the maximum and minimum values of the total energy for different initial angles.
 </p>
 
 <img src="./figures/energy_initial_angle.png" width="500">
 
 <p>
-Besides showing that the total energy increases as the initial angle increases, this plot also highlights a well‑known weakness of the Euler method:
+Besides showing that the total energy increases as the initial angle increases, this plot also highlights a well‑known weakness of the Euler method (b, e and h graphics):
 it does not preserve the geometric structure of the equations and can artificially destroy (or create) energy in the system.
 This behavior is expected, since the Euler method accumulates numerical errors and lacks the stability required for oscillatory or weakly damped systems.
 </p>
