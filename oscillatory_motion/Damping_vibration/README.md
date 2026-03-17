@@ -466,15 +466,69 @@ which means the equations must be solved simultaneously.
 In practice we construct a system of nonlinear residual equations and solve
 them iteratively using the Newton method together with the corresponding
 Jacobian matrix.
+With the aceletarion as:
 </p>
 
-<img src="./figures/crank_nicolson_derivation.jpg" width="500">
+$$
+a(\theta,v) = -\frac{\gamma}{m}v - \frac{g}{L}\sin (\theta).
+$$
 
 <p>
-The figure above summarizes the derivation used in the implementation,
-showing how the residual functions and Jacobian matrix are constructed
-to obtain the next time step of the simulation.
+My unknown variable are: $v_{n+1}$ and $\theta_{n+1}$
+Then, the Crank-Nicolson scheme becomes:
 </p>
+
+$$
+F_1(\theta_{n+1}, v_{n+1}) = \theta_{n+1} - \theta_{n} - \frac{\Delta t}{2} (v_{n+1} + v_{n})
+$$
+
+$$
+F_2(\theta_{n+1}, v_{n+1}) = v_{n+1} - v_{n} - \frac{\Delta t}{2} (a_{n+1} + a_{n})
+$$
+
+<p>
+The Jacobian matrix with respect the unknowns variable iteration is:
+</p>
+
+$$
+J =
+\begin{pmatrix}
+\frac{\partial F_1}{\partial \theta_{n+1}} &
+\frac{\partial F_1}{\partial v_{n+1}} \\
+\frac{\partial F_2}{\partial \theta_{n+1}} &
+\frac{\partial F_2}{\partial v_{n+1}}
+\end{pmatrix}
+= \begin{pmatrix}
+1 &
+-\frac{\Delta t}{2} \\
+\frac{\Delta t \omega_0}{2}\cos(\theta_{n+1}) &
+1 + \frac{\beta \Delta t}{2}
+\end{pmatrix}.
+$$
+
+<p>
+Newtom's method updates the solution via:
+</p>
+
+$$
+J = \begin{pmatrix}
+\delta y &
+\delta v
+\end{pmatrix}
+= - \begin{pmatrix}
+F_1 &
+F_2
+\end{pmatrix},
+$$
+
+$$
+y_{n+1}^{(k+1)} = y_{n+1}^{(k)} + \delta y
+$$
+
+$$
+v_{n+1}^{(k+1)} = v_{n+1}^{(k)} + \delta v
+$$
+
 <hr>
 
 <h2>Energy as a Consistency Check</h2>
