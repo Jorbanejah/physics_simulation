@@ -55,7 +55,7 @@ def rk4(f, dt, q0, dq0):
 
 def crank_nicolson(f, dt, q0, dq0):
     """
-    One Crank–Nicolson step for the system:
+    One Crank_Nicolson step for the system:
         dx/dt = v
         dv/dt = f(x, v)
 
@@ -119,11 +119,54 @@ def crank_nicolson(f, dt, q0, dq0):
     return x_new, v_new
 
 def Verlet(f, dt, q0, dq0):
-    pass
+
+    '''
+    One Verlet step for the system:
+        dx/dt = v
+        dv/dt = f(x, v)
+
+    Parameters
+    ----------
+    f   : function  -> acceleration function a = f(x, v)
+    dt  : float     -> time step
+    q0  : float     -> current position
+    dq0  : float     -> current velocity
+
+    Returns
+    -------
+    x_new, v_new : floats
+        Updated position and velocity
+    '''
+    x = np.array([q0])
+    v = np.array([dq0])
+
+    a = f(x, v)
+    x_new = x + v * dt + 0.5 * a * dt**2
+    a_new = f(x, v)
+    v_new = v + dt/2 * (a_new + a)
+
+    return x_new, v_new
 
 ##
-#------------Analitical solution ----------
+#------------Functions and solution ----------
 ##
+
+
+def linear_cos(x, v, t, omega_0, omega, alpha, beta):
+
+    return - 2* beta * v - omega_0**2 * x + alpha * np.cos(omega * t)
+
+def linear_sin(x, v, t, omega_0, omega, alpha, beta):
+
+    return - 2* beta * v - omega_0**2 * x + alpha * np.sin(omega * t)
+
+def nonlinear_cos(x, v, t, omega_0, omega, alpha, beta):
+
+    return -2 * beta * v - omega_0**2 * np.sin(x) - alpha * np.cos(omega * t)
+
+def nonlinear_sin(x, v, t, omega_0, omega, alpha, beta):
+
+    return -2 * beta * v - omega_0**2 * np.sin(x) - alpha * np.sin(omega * t)
 
 def analitics(A0, A, beta, t, omega, delta, chi):
     return A0 * np.exp(beta * t) * np.sin(omega * t + chi) + A * np.sin(omega* t - delta)
@@ -133,8 +176,34 @@ def analitics(A0, A, beta, t, omega, delta, chi):
 # ---------- Main code ---------------
 ##
 class Driven_oscillation():
-    pass
+
+    g = 9.81
+
+    def __init__(self, q0, dq0, m, gamma, F0, t = 15, dt = 0.01,  system = 'Linear', period = 'cos', **kwargs):
+
+        #Initial condition
+        self.q0 =q0
+        self.dq0 = dq0
+
+        #Set parameters
+        self.m = m
+        self.gamma = gamma
+        self.F0 = F0
+
+        #Set times
+        self.t_max = t
+        self.st = dt
+
+        #Set others parameters kwargs: k -- spring :: L -- pendulum
+        self.system = system
+        self.period = period
+        self.params = kwargs
+
+    def describe_params():
+        pass
+
+    
 class Linear():
     pass
-class nonlinear():
+class Nonlinear():
     pass
