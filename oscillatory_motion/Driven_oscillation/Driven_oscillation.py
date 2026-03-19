@@ -1,0 +1,140 @@
+import numpy as np
+'''''
+The following code describes the motion of two different systems: a nonlinear system and a linear system. Using, for instance, the Laplace transform, we can obtain the analytical solution of the linear system.
+For the nonlinear case, we introduce a new symplectic method called the Verlet algorithm. In this version, the animation will only be generated for one system: the linear one, modeled as a Pohl pendulum.
+The code has the following structure:
+-    Integrators: RK4, Crank_Nicolson, and Verlet algorithms. Each of them is used for both systems.
+
+-   Analytical solution: A simple function that returns the analytical solution of the linear system.
+
+-   Main code: Implemented with three classes:
+    -   DrivenOscillation: contains all parameters, flags, and general configuration.
+    -   Linear: represents the linear system.
+    -   Nonlinear: represents the nonlinear system
+
+'''''
+##
+# ----------- Integrators --------------
+##
+def rk4(f, dt, q0, dq0):
+    """
+    One RK4 step for a system:
+        dq/dt  = v
+        dv/dt  = f(q, v, t)
+
+    Parameters
+    ----------
+    f   : function  -> acceleration function a = f(q, v)
+    dt  : float     -> time step
+    q0  : float     -> current position
+    dq0 : float     -> current velocity
+
+    Returns
+    -------
+    q_new, dq_new : floats
+        Updated position and velocity
+    """
+    # k-values for velocity (dq/dt = v)
+    k1_q = dq0
+    k1_v = f(q0, dq0)
+
+    k2_q = dq0 + 0.5 * dt * k1_v
+    k2_v = f(q0 + 0.5 * dt * k1_q, dq0 + 0.5 * dt * k1_v)
+
+    k3_q = dq0 + 0.5 * dt * k2_v
+    k3_v = f(q0 + 0.5 * dt * k2_q, dq0 + 0.5 * dt * k2_v)
+
+    k4_q = dq0 + dt * k3_v
+    k4_v = f(q0 + dt * k3_q, dq0 + dt * k3_v)
+
+    # RK4 update
+    q_new  = q0  + (dt/6) * (k1_q + 2*k2_q + 2*k3_q + k4_q)
+    dq_new = dq0 + (dt/6) * (k1_v + 2*k2_v + 2*k3_v + k4_v)
+
+    return q_new, dq_new
+
+def crank_nicolson(f, dt, q0, dq0):
+    """
+    One Crank–Nicolson step for the system:
+        dx/dt = v
+        dv/dt = f(x, v)
+
+    Parameters
+    ----------
+    f   : function  -> acceleration function a = f(x, v)
+    dt  : float     -> time step
+    q0  : float     -> current position
+    dq0  : float     -> current velocity
+
+    Returns
+    -------
+    x_new, v_new : floats
+        Updated position and velocity
+    """
+
+    #Explicit Euler
+    x_new = q0 + dt * dq0
+    v_new = dq0 + dt * f(q0, dq0)
+
+    max_iter = 10
+    tol = 1e-6
+
+    for _ in range(max_iter):
+
+        # Crank–Nicolson equations
+        F1 = x_new - q0 - 0.5 * dt * (dq0 + v_new)
+        F2 = v_new - dq0 - 0.5 * dt * (f(q0, dq0) + f(x_new, v_new))
+
+        # Jacobian entries
+        dF1_dx = 1.0
+        dF1_dv = -0.5 * dt
+
+        # Partial derivatives of f(x, v)
+        # Approximated numerically (finite differences)
+        eps = 1e-6
+        df_dx = (f(x_new + eps, v_new) - f(x_new - eps, v_new)) / (2 * eps)
+        df_dv = (f(x_new, v_new + eps) - f(x_new, v_new - eps)) / (2 * eps)
+
+        dF2_dx = -0.5 * dt * df_dx
+        dF2_dv = 1.0 - 0.5 * dt * df_dv
+
+        # Determinant
+        det = dF1_dx * dF2_dv - dF1_dv * dF2_dx
+
+        if abs(det) < 1e-14:
+            raise RuntimeError("Jacobian is singular in Crank-Nicolson")
+
+        # Newton correction
+        dx = ( dF2_dv * F1 - dF1_dv * F2) / det
+        dv = (-dF2_dx * F1 + dF1_dx * F2) / det
+
+        # Update
+        x_new -= dx
+        v_new -= dv
+
+        # Convergence check
+        if abs(dx) < tol and abs(dv) < tol:
+            break
+
+    return x_new, v_new
+
+def Verlet(f, dt, q0, dq0):
+    pass
+
+##
+#------------Analitical solution ----------
+##
+
+def analitics(A0, A, beta, t, omega, delta, chi):
+    return A0 * np.exp(beta * t) * np.sin(omega * t + chi) + A * np.sin(omega* t - delta)
+
+
+##
+# ---------- Main code ---------------
+##
+class Driven_oscillation():
+    pass
+class Linear():
+    pass
+class nonlinear():
+    pass
