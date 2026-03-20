@@ -118,7 +118,7 @@ def crank_nicolson(f, dt, q0, dq0):
 
     return x_new, v_new
 
-def Verlet(f, dt, q0, dq0):
+def verlet(f, dt, q0, dq0):
 
     '''
     One Verlet step for the system:
@@ -175,12 +175,16 @@ def analitics(A0, A, beta, t, omega, delta, chi):
 ##
 # ---------- Main code ---------------
 ##
+
 class Driven_oscillation():
 
     g = 9.81
 
-    def __init__(self, q0, dq0, m, gamma, F0, t = 15, dt = 0.01,  system = 'Linear', period = 'cos', **kwargs):
-
+    def __init__(self, q0, dq0, m, gamma, F0, t = 15, dt = 0.01,  system = 'Linear', **kwargs):
+        
+        if m <= 0:
+            raise ValueError('m must be positive')
+        
         #Initial condition
         self.q0 =q0
         self.dq0 = dq0
@@ -195,15 +199,114 @@ class Driven_oscillation():
         self.st = dt
 
         #Set others parameters kwargs: k -- spring :: L -- pendulum
-        self.system = system
-        self.period = period
+        self.system = system.lower()
         self.params = kwargs
 
-    def describe_params():
-        pass
+        # Histories
+        self.t_hist = []
+        self.q_hist = []
+        self.dq_hist = []
 
-    
+        self.Ek_hist = []
+        self.Ep_hist = []
+        self.Em_hist = []
+
+    def run(self):
+        
+        self.F_external = self.params.get('F_external')
+        
+        if self.F_external is None:
+            self.F_external = 'cos'
+
+        elif self.F_external != 'cos' or self.F_external != 'sin':
+            raise ValueError("The external force must be periodical: cos or sin")
+            
+
+        if self.system == 'linear':
+            
+            self.k = self.params.get("k")
+            
+            if self.k is None:
+                raise ValueError("The system requiere a elastic constant k")
+        
+           
+            self.model = Linear(y0 = self.q0, v0 = self.dq0, m = self.m, gamma = self.gamma, k = self.k, F0 = self.F0, dt = self.dt, t_max = self.t_max, F_external = self.F_external)
+
+        elif self.system == 'nonlinear':
+            
+            self.L = self.params.get("L")
+
+            if self.L is None:
+                raise ValueError("The system requiere the pendulum length L")
+
+            if -2 * np.pi > self.q0 > 2 * np.pi: #The angle must be in radians. Condition to change 
+
+                self.q0 = np.deg2rad(self.q0)
+
+                return self.q0
+            
+            self.model = Nonlinear(theta0 = self.q0, omega0 = self.dq0, m = self.m, gamma = self.gamma, L = self.L, F0 = self.F0, dt = self.dt, t_max = self.t_max, F_external = self.F_external)
+
 class Linear():
-    pass
+    g = 9.81
+    def __init__(self, y0, v0, m, gamma, k, F0, dt, t_max, F_external):
+
+        #Initial condition
+        self.y0 = y0
+        self.v0 = v0 
+        
+        #Parameters
+        self.beta = gamma/(2 * m) #Damping parameter
+        self.omega2 = k/m #Natural frequency
+        self.alpha = F0/m #Driven Force
+
+        self.dt = dt
+        self.t_max = t_max
+
+        self.F_external = F_external
+
+    def run(self):
+        numerical_methods = {
+            "rk4": rk4,
+            "CN": crank_nicolson,
+            "Verlet": verlet
+        }
+
+        # Choose force function
+        force_map = {
+            "cos": linear_cos,
+            "sin": linear_sin
+        }
+
+        force = force_map[self.F_external]
+
+
+        # Prepare history dictionary
+        self.history = {
+            name: {"t": [], "x": [], "v": []}
+            for name in numerical_methods
+        }
+
+        # Loop over numerical methods
+        for name, method in numerical_methods.items():
+
+            # Reset initial conditions for each method
+            q = self.y0
+            dq = self.v0
+            t = 0
+
+            while t < self.t_max:
+
+                # Store current state
+                self.history[name]["t"].append(t)
+                self.history[name]["x"].append(q)
+                self.history[name]["v"].append(dq)
+
+                # Perform one integration step
+                q, dq = method(force, q, dq, t, self.dt)
+
+                t += self.dt
+
+
 class Nonlinear():
     pass
