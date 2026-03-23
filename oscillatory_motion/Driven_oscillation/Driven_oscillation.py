@@ -1,6 +1,6 @@
 import numpy as np
 
-'''''
+"""
 The following code describes the motion of two different systems: a nonlinear system and a linear system. Using, for instance, the Laplace transform, we can obtain the analytical solution of the linear system.
 For the nonlinear case, we introduce a new symplectic method called the Verlet algorithm. In this version, the animation will only be generated for one system: the linear one, modeled as a Pohl pendulum.
 The code has the following structure:
@@ -13,171 +13,150 @@ The code has the following structure:
     -   Linear: represents the linear system.
     -   Nonlinear: represents the nonlinear system
 
-'''''
+"""
+
 ##
 # ----------- Integrators --------------
 ##
-def rk4(f, dt, q0, dq0, t, omega_0, omega, alpha, beta):
+def rk4(f, t, y, dt, params=None):
     """
-    One RK4 step for a system:
-        dq/dt  = v
-        dv/dt  = f(q, v, t)
+    Generic RK4 integrator
 
     Parameters
     ----------
-    f   : function  -> acceleration function a = f(q, v)
-    dt  : float     -> time step
-    q0  : float     -> current position
-    dq0 : float     -> current velocity
+    f : function
+        f(t, y, params) -> dy/dt
+    t : float
+    y : np.ndarray
+    dt : float
+    params : optional
 
     Returns
     -------
-    q_new, dq_new : floats
-        Updated position and velocity
-    """
-    # k-values for velocity (dq/dt = v)
-    k1_q = dq0
-    k1_v = f(q0, dq0, t, omega_0, omega, alpha, beta)
-
-    k2_q = dq0 + 0.5 * dt * k1_v
-    k2_v = f(q0 + 0.5 * dt * k1_q, dq0 + 0.5 * dt * k1_v, t, omega_0, omega, alpha, beta)
-
-    k3_q = dq0 + 0.5 * dt * k2_v
-    k3_v = f(q0 + 0.5 * dt * k2_q, dq0 + 0.5 * dt * k2_v, t, omega_0, omega, alpha, beta)
-
-    k4_q = dq0 + dt * k3_v
-    k4_v = f(q0 + dt * k3_q, dq0 + dt * k3_v, t, omega_0, omega, alpha, beta)
-
-    # RK4 update
-    q_new  = q0  + (dt/6) * (k1_q + 2*k2_q + 2*k3_q + k4_q)
-    dq_new = dq0 + (dt/6) * (k1_v + 2*k2_v + 2*k3_v + k4_v)
-
-    return q_new, dq_new
-
-def crank_nicolson(f, dt, q0, dq0, t, omega_0, omega, alpha, beta):
-    """
-    One Crank_Nicolson step for the system:
-        dx/dt = v
-        dv/dt = f(x, v)
-
-    Parameters
-    ----------
-    f   : function  -> acceleration function a = f(x, v)
-    dt  : float     -> time step
-    q0  : float     -> current position
-    dq0  : float     -> current velocity
-
-    Returns
-    -------
-    x_new, v_new : floats
-        Updated position and velocity
+    y_new : np.ndarray
     """
 
-    #Explicit Euler
-    x_new = q0 + dt * dq0
-    v_new = dq0 + dt * f(q0, dq0, t, omega_0, omega, alpha, beta)
+    k1 = f(t, y, params)
+    k2 = f(t + dt/2, y + dt/2 * k1, params)
+    k3 = f(t + dt/2, y + dt/2 * k2, params)
+    k4 = f(t + dt, y + dt * k3, params)
 
-    max_iter = 10
-    tol = 1e-6
+    return y + (dt/6) * (k1 + 2*k2 + 2*k3 + k4)
+
+def crank_nicolson(f, t, y, dt, params=None, tol=1e-6, max_iter=10):
+
+    """
+    Generic implicit Crank-Nicolson
+    """
+
+    y_new = y + dt * f(t, y, params)  # Euler guess
 
     for _ in range(max_iter):
 
-        # Crank–Nicolson equations
-        F1 = x_new - q0 - 0.5 * dt * (dq0 + v_new)
-        F2 = v_new - dq0 - 0.5 * dt * (f(q0, dq0) + f(x_new, v_new))
+        F = y_new - y - 0.5 * dt * (
+            f(t, y, params) + f(t + dt, y_new, params)
+        )
 
-        # Jacobian entries
-        dF1_dx = 1.0
-        dF1_dv = -0.5 * dt
-
-        # Partial derivatives of f(x, v)
-        # Approximated numerically (finite differences)
+        # Numerical Jacobian
         eps = 1e-6
-        df_dx = (f(x_new + eps, v_new, t, omega_0, omega, alpha, beta) - f(x_new - eps, v_new, t, omega_0, omega, alpha, beta)) / (2 * eps)
-        df_dv = (f(x_new, v_new + eps, t, omega_0, omega, alpha, beta) - f(x_new, v_new - eps, t, omega_0, omega, alpha, beta)) / (2 * eps)
+        n = len(y)
+        J = np.zeros((n, n))
 
-        dF2_dx = -0.5 * dt * df_dx
-        dF2_dv = 1.0 - 0.5 * dt * df_dv
+        for i in range(n):
+            dy = np.zeros(n)
+            dy[i] = eps
 
-        # Determinant
-        det = dF1_dx * dF2_dv - dF1_dv * dF2_dx
+            F_plus = (
+                (y_new + dy) - y
+                - 0.5 * dt * (f(t, y, params) + f(t + dt, y_new + dy, params))
+            )
 
-        if abs(det) < 1e-14:
-            raise RuntimeError("Jacobian is singular in Crank-Nicolson")
+            F_minus = (
+                (y_new - dy) - y
+                - 0.5 * dt * (f(t, y, params) + f(t + dt, y_new - dy, params))
+            )
 
-        # Newton correction
-        dx = ( dF2_dv * F1 - dF1_dv * F2) / det
-        dv = (-dF2_dx * F1 + dF1_dx * F2) / det
+            J[:, i] = (F_plus - F_minus) / (2 * eps)
 
-        # Update
-        x_new -= dx
-        v_new -= dv
+        delta = np.linalg.solve(J, F)
+        y_new -= delta
 
-        # Convergence check
-        if abs(dx) < tol and abs(dv) < tol:
+        if np.linalg.norm(delta) < tol:
             break
 
-    return x_new, v_new
+    return y_new
 
-def verlet(f, dt, q0, dq0, t, omega_0, omega, alpha, beta):
+def velocity_verlet(accel, t, y, dt, params=None):
+    """
+    y = [q, v]
+    accel(t, q, v, params)
+    """
 
-    '''
-    One Verlet step for the system:
-        dx/dt = v
-        dv/dt = f(x, v)
+    q, v = y
 
-    Parameters
-    ----------
-    f   : function  -> acceleration function a = f(x, v)
-    dt  : float     -> time step
-    q0  : float     -> current position
-    dq0  : float     -> current velocity
+    a = accel(t, q, v, params)
 
-    Returns
-    -------
-    x_new, v_new : floats
-        Updated position and velocity
-    '''
-    x = np.array([q0])
-    v = np.array([dq0])
+    q_new = q + v*dt + 0.5*a*dt**2
+    a_new = accel(t + dt, q_new, v, params)
 
-    a = f(x, v, t, omega_0, omega, alpha, beta)
-    x_new = x + v * dt + 0.5 * a * dt**2
-    a_new = f(x, v, t, omega_0, omega, alpha, beta)
-    v_new = v + dt/2 * (a_new + a)
+    v_new = v + 0.5*dt*(a + a_new)
 
-    return x_new, v_new
+    return np.array([q_new, v_new])
 
 ##
 #------------Functions and solution ----------
 ##
 
+def linear_system(t, y, p):
+    """
+    Linear system first order form
 
-def linear_cos(x, v, t, omega_0, omega, alpha, beta):
+    y = [x, v]
+    dy/dt = [v, a]
+    """
+    x, v = y
 
-    return - 2* beta * v - omega_0 * x + alpha * np.cos(omega * t)
+    # External force
+    if p["type"] == "cos":
+        force = np.cos(p["omega"] * t)
+    else:
+        force = np.sin(p["omega"] * t)
 
-def linear_sin(x, v, t, omega_0, omega, alpha, beta):
+    dxdt = v
+    dvdt = -2 * p["beta"] * v - p["omega0"] * x + p["alpha"] * force
 
-    return - 2* beta * v - omega_0 * x + alpha * np.sin(omega * t)
+    return np.array([dxdt, dvdt])
 
-def nonlinear_cos(x, v, t, omega_0, omega, alpha, beta):
+def nonlinear_system(t, y, p):
+    """
+    Non linear system first order form
+    y = [x, v]
+    dy/dt = [v, a]
+    """
+    x, v = y
 
-    return -2 * beta * v - omega_0 * np.sin(x) - alpha * np.cos(omega * t)
+    # External force
+    if p["type"] == "cos":
+        force = np.cos(p["omega"] * t)
+    else:
+        force = np.sin(p["omega"] * t)
 
-def nonlinear_sin(x, v, t, omega_0, omega, alpha, beta):
+    dxdt = v
+    dvdt = -2 * p["beta"] * v - p["omega0"] * np.sin(x) + p["alpha"] * force
 
-    return -2 * beta * v - omega_0 * np.sin(x) - alpha * np.sin(omega * t)
+    return np.array([dxdt, dvdt])
 
-def analitics(A0, A, beta, t, omega, delta, chi):
-    return A0 * np.exp(beta * t) * np.sin(omega * t + chi) + A * np.sin(omega* t - delta)
+def analytics(A0, A, beta, omega0, t, omega, delta, chi):
 
+    omega_d = np.sqrt(omega0 - beta**2)
+    
+    return (A0 * np.exp(-beta * t) * np.sin(omega_d * t + chi) + A * np.sin(omega * t - delta))
 
 ##
 # ---------- Main code ---------------
 ##
 
-class Driven_oscillation():
+class DrivenOscillation():
 
     def __init__(self, q0, dq0, m, gamma, F0, omega, t = 15, dt = 0.01,  system = 'Linear', **kwargs):
         
@@ -196,32 +175,24 @@ class Driven_oscillation():
 
         #Set times
         self.t_max = t
-        self.st = dt
+        self.dt = dt
 
         #Set others parameters kwargs: k -- spring :: L -- pendulum
         self.system = system.lower()
         self.params = kwargs
 
-        # Histories
-        self.t_hist = []
-        self.q_hist = []
-        self.dq_hist = []
-
-        self.Ek_hist = []
-        self.Ep_hist = []
-        self.Em_hist = []
+        if self.model not in ('linear', 'nonlinear'):
+            raise ValueError("System must be linear or nonlinear")
 
     def run(self):
         
+        #External force selection
         self.F_external = self.params.get('F_external')
         
-        if self.F_external is None:
-            self.F_external = 'cos'
-
-        elif self.F_external != 'cos' or self.F_external != 'sin':
+        if self.F_external not in ('cos', 'sin'):
             raise ValueError("The external force must be periodical: cos or sin")
-            
-
+        
+        #Model selection
         if self.system == 'linear':
             
             self.k = self.params.get("k")
@@ -229,120 +200,126 @@ class Driven_oscillation():
             if self.k is None:
                 raise ValueError("The system requiere a elastic constant k")
         
-           
             self.model = Linear(y0 = self.q0, v0 = self.dq0, m = self.m, gamma = self.gamma, k = self.k, F0 = self.F0, dt = self.dt, t_max = self.t_max, omega = self.omega, F_external = self.F_external)
 
-        elif self.system == 'nonlinear':
-            
+        else:
             self.L = self.params.get("L")
 
             if self.L is None:
                 raise ValueError("The system requiere the pendulum length L")
 
-            if -2 * np.pi > self.q0 > 2 * np.pi: #The angle must be in radians. Condition to change 
+            if  abs(self.q0) > 2*np.pi: #The angle must be in radians. Condition to change 
 
-                self.q0 = np.deg2rad(self.q0)
-
-                return self.q0
+                raise ValueError("The angle theta must be in radians")
             
             self.model = Nonlinear(theta0 = self.q0, omega0 = self.dq0, m = self.m, gamma = self.gamma, L = self.L, F0 = self.F0, dt = self.dt, t_max = self.t_max, omega = self.omega, F_external = self.F_external)
 
-class Linear():
+        self.model.run()
 
+        return self.model
+
+class Linear:
+    #At this point we have three kind of omega: omega_sq ---> natural frequency, omega ---> external frequency
     def __init__(self, y0, v0, m, gamma, k, F0, dt, t_max, omega, F_external):
 
-        #Initial condition
+        # Initial conditions
         self.y0 = y0
         self.v0 = v0 
         
-        #Parameters
-        self.omega = omega # External force
+        # Parameters
+        self.m = m
         self.gamma = gamma
         self.k = k
-        self.m = m
+        self.omega = omega  # external frequency
 
-        self.beta = gamma/(2 * m) #Damping parameter
-        self.omega2 = k/m #Natural frequency
-        self.alpha = F0/m #Driven Force
+        # Derived parameters
+        self.beta = gamma / (2 * m)
+        self.omega_sq = k / m 
+        self.alpha = F0 / m
 
-        self.delta =np.arctan(2 * self.beta * self.omega / (self.omega2 - self.omega^2)) #gap between natural and external frequency
+        # Phase (steady-state)
+        self.delta = np.arctan((2 * self.beta * self.omega) / (self.omega_sq - self.omega**2))
+        self.chi = 0 
 
+        # Time
         self.dt = dt
         self.t_max = t_max
 
+        # External force type
         self.F_external = F_external
 
     def run(self):
+
+        n_steps = int(np.ceil(self.t_max / self.dt))
+
+        # Parameters for system
+        params = {
+            "beta": self.beta,
+            "omega0": self.omega_sq,
+            "omega": self.omega,
+            "alpha": self.alpha,
+            "type": self.F_external
+        }
+
+        # --- Integrators ---
         numerical_methods = {
             "rk4": rk4,
             "CN": crank_nicolson,
-            "Verlet": verlet
+            "Verlet": velocity_verlet
         }
 
-        # Choose force function
-        force_map = {
-            "cos": linear_cos,
-            "sin": linear_sin
-        }
-
-        force = force_map[self.F_external]
-
-
-        # Prepare history dictionary
+        # --- History ---
         self.history = {
             name: {"t": [], "q": [], "v": [], "Ek": [], "Ep": [], "Wp": []}
             for name in numerical_methods
         }
 
-        # Loop over numerical methods
+        # --- Acceleration adapter for Verlet ---
+        def accel(t, q, v, p):
+            return linear_system(t, np.array([q, v]), p)[1]
+
+        # --- Loop over methods ---
         for name, method in numerical_methods.items():
 
-            # Reset initial conditions for each method
-            q = self.y0
-            dq = self.v0
-            t = 0
-            self.history[name]["Wp"].append(self.gamma * dq **2 * self.dt )
-            while t < self.t_max:
+            y = np.array([self.y0, self.v0])
+            wp = 0
 
-                # Store current state
+            for i in range(n_steps):
+                t = i * self.dt
+                q, dq = y
 
-                # Energy
-                self.history[name]["Ek"].append(0.5 * self.m * dq**2)
-                self.history[name]["Ep"].append(0.5 * self.k * q**2)    
-                wp = self.history[name]["Wp"[-1]] + self.gamma * dq**2 * self.dt
-                self.history[name]["Wp"].append(wp)
+                # Energies
+                Ek = 0.5 * self.m * dq**2
+                Ep = 0.5 * self.k * q**2
+                wp += self.gamma * dq**2 * self.dt
 
-                #Position
+                # Store
                 self.history[name]["t"].append(t)
                 self.history[name]["q"].append(q)
                 self.history[name]["v"].append(dq)
+                self.history[name]["Ek"].append(Ek)
+                self.history[name]["Ep"].append(Ep)
+                self.history[name]["Wp"].append(wp)
 
-                # Perform one integration step
-                q, dq = method(force, q, dq, t, self.dt, t, self.omega2, self.omega, self.alpha, self.beta)
+                # Step
+                if name == "Verlet":
+                    y = method(accel, t, y, self.dt, params)
+                else:
+                    y = method(linear_system, t, y, self.dt, params)
 
-                t += self.dt
+        # --- Analytical solution ---
+        self.analytical = {"x": [], "t": []}
 
-        self.analitical = {
-            "x": [],
-            "v": [],
-            "t": []
-        }
-        t = 0
-        y = self.y0
-        v = self.v0
+        for i in range(n_steps):
+            t = i * self.dt
 
-        while t < self.t_max:
-            
-            self.analitical["x"].append(y)
-            self.analitical["y"].append(v)
-            self.analitical["t"].append(t)
+            x = analytics(A0 = self.y0, A = self.alpha, beta = self.beta, omega0 = self.omega_sq, t=t, omega=self.omega, delta=self.delta, chi=self.chi)
 
-            y, v = analitics(y, v, self.beta, self.omega, self.delta, self.alpha, self.chi)
-
-            t += self.dt
+            self.analytical["x"].append(x)
+            self.analytical["t"].append(t)
 
 class Nonlinear():
-    #At this point we have three kind of omega: omega0 --> initial radial velocity, omega02 ---> natural frequency, omega ---> external frequency
+    #At this point we have three kind of omega: omega0 --> initial radial velocity, omega_sq ---> natural frequency, omega ---> external frequency
     g = 9.81
 
     def __init__(self, theta0, omega0, m, gamma, L, F0, dt, t_max, omega, F_external):
@@ -358,7 +335,7 @@ class Nonlinear():
 
         #Pendulum parameter
         self.beta = gamma/(m * L**2)
-        self.omega02 = self.g/L
+        self.omega_sq = self.g/L
         self.alpha = F0/(m * L**2)
 
         #Time
@@ -370,43 +347,57 @@ class Nonlinear():
         self.F_external = F_external
     
     def run(self):
+        
+        n_steps = int(np.ceil(self.t_max/self.dt))
 
-        #Prepare motion history
-        numerical_methods = {
-            "Rk4": rk4,
-            "Crank-nicolson": crank_nicolson,
-            "Verlet": verlet
+        params = {
+            "beta": self.beta,
+            "omega0": self.omega_sq,
+            "omega": self.omega,
+            "alpha": self.alpha,
+            "type": self.F_external
         }
+
+        numerical_methods = {
+            "rk4": rk4,
+            "Crank-nicolson": crank_nicolson,
+            "Verlet": velocity_verlet
+        }
+
         self.history = {
-            name: {"t": [], "theta": [], "angular": [], "Ek": [], "Ep": [], "Wp": []}
+            name: {"t": [], "q": [], "v": [], "Ek": [], "Ep": [], "Wp": []}
             for name in numerical_methods
         }
 
-        #External Force
-        force_map = {
-            "cos": nonlinear_cos, 
-            "sin": nonlinear_sin
-        }
-        force = force_map[self.F_external]
+        #Prepare motion history
+        def accel(t, q, v, p):
+            return nonlinear_system(t, np.array([q, v]), p)[1]
 
-        for name, method in numerical_methods.item():
-            
-            t = 0  
-            theta = self.theta0
-            angular = self.omega0
-            self.history[name]["Wp"].append(self.gamma * angular**2 *self.dt)
+        # --- Loop over methods ---
+        for name, method in numerical_methods.items():
 
-            while t < self.t_max:
+            y = np.array([self.theta0, self.omega0])
+            wp = 0
 
-                # Energy
-                self.history[name]["Ek"].append(0.5 * self.m * angular**2)
-                self.history[name]["Ep"].append(self.g * self.L * theta**2)    
-                wp = self.history[name]["Wp"[-1]] + self.gamma * angular**2 * self.dt
+            for i in range(n_steps):
+                t = i * self.dt
+                q, dq = y
+
+                # Energies
+                Ek = 0.5 * self.m * dq**2
+                Ep = self.m * self.g * self.L* (1 - np.cos(q))
+                wp += self.gamma * dq**2 * self.dt
+
+                # Store
+                self.history[name]["t"].append(t)
+                self.history[name]["q"].append(q)
+                self.history[name]["v"].append(dq)
+                self.history[name]["Ek"].append(Ek)
+                self.history[name]["Ep"].append(Ep)
                 self.history[name]["Wp"].append(wp)
 
-                #Position
-                self.history[name]["t"].append(t)
-                self.history[name]["theta"].append(theta)
-                self.history[name]["angular"].append(angular)
-
-                theta, angular = method(force, self.dt, theta, angular, t, self.omega02, self.omega, self.alpha, self.beta) 
+                # Step
+                if name == "Verlet":
+                    y = method(accel, t, y, self.dt, params)
+                else:
+                    y = method(nonlinear_system, t, y, self.dt, params)
