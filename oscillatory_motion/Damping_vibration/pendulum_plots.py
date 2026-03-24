@@ -403,6 +403,8 @@ def plot_regime_summary(results, gamma_values, methods):
     plt.tight_layout()
     #plt.savefig("\\regime_sumary_pendulum.png", dpi=300, bbox_inches='tight')
     plt.show()
+
+    
 plt.style.use("seaborn-v0_8-paper")
 
 

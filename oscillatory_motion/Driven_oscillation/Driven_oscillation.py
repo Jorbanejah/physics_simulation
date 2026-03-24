@@ -97,7 +97,8 @@ def velocity_verlet(accel, t, y, dt, params=None):
     a = accel(t, q, v, params)
 
     q_new = q + v*dt + 0.5*a*dt**2
-    a_new = accel(t + dt, q_new, v, params)
+    v_half = v + 0.5 * a * dt**2 # Stability
+    a_new = accel(t + dt, q_new, v_half, params)
 
     v_new = v + 0.5*dt*(a + a_new)
 
@@ -146,12 +147,23 @@ def nonlinear_system(t, y, p):
 
     return np.array([dxdt, dvdt])
 
-def analytics(A0, A, beta, omega0, t, omega, delta, chi):
-
-    omega_d = np.sqrt(omega0 - beta**2)
+def analytics(x0, v0, beta, omega0, t, omega, alpha, F_type='sin'):
     
-    return (A0 * np.exp(-beta * t) * np.sin(omega_d * t + chi) + A * np.sin(omega * t - delta))
-
+    omega_d = np.sqrt(max(omega0 - beta**2, 0))
+    
+    # Steady-state 
+    denom = (omega0 - omega**2)**2 + (2*beta*omega)**2
+    A_steady = alpha / np.sqrt(denom)
+    delta = np.arctan2(2*beta*omega, omega0 - omega**2)
+    
+    x_forced = A_steady * np.sin(omega*t - delta) if F_type == 'sin' else A_steady * np.cos(omega*t - delta)
+    
+    # Transient (with x0, v0)
+    C1 = x0
+    C2 = (v0 + beta*x0) / omega_d if omega_d > 0 else 0
+    x_transient = np.exp(-beta*t) * (C1*np.cos(omega_d*t) + C2*np.sin(omega_d*t))
+    
+    return x_transient + x_forced
 ##
 # ---------- Main code ---------------
 ##
@@ -181,7 +193,7 @@ class DrivenOscillation():
         self.system = system.lower()
         self.params = kwargs
 
-        if self.model not in ('linear', 'nonlinear'):
+        if self.system not in ('linear', 'nonlinear'):
             raise ValueError("System must be linear or nonlinear")
 
     def run(self):
@@ -236,9 +248,11 @@ class Linear:
         self.beta = gamma / (2 * m)
         self.omega_sq = k / m 
         self.alpha = F0 / m
+        self.F0 = F0
+
 
         # Phase (steady-state)
-        self.delta = np.arctan((2 * self.beta * self.omega) / (self.omega_sq - self.omega**2))
+        self.delta = np.arctan2((2 * self.beta * self.omega), (self.omega_sq - self.omega**2))
         self.chi = 0 
 
         # Time
@@ -270,7 +284,7 @@ class Linear:
 
         # --- History ---
         self.history = {
-            name: {"t": [], "q": [], "v": [], "Ek": [], "Ep": [], "Wp": []}
+            name: {"t": [], "q": [], "v": [], "Ek": [], "Ep": [], "Wp_diss": [], "Wp_drive": []}
             for name in numerical_methods
         }
 
@@ -282,8 +296,8 @@ class Linear:
         for name, method in numerical_methods.items():
 
             y = np.array([self.y0, self.v0])
-            wp = 0
-
+            Wp_diss = 0.0
+            Wp_drive = 0.0
             for i in range(n_steps):
                 t = i * self.dt
                 q, dq = y
@@ -291,7 +305,22 @@ class Linear:
                 # Energies
                 Ek = 0.5 * self.m * dq**2
                 Ep = 0.5 * self.k * q**2
-                wp += self.gamma * dq**2 * self.dt
+
+                # Dissipative power: γ*v²
+                P_diss = self.gamma * dq**2
+                # External force: F(t)*v(t)
+
+                if self.F_external == 'sin':
+                    F_ext = self.F0 * np.sin(self.omega * t)
+                else:
+                    F_ext = self.F0 * np.cos(self.omega * t)
+
+                P_drive = F_ext * dq
+
+                # 3. Energies
+
+                Wp_diss += P_diss * self.dt
+                Wp_drive += P_drive * self.dt
 
                 # Store
                 self.history[name]["t"].append(t)
@@ -299,7 +328,8 @@ class Linear:
                 self.history[name]["v"].append(dq)
                 self.history[name]["Ek"].append(Ek)
                 self.history[name]["Ep"].append(Ep)
-                self.history[name]["Wp"].append(wp)
+                self.history[name]["Wp_diss"].append(Wp_diss)
+                self.history[name]["Wp_drive"].append(Wp_drive)
 
                 # Step
                 if name == "Verlet":
@@ -312,11 +342,13 @@ class Linear:
 
         for i in range(n_steps):
             t = i * self.dt
-
-            x = analytics(A0 = self.y0, A = self.alpha, beta = self.beta, omega0 = self.omega_sq, t=t, omega=self.omega, delta=self.delta, chi=self.chi)
+            
+            x = analytics(x0=self.y0, v0=self.v0, beta=self.beta, omega0=self.omega_sq, t=t, omega=self.omega, alpha=self.alpha, F_type=self.F_external)
 
             self.analytical["x"].append(x)
             self.analytical["t"].append(t)
+        
+        return self.history, self.analytical
 
 class Nonlinear():
     #At this point we have three kind of omega: omega0 --> initial radial velocity, omega_sq ---> natural frequency, omega ---> external frequency
@@ -335,7 +367,7 @@ class Nonlinear():
 
         #Pendulum parameter
         self.beta = gamma/(m * L**2)
-        self.omega_sq = self.g/L
+        self.omega_sq = self.g / L
         self.alpha = F0/(m * L**2)
 
         #Time
@@ -360,7 +392,7 @@ class Nonlinear():
 
         numerical_methods = {
             "rk4": rk4,
-            "Crank-nicolson": crank_nicolson,
+            "CN": crank_nicolson,
             "Verlet": velocity_verlet
         }
 
@@ -384,7 +416,7 @@ class Nonlinear():
                 q, dq = y
 
                 # Energies
-                Ek = 0.5 * self.m * dq**2
+                Ek = 0.5 * self.m * (self.L * dq**2)
                 Ep = self.m * self.g * self.L* (1 - np.cos(q))
                 wp += self.gamma * dq**2 * self.dt
 
@@ -401,3 +433,5 @@ class Nonlinear():
                     y = method(accel, t, y, self.dt, params)
                 else:
                     y = method(nonlinear_system, t, y, self.dt, params)
+
+        return self.history
