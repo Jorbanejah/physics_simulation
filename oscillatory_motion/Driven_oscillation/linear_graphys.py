@@ -33,7 +33,7 @@ def plot_regime_summary(history, analytical):
 
     """
     Oscillator motion (3x3): 
-    Row 1: trajectory (t,q), Row 2: phase diagram (q,v), Row 3: energies
+    Row 1: trajectory (t_rk4,q), Row 2: phase diagram (q,v), Row 3: energies
     Columns: RK4, CN, Verlet + Analytical
     """
 
@@ -45,8 +45,8 @@ def plot_regime_summary(history, analytical):
     
     for i, method in enumerate(methods):
         # Row 1: Position vs time
-        axes[0, i].plot(history[method]['t'], history[method]['q'], color=colors[method], linewidth=2, label=method, alpha=0.8)
-        axes[0, i].plot(analytical['t'], analytical['x'], 'k--', linewidth=2, label='Analytical', alpha=0.8)
+        axes[0, i].plot(history[method]['t_rk4'], history[method]['q'], color=colors[method], linewidth=2, label=method, alpha=0.8)
+        axes[0, i].plot(analytical['t_rk4'], analytical['x'], 'k--', linewidth=2, label='Analytical', alpha=0.8)
 
         axes[0, i].set_title('Position')
         axes[0, i].set_xlabel('Time (s)')
@@ -66,9 +66,9 @@ def plot_regime_summary(history, analytical):
 
         E_total = np.array(history[method]['Ek']) +  np.array(history[method]['Ep']) + np.array(history[method]['Wp_diss']) - np.array(history[method]['Wp_drive'])
 
-        axes[2, i].plot(history[method]['t'], E_total)
-        axes[2, i].plot(history[method]['t'], history[method]['Ek'], color='red', alpha=0.7, label='Kinetic')
-        axes[2, i].plot(history[method]['t'], history[method]['Ep'], color='orange', alpha=0.7, label='Potential')
+        axes[2, i].plot(history[method]['t_rk4'], E_total)
+        axes[2, i].plot(history[method]['t_rk4'], history[method]['Ek'], color='red', alpha=0.7, label='Kinetic')
+        axes[2, i].plot(history[method]['t_rk4'], history[method]['Ep'], color='orange', alpha=0.7, label='Potential')
         
         axes[2, i].set_title ('Energies')
         axes[2, i].set_xlabel('Time (s)')
@@ -77,8 +77,8 @@ def plot_regime_summary(history, analytical):
         axes[2, i].grid(True, alpha=0.3)
 
 
-        axes[3, i].plot(history[method]['t'], history[method]['Wp_diss'], color='red', alpha=0.7, label='Dissipative work')
-        axes[3, i].plot(history[method]['t'], history[method]['Wp_drive'], color='orange', alpha=0.7, label='Drive work')
+        axes[3, i].plot(history[method]['t_rk4'], history[method]['Wp_diss'], color='red', alpha=0.7, label='Dissipative work')
+        axes[3, i].plot(history[method]['t_rk4'], history[method]['Wp_drive'], color='orange', alpha=0.7, label='Drive work')
         
         axes[3, i].set_title ('Energies')
         axes[3, i].set_xlabel('Time (s)')
@@ -88,93 +88,69 @@ def plot_regime_summary(history, analytical):
     plt.show()
 
 # Analitical solution
-def beta_vs_amplitude(betas, omegas):
-    """Study amplitude vs damping parameter beta for different driving frequencies"""
-    params = DrivenOscillationParams()
-    
-    fig, axes = plt.subplots(1, len(omegas), figsize=(5*len(omegas), 4))
-    if len(omegas) == 1:
-        axes = [axes]
-    
-    for idx, (beta, omega) in enumerate(zip(betas, omegas)):
-        ax = axes[idx] if len(omegas) > 1 else axes
-        
-        amplitudes = []
-        for b in betas:
-            # Update parameters
-            temp_params = DrivenOscillationParams(
-                gamma=2*params.mass*b, omega=omega, **{k: v for k, v in params.__dict__.items() 
-                                                      if k != 'gamma' and k != 'omega'}
-            )
-            
-            osc = DrivenOscillation(
-                q0=temp_params.q0, dq0=temp_params.dq0, mass=temp_params.mass,
-                gamma=temp_params.gamma, F0=temp_params.F0, omega=temp_params.omega,
-                t=temp_params.t_max, dt=temp_params.dt, system='linear',
-                k=params.k, F_external=temp_params.F_external
-            )
-            
-            model = osc.run()
-            history, _ = model.run()
-            
-            # Compute steady-state amplitude (last 20% of trajectory)
-            n_steady = int(0.8 * len(history['rk4']['q']))
-            amp = np.max(np.abs(history['rk4']['q'][n_steady:]))
-            amplitudes.append(amp)
-        
-        ax.plot(betas, amplitudes, 'o-', linewidth=2, markersize=6)
-        ax.set_xlabel('Damping coefficient β')
-        ax.set_ylabel('Steady-state amplitude')
-        ax.set_title(f'ω = {omega:.1f} rad/s')
-        ax.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.show()
+def beta_vs_amplitude():
 
-def beta_vs_velocity(betas, omega=2.0):
-    """Study maximum velocity vs damping parameter beta"""
+    """Study: amplitude vs damping parameter beta for different driving frequencies"""
     params = DrivenOscillationParams()
-    params.omega = omega
+    omega0 = np.sqrt(params.k/params.mass) # Natural frequency
+
+    betas = np.array([0.1*omega0, 0.2*omega0, 0.3*omega0, 0.5*omega0, 0.8*omega0])
     
-    fig, ax = plt.subplots(figsize=(8, 6))
-    max_velocities = []
+    omegas = np.linspace(0.1, 3 * omega0, 50)
+
+    cmap = plt.colormaps["viridis"]
+    colors = [cmap(i / len(betas)) for i in range(len(betas))]
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    for i, beta in enumerate(betas):
+        amplitude = []
+
+        for omega in omegas:
+            denom = np.sqrt((omega0**2 - omega**2)**2 + (2*beta*omega)**2)
+            amplitude.append(params.F0/denom)
+
+        label = rf"$\beta$ = {beta/omega0:.1f} $\omega_0$"
+        ax1.plot(omegas/omega0, amplitude, color=colors[i], lw=2.5, label=label)
+        
+    ax1.axvline(1, color='k', ls='--', lw=1, alpha=0.7, label=r"$\omega_0$")
+    ax1.axhline(params.F0/omega0**2, color = 'k', ls = '--', lw = 1, alpha = 0.7, label = rf'$F0 / \omega_0 ^2$')
+    ax1.set_xlabel(r"$\omega / \omega_0$")
+    ax1.set_ylabel("A")
+    ax1.set_title("Amplitude vs external frequency _ steady-state")
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    max_amplitude = []
+    omega_res = []  
     
     for beta in betas:
-        temp_params = DrivenOscillationParams(gamma=2*params.mass*beta, omega=omega)
+        # Resonance: 
+        omega_r = np.sqrt(max(omega0**2 - 2*beta**2, 0.1))
+        omega_res.append(omega_r)
         
-        osc = DrivenOscillation(
-            q0=temp_params.q0, dq0=temp_params.dq0, mass=temp_params.mass,
-            gamma=temp_params.gamma, F0=temp_params.F0, omega=temp_params.omega,
-            t=temp_params.t_max, dt=temp_params.dt, system='linear',
-            k=params.k, F_external=temp_params.F_external
-        )
-        
-        model = osc.run()
-        history, _ = model.run()
-        
-        # Steady-state max velocity
-        n_steady = int(0.8 * len(history['rk4']['v']))
-        max_v = np.max(np.abs(history['rk4']['v'][n_steady:]))
-        max_velocities.append(max_v)
+        # Maximun power in resonance
+        denom_res = np.sqrt((omega0**2 - omega_r**2)**2 + (2*beta*omega_r)**2)
+        A_max = params.F0 / denom_res
+        max_amplitude.append(A_max)
     
-    ax.plot(betas, max_velocities, 's-', color='green', linewidth=2, markersize=8)
-    ax.set_xlabel('Damping coefficient β')
-    ax.set_ylabel('Maximum steady-state velocity (m/s)')
-    ax.set_title(f'Maximum velocity vs β (ω = {omega} rad/s)')
-    ax.grid(True, alpha=0.3)
+    ax2.semilogy(np.array(betas)/omega0, max_amplitude, 'ro-', markersize=8, lw=2)
+    ax2.set_xlabel(r"$\beta / \omega_0$")
+    ax2.set_ylabel("A")
+    ax2.set_title("Maximum power in resonance vs beta")
+    ax2.grid(True, alpha=0.3)
+    
     plt.tight_layout()
     plt.show()
 
 def beta_vs_power():
-    """Study average dissipated power vs external frequency ω, varying β"""
+    """Study average dissipated power vs external frequency omega, varying beta"""
     
     params = DrivenOscillationParams()
-    omega0 = np.sqrt(params.k / params.mass)  # Frecuencia natural CORRECTA
+    omega0 = np.sqrt(params.k / params.mass)  #Natural frequency
     
-    # Rango de β (fracciones de ω₀)
     betas = np.array([0.1*omega0, 0.2*omega0, 0.3*omega0, 0.5*omega0, 0.8*omega0])
     
-    # Rango de frecuencias externas
     omegas = np.linspace(0.1, 3*omega0, 50)
     
     # Colormap
@@ -183,14 +159,15 @@ def beta_vs_power():
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     
-    # 1. GRÁFICA PRINCIPAL: <P> vs ω para diferentes β
+    # 1. Main graphic: <P> vs omega for different damping parameter
     for i, beta in enumerate(betas):
         avg_powers = []
         
         for omega in omegas:
-            # FÓRMULA ANALÍTICA EXACTA para potencia promedio steady-state
+            # Theorical solution for average power in steady-state
+
             denom = (omega0**2 - omega**2)**2 + (2*beta*omega)**2
-            P_avg = 0.5 * (params.F0/ params.mass)**2 * (2*beta*omega**2) / denom  # ← FÓRMULA CORRECTA
+            P_avg = 0.5 * (params.F0/ params.mass)**2 * (2*beta*omega**2) / denom  
             
             avg_powers.append(P_avg)
         
@@ -200,20 +177,20 @@ def beta_vs_power():
     ax1.axvline(1.0, color='k', ls='--', lw=1, alpha=0.7, label=r"$\omega_0$")
     ax1.set_xlabel(r"$\omega / \omega_0$")
     ax1.set_ylabel(r"$\langle P \rangle$ (W)")
-    ax1.set_title("Potencia disipada promedio vs frecuencia externa")
+    ax1.set_title("Average dissipative power vs external frequency")
     ax1.legend()
     ax1.grid(True, alpha=0.3)
     
-    # 2. GRÁFICA SECUNDARIA: Máxima potencia vs β
+    # 2. Secondary Graphics: Maximun power vs beta
     max_powers = []
-    omega_res = []  # Frecuencia de resonancia
+    omega_res = []  
     
     for beta in betas:
-        # Resonancia: ω_res ≈ sqrt(ω₀² - 2β²)
+        # Resonance: ω_res ≈ sqrt(ω₀² - 2β²)
         omega_r = np.sqrt(max(omega0**2 - 2*beta**2, 0.1))
         omega_res.append(omega_r)
         
-        # Potencia máxima en resonancia
+        # Maximun power in resonance
         denom_res = (omega0**2 - omega_r**2)**2 + (2*beta*omega_r)**2
         P_max = 0.5 * (params.F0/params.mass)**2 * (2*beta*omega_r**2) / denom_res
         max_powers.append(P_max)
@@ -221,7 +198,7 @@ def beta_vs_power():
     ax2.semilogy(np.array(betas)/omega0, max_powers, 'ro-', markersize=8, lw=2)
     ax2.set_xlabel(r"$\beta / \omega_0$")
     ax2.set_ylabel(r"$P_{max}$ (W)")
-    ax2.set_title("Potencia máxima de resonancia vs β")
+    ax2.set_title("Maximum power in resonance vs beta")
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -229,73 +206,116 @@ def beta_vs_power():
     
     return betas, omegas, max_powers
 
-def beta_vs_power_numerical():
-    """Validación NUMÉRICA vs ANALÍTICA"""
+def phase_and_quality_factor():
+    
     params = DrivenOscillationParams()
-    omega0 = np.sqrt(params.k / params.mass)
-    betas = np.array([0.2*omega0, 0.4*omega0])
-    omega_test = omega0  # Frecuencia natural
+    omega0 = np.sqrt(params.k / params.mass) 
     
-    fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+    betas = np.array([0.05*omega0, 0.1*omega0, 0.2*omega0, 0.4*omega0, 0.7*omega0])
+    omegas = np.linspace(0.01, 4*omega0, 200)
     
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    
+    cmap = plt.colormaps["viridis"]
+    colors = [cmap(i / len(betas)) for i in range(len(betas))]
+    
+    # 1. Phase
     for i, beta in enumerate(betas):
-        ax = axes[i]
+        phases = []
+        for omega in omegas:
+
+            phase = np.arctan2(2*beta*omega, omega0**2 - omega**2)
+            phases.append(np.degrees(phase))  # Degrees
+    
+        Q = omega0 / (2*beta)  # Quality factor
+        label = rf"Q={Q:.1f} ($\beta$={beta/omega0:.2f}$\omega_0$)"
+        axes[0,0].plot(omegas/omega0, phases, color=colors[i], lw=3, label=label)
+    
+    axes[0,0].axvline(1.0, color='k', ls='--', lw=2, alpha=0.8, label=r"\omega = \omega_0")
+    axes[0,0].axhline(90, color='blue', ls=':', lw=2, alpha=0.7, label=r"$\phi$=90°")
+    axes[0,0].set_xlabel(r"$\omega/\omega_0$")
+    axes[0,0].set_ylabel(r"$\phi$ (grados)")
+    axes[0,0].set_title('phase through resonance')
+    axes[0,0].legend(framealpha=0.95)
+    axes[0,0].grid(True, alpha=0.3)
+    
+    # 2. Quality factor vs width
+    delta_omegas = []
+    for beta in betas:
+
+        Q = omega0 / (2*beta)
+
+        delta_omega = omega0 / Q
+        delta_omegas.append(delta_omega)
+    
+    axes[0,1].semilogy(np.array(betas)/omega0, [omega0/(2*b) for b in betas], 'ro-', markersize=10, lw=3, label='Q=ω₀/(2β)')
+    axes[0,1].semilogy(np.array(betas)/omega0, delta_omegas/omega0, 'bs-', markersize=8, lw=3, label='Δω/ω₀ = 1/Q')
+    axes[0,1].set_xlabel(r"$\beta/\omega_0$")
+    axes[0,1].set_ylabel("Adimensional factor")
+    axes[0,1].set_title(r"Quality factor vs width $\delta \omega$")
+    axes[0,1].legend()
+    axes[0,1].grid(True, alpha=0.3)
+    
+    # 3. φ vs ω normalization for Q
+    for i, beta in enumerate(betas):
+        Q = omega0 / (2*beta)
+        phi_Q = []
+        for omega in omegas:
+            phase = np.arctan2(2*beta*omega, omega0**2 - omega**2)
+            phi_Q.append(np.degrees(phase))
         
-        # Simulación numérica
-        temp_params = DrivenOscillationParams(gamma=2*params.mass*beta)
-        osc = DrivenOscillation(q0= temp_params.q0, dq0=temp_params.dq0, m=temp_params.mass, gamma=temp_params.gamma, F0=temp_params.F0, omega=omega_test, t=50, dt=0.01, system='linear', k=params.k, F_external='sin')
-        model = osc.run()
-        
-        t = np.array(model.history['rk4']['t'])
-        P_drive = np.array(model.history['rk4']['Wp_drive'])
-        P_diss = np.array(model.history['rk4']['Wp_diss'])
-        
-        # Potencia promedio steady-state (últimos 20%)
-        n_steady = int(0.8 * len(t))
-        P_avg_num = (P_diss[-1] - P_diss[n_steady]) / (t[-1] - t[n_steady])
-        
-        # Analítica
-        denom = (omega0**2 - omega_test**2)**2 + (2*beta*omega_test)**2
-        P_avg_ana = 0.5 * (params.F0/params.mass)**2 * (2*beta*omega_test**2) / denom
-        
-        print(f"β={beta/omega0:.1f}ω₀: P_num={P_avg_num:.4f}, P_ana={P_avg_ana:.4f}, Error={100*abs(P_avg_num-P_avg_ana)/P_avg_ana:.1f}%")
-        
-        ax.plot(t[n_steady:], P_drive[n_steady:], 'g-', alpha=0.7, label='P_drive')
-        ax.plot(t[n_steady:], P_diss[n_steady:], 'r-', label='P_diss')
-        ax.axhline(P_avg_num, color='k', ls='--', label=f'P_avg={P_avg_num:.3f}')
-        ax.set_title(rf'β = {beta/omega0:.1f}ω₀ (ω={omega_test/omega0:.1f}ω₀)')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
+        axes[1,0].plot(omegas/omega0, phi_Q, color=colors[i], lw=2.5)
+    
+    axes[1,0].set_xlabel(r"$\omega/\omega_0$")
+    axes[1,0].set_ylabel(r"$\phi$ (grados)")
+    axes[1,0].set_title("Phase vs omega normalize for Q")
+    axes[1,0].grid(True, alpha=0.3)
+    
+    # 4. Curva maestra universal φ vs ω/ω₀ (independiente de Q)
+    u = np.linspace(0.1, 3, 200)  # Represent ω/ω₀
+    phi_universal = np.degrees(np.arctan2(2*u, 1 - u**2)) 
+    axes[1,1].plot(u, phi_universal, 'k-', lw=4, label="Limit Q→∞")
+    axes[1,1].set_xlabel(r"$\omega/\omega_0$")
+    axes[1,1].set_ylabel(r"$\phi$ (grados)")
+    axes[1,1].set_title("Explots")
+    axes[1,1].legend()
+    axes[1,1].grid(True, alpha=0.3)
     
     plt.tight_layout()
     plt.show()
+    
+    # Results table
+    print("\n" + "="*60)
+    print("Quality factor:")
+    print("="*60)
+    for beta in betas:
+        Q = omega0 / (2*beta)
+        delta_w = omega0 / Q
+        print(f"β/ω₀={beta/omega0:.2f} → Q={Q/omega0:.2f} → Δω/ω₀={delta_w/omega0:.3f}")
+    print("="*60)
 
 
-##
+##  
 # ------- Main execution -------
 ##
 if __name__ == "__main__":
 
     # Create linear oscillator
     params = DrivenOscillationParams()
-    osc = DrivenOscillation(q0=params.q0, dq0=params.dq0, m=params.mass, gamma=params.gamma, F0=params.F0, omega=params.omega, t=params.t_max, dt=params.dt, system='linear',  k = params.k, F_external=params.F_external)
+    osc = DrivenOscillation(q0=params.q0, dq0=params.dq0, m=params.mass, gamma=params.gamma, F0=params.F0, omega=params.omega, t_rk4=params.t_max, dt=params.dt, system='linear',  k = params.k, F_external=params.F_external)
     
     model = osc.run()
     history, analytical = model.run()
     
     # Plot regime summary
     #plot_regime_summary(history, analytical)
-    
-    # Parametric studies
-    betas = np.linspace(0.1, 1.0, 100)
-    #omegas = [1.0, 1.5, 2.0]
-    
-    #beta_vs_amplitude(betas, omegas)
-    #beta_vs_velocity(betas)
-    beta_vs_power()
-    beta_vs_power_numerical()
 
-# Poincare section (2-d and 3-d)
+    # Resonance curve
+    #beta_vs_power()
+    #beta_vs_amplitude()
 
-# Bifurcation diagrams
+    #Quality factor
+
+    #phase_and_quality_factor()
+
 
