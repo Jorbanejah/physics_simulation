@@ -22,15 +22,12 @@ class DrivenOscillationParams:
     
     system: str = 'linear'
 
-def beta_vs_power_numerical():
+def beta_vs_power_numerical(params, omega0, numerical_method):
     """Numerical vs Analitical validation"""
 
-    params = DrivenOscillationParams()
-    omega0 = np.sqrt(params.k / params.mass)
     betas = np.array([i* omega0 for _, i in enumerate(np.linspace(0.1 * omega0, 0.8 * omega0, 10))])
     omega_test = omega0  # Natural frequency
-    
-    numerical_method = ['rk4', 'CN', 'Verlet']
+
     errors = {name: [] for name in numerical_method}
     plt.figure(figsize= (10, 6))
 
@@ -75,13 +72,10 @@ def beta_vs_power_numerical():
     plt.grid(True)
     plt.show()
 
-def beta_vs_amplitude_numerical():
+def beta_vs_amplitude_numerical(params, omega0, numerical_method):
 
-    params = DrivenOscillationParams()
-    omega0 = np.sqrt(params.k / params.mass)
     betas = np.array([i* omega0 for _, i in enumerate(np.linspace(0.1 * omega0, 0.8 * omega0, 10))])
     
-    numerical_method = ['rk4', 'CN', 'Verlet']
     errors = {name: [] for name in numerical_method}
 
     plt.figure(figsize= (10, 6))
@@ -131,10 +125,8 @@ def beta_vs_amplitude_numerical():
     plt.show()
 
     
-def validate_phase_fitting():
-    
-    params = DrivenOscillationParams()
-    omega0 = np.sqrt(params.k / params.mass)
+def validate_phase_fitting(params, omega0):
+
     alpha = params.F0 / params.mass
     
     beta = 0.2 * omega0
@@ -185,19 +177,122 @@ def validate_phase_fitting():
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.show()
+
+#Energies with regards to beta parameter, external omega and dt
+
+def energy_surface(params, omega0, method='rk4'):
+
+    # Parameter sweeps
+    betas = np.linspace(- omega0, omega0, 20)
+    omegas = np.linspace(-2.5 * omega0, 2.5 * omega0, 20)
+
+    # Storage for drift values
+    drift_map = np.zeros((len(betas), len(omegas)))
+
+    for i, beta in enumerate(betas):
+        for j, omega in enumerate(omegas):
+
+            osc = DrivenOscillation(
+                q0=params.q0, dq0=params.dq0, m=params.mass,
+                gamma=beta * 2 * params.mass,
+                F0=params.F0, omega=omega,
+                t= params.t_max, dt=params.dt,
+                system='linear', k=params.k,
+                F_external=params.F_external
+            )
+
+            model = osc.run()
+
+            Ep = np.array(model.history[method]['Ep'])
+            Ek = np.array(model.history[method]['Ek'])
+            E = Ep + Ek
+
+            dE = E - E[0]
+            drift_map[i, j] = np.max(np.abs(dE))   # scalar drift measure
+
+    # ---- 3D SURFACE PLOT ----
+    B, W = np.meshgrid(betas / omega0, omegas / omega0, indexing='ij')
+
+    fig = plt.figure(figsize=(12, 6))
+    ax = fig.add_subplot(121, projection='3d')
+
+    surf = ax.plot_surface(B, W, drift_map, cmap='viridis', edgecolor='none')
+    ax.set_xlabel(r'$\beta / \omega_0$')
+    ax.set_ylabel(r'$\omega / \omega_0$')
+    ax.set_zlabel(r'$\max |\Delta E|$')
+    ax.set_title(f'Energy Drift Surface ({method})')
+    fig.colorbar(surf, ax=ax, shrink=0.6)
+
+    # ---- 2D HEATMAP ----
+    ax2 = fig.add_subplot(122)
+    im = ax2.imshow(
+        drift_map,
+        extent=[omegas[0]/omega0, omegas[-1]/omega0,
+                betas[0]/omega0, betas[-1]/omega0],
+        origin='lower',
+        aspect='auto',
+        cmap='viridis'
+    )
+    ax2.set_xlabel(r'$\omega / \omega_0$')
+    ax2.set_ylabel(r'$\beta / \omega_0$')
+    ax2.set_title(f'Energy Drift Map ({method})')
+    fig.colorbar(im, ax=ax2)
+
+    plt.tight_layout()
+
+#Stability and convergence
+
+method_colors = {
+    "rk4": "#1f77b4",            # Blue
+    "euler": "#ff7f0e",          # Orange
+    "crank_nicolson": "#2ca02c"  # Green
+}
+def numerical_stability(params, omega0, method):
+
+    dt = [0.5, 0.1, 0.05, 0.01]
+    amplitudes = []
+    for i, dt in enumerate(dt):
+
+        osc = DrivenOscillation(q0=params.q0, dq0=params.dq0, m=params.mass, gamma=params.gamma, F0=params.F0, omega=params.omega, t=params.t_max, dt=dt, system='linear',  k = params.k, F_external=params.F_external)
+
+        amplitudes.append(np.max(np.abs(osc["q"])))
+
+    plt.figure(figsize=(6,5))
+
+    color = method_colors.get(method, "black")
+
+    plt.plot(dt_v, amplitudes, "o-", lw=2, markersize=6, color=color)
+
+    plt.xlabel(r"Time step $\Delta t$", fontsize=11)
+    plt.ylabel(r"Max $|\theta|$", fontsize=11)
+
+    plt.title(rf"Numerical Stability ({method})", fontsize=13, loc="left")
+    plt.grid(alpha=0.3)
+
+    plt.tight_layout()
 
 if __name__ == "__main__":
 
     # Create linear oscillator
     params = DrivenOscillationParams()
-    osc = DrivenOscillation(q0=params.q0, dq0=params.dq0, m=params.mass, gamma=params.gamma, F0=params.F0, omega=params.omega, t_rk4=params.t_max, dt=params.dt, system='linear',  k = params.k, F_external=params.F_external)
-    
+    osc = DrivenOscillation(q0=params.q0, dq0=params.dq0, m=params.mass, gamma=params.gamma, F0=params.F0, omega=params.omega, t=params.t_max, dt=params.dt, system='linear',  k = params.k, F_external=params.F_external)
+
+    omega0 = params.k/params.mass
+
+    numerical_method = ['rk4', 'CN', 'Verlet']
+
     model = osc.run()
     history, analytical = model.run()
     
-    validate_phase_fitting()
-    #beta_vs_amplitude_numerical()
-    #beta_vs_power_numerical()
+    #validate_phase_fitting(params, omega0)
+    #beta_vs_amplitude_numerical(params, omega0, numerical_method)
+    #beta_vs_power_numerical(params, omega0, numerical_method)
+
+    #Energies
+    #energies_beta()
+    for i in numerical_method:
+        energy_surface(params, omega0, i)
+
+    plt.show()
     
 
