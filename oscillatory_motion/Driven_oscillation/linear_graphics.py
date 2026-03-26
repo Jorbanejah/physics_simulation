@@ -33,7 +33,7 @@ def plot_regime_summary(history, analytical):
 
     """
     Oscillator motion (3x3): 
-    Row 1: trajectory (t_rk4,q), Row 2: phase diagram (q,v), Row 3: energies
+    Row 1: trajectory 't,q), Row 2: phase diagram (q,v), Row 3: energies
     Columns: RK4, CN, Verlet + Analytical
     """
 
@@ -45,8 +45,8 @@ def plot_regime_summary(history, analytical):
     
     for i, method in enumerate(methods):
         # Row 1: Position vs time
-        axes[0, i].plot(history[method]['t_rk4'], history[method]['q'], color=colors[method], linewidth=2, label=method, alpha=0.8)
-        axes[0, i].plot(analytical['t_rk4'], analytical['x'], 'k--', linewidth=2, label='Analytical', alpha=0.8)
+        axes[0, i].plot(history[method]['t'], history[method]['q'], color=colors[method], linewidth=2, label=method, alpha=0.8)
+        axes[0, i].plot(analytical['t'], analytical['x'], 'k--', linewidth=2, label='Analytical', alpha=0.8)
 
         axes[0, i].set_title('Position')
         axes[0, i].set_xlabel('Time (s)')
@@ -66,9 +66,9 @@ def plot_regime_summary(history, analytical):
 
         E_total = np.array(history[method]['Ek']) +  np.array(history[method]['Ep']) + np.array(history[method]['Wp_diss']) - np.array(history[method]['Wp_drive'])
 
-        axes[2, i].plot(history[method]['t_rk4'], E_total)
-        axes[2, i].plot(history[method]['t_rk4'], history[method]['Ek'], color='red', alpha=0.7, label='Kinetic')
-        axes[2, i].plot(history[method]['t_rk4'], history[method]['Ep'], color='orange', alpha=0.7, label='Potential')
+        axes[2, i].plot(history[method]['t'], E_total)
+        axes[2, i].plot(history[method]['t'], history[method]['Ek'], color='red', alpha=0.7, label='Kinetic')
+        axes[2, i].plot(history[method]['t'], history[method]['Ep'], color='orange', alpha=0.7, label='Potential')
         
         axes[2, i].set_title ('Energies')
         axes[2, i].set_xlabel('Time (s)')
@@ -77,8 +77,8 @@ def plot_regime_summary(history, analytical):
         axes[2, i].grid(True, alpha=0.3)
 
 
-        axes[3, i].plot(history[method]['t_rk4'], history[method]['Wp_diss'], color='red', alpha=0.7, label='Dissipative work')
-        axes[3, i].plot(history[method]['t_rk4'], history[method]['Wp_drive'], color='orange', alpha=0.7, label='Drive work')
+        axes[3, i].plot(history[method]['t'], history[method]['Wp_diss'], color='red', alpha=0.7, label='Dissipative work')
+        axes[3, i].plot(history[method]['t'], history[method]['Wp_drive'], color='orange', alpha=0.7, label='Drive work')
         
         axes[3, i].set_title ('Energies')
         axes[3, i].set_xlabel('Time (s)')
@@ -294,7 +294,65 @@ def phase_and_quality_factor():
         print(f"β/ω₀={beta/omega0:.2f} → Q={Q/omega0:.2f} → Δω/ω₀={delta_w/omega0:.3f}")
     print("="*60)
 
+def energy_surface(params, omega0, method='rk4'):
 
+    # Parameter sweeps
+    betas = np.linspace(0.01*omega0, 0.8*omega0, 20)  # Physical damping
+    omegas = np.linspace(-2.5 * omega0, 2.5 * omega0, 20)
+
+    # Storage for drift values
+    drift_map = np.zeros((len(betas), len(omegas)))
+
+    for i, beta in enumerate(betas):
+        for j, omega in enumerate(omegas):
+
+            osc = DrivenOscillation(
+                q0=params.q0, dq0=params.dq0, m=params.mass,
+                gamma=beta * 2 * params.mass,
+                F0=params.F0, omega=omega,
+                t= params.t_max, dt=params.dt,
+                system='linear', k=params.k,
+                F_external=params.F_external
+            )
+
+            model = osc.run()
+
+            Ep = np.array(model.history[method]['Ep'])
+            Ek = np.array(model.history[method]['Ek'])
+            E = Ep + Ek
+
+            dE = E - E[0]
+            drift_map[i, j] = np.max(np.abs(dE))   # scalar drift measure
+
+    # ---- 3D SURFACE PLOT ----
+    B, W = np.meshgrid(betas / omega0, omegas / omega0, indexing='ij')
+
+    fig = plt.figure(figsize=(12, 6))
+    ax = fig.add_subplot(121, projection='3d')
+
+    surf = ax.plot_surface(B, W, drift_map, cmap='viridis', edgecolor='none')
+    ax.set_xlabel(r'$\beta / \omega_0$')
+    ax.set_ylabel(r'$\omega / \omega_0$')
+    ax.set_zlabel(r'$\max |\Delta E|$')
+    ax.set_title(f'Energy Drift Surface ({method})')
+    fig.colorbar(surf, ax=ax, shrink=0.6)
+
+    # ---- 2D HEATMAP ----
+    ax2 = fig.add_subplot(122)
+    im = ax2.imshow(
+        drift_map,
+        extent=[omegas[0]/omega0, omegas[-1]/omega0,
+                betas[0]/omega0, betas[-1]/omega0],
+        origin='lower',
+        aspect='auto',
+        cmap='viridis'
+    )
+    ax2.set_xlabel(r'$\omega / \omega_0$')
+    ax2.set_ylabel(r'$\beta / \omega_0$')
+    ax2.set_title(f'Energy Drift Map ({method})')
+    fig.colorbar(im, ax=ax2)
+
+    plt.tight_layout()
 ##  
 # ------- Main execution -------
 ##
@@ -302,20 +360,20 @@ if __name__ == "__main__":
 
     # Create linear oscillator
     params = DrivenOscillationParams()
-    osc = DrivenOscillation(q0=params.q0, dq0=params.dq0, m=params.mass, gamma=params.gamma, F0=params.F0, omega=params.omega, t_rk4=params.t_max, dt=params.dt, system='linear',  k = params.k, F_external=params.F_external)
+    osc = DrivenOscillation(q0=params.q0, dq0=params.dq0, m=params.mass, gamma=params.gamma, F0=params.F0, omega=params.omega,t=params.t_max, dt=params.dt, system='linear',  k = params.k, F_external=params.F_external)
     
     model = osc.run()
     history, analytical = model.run()
     
     # Plot regime summary
-    #plot_regime_summary(history, analytical)
+    plot_regime_summary(history, analytical)
 
     # Resonance curve
-    #beta_vs_power()
-    #beta_vs_amplitude()
+    beta_vs_power()
+    beta_vs_amplitude()
 
     #Quality factor
 
-    #phase_and_quality_factor()
+    phase_and_quality_factor()
 
 

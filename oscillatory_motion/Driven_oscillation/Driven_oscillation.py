@@ -289,8 +289,8 @@ class Linear:
         }
 
         # --- Acceleration adapter for Verlet ---
-        def accel(t, q, v, p):
-            return linear_system(t, np.array([q, v]), p)[1]
+        def accel(t, q, v, params):
+            return linear_system(t, np.array([q, v]), params)[1]
 
         # --- Loop over methods ---
         for name, method in numerical_methods.items():
