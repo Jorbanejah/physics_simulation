@@ -14,7 +14,7 @@ class DrivenOscillationParams:
     k: float = 1.0
 
     omega: float = 2.0
-    F0: float = 6.0
+    F0: float = 2.0
     F_external: str = 'cos'
 
     q0: float = 2.0
@@ -29,15 +29,15 @@ class DrivenOscillationParams:
 # ------- Graphics -----
 ##
 
-def plot_regime_summary(history, analytical):
+def plot_regime_summary(history, analytical, F0_val, gamma_val):
 
     """
     Oscillator motion (3x3): 
-    Row 1: trajectory 't,q), Row 2: phase diagram (q,v), Row 3: energies
-    Columns: RK4, CN, Verlet + Analytical
+    Row 1: trajectory (t,q), Row 2: phase diagram (q,v), Row 3: energies
+    Columns: (RK4, CN, Verlet) + Analytical
     """
 
-    fig, axes = plt.subplots(4, 3, figsize=(15, 10), tight_layout = True)
+    fig, axes = plt.subplots(4, 3, figsize=(15, 12), tight_layout = True)
     methods = ['rk4', 'CN', 'Verlet']
     
     # Colors for methods
@@ -85,14 +85,11 @@ def plot_regime_summary(history, analytical):
         axes[3, i].set_ylabel('Energy (J)')
         axes[3, i].legend()
         axes[3, i].grid(True, alpha=0.3)
-    plt.show()
-
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\regime_summary{F0_val}_{gamma_val}.png", dpi=300, bbox_inches='tight')
 # Analitical solution
-def beta_vs_amplitude():
+def beta_vs_amplitude(params, omega0):
 
     """Study: amplitude vs damping parameter beta for different driving frequencies"""
-    params = DrivenOscillationParams()
-    omega0 = np.sqrt(params.k/params.mass) # Natural frequency
 
     betas = np.array([0.1*omega0, 0.2*omega0, 0.3*omega0, 0.5*omega0, 0.8*omega0])
     
@@ -141,13 +138,10 @@ def beta_vs_amplitude():
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\beta_vs_amplitude.png", dpi=300, bbox_inches='tight')
 
-def beta_vs_power():
+def beta_vs_power(params, omega0):
     """Study average dissipated power vs external frequency omega, varying beta"""
-    
-    params = DrivenOscillationParams()
-    omega0 = np.sqrt(params.k / params.mass)  #Natural frequency
     
     betas = np.array([0.1*omega0, 0.2*omega0, 0.3*omega0, 0.5*omega0, 0.8*omega0])
     
@@ -174,7 +168,7 @@ def beta_vs_power():
         label = rf"$\beta$ = {beta/omega0:.1f} $\omega_0$"
         ax1.plot(omegas/omega0, avg_powers, color=colors[i], lw=2.5, label=label)
     
-    ax1.axvline(1.0, color='k', ls='--', lw=1, alpha=0.7, label=r"$\omega_0$")
+    ax1.axvline(1, color='k', ls='--', lw=1, alpha=0.7, label=r"$\omega_0$")
     ax1.set_xlabel(r"$\omega / \omega_0$")
     ax1.set_ylabel(r"$\langle P \rangle$ (W)")
     ax1.set_title("Average dissipative power vs external frequency")
@@ -202,7 +196,7 @@ def beta_vs_power():
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\beta_vs_power.png", dpi=300, bbox_inches='tight')
     
     return betas, omegas, max_powers
 
@@ -282,7 +276,7 @@ def phase_and_quality_factor():
     axes[1,1].grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\phase_and_qualityfactor.png", dpi=300, bbox_inches='tight')
     
     # Results table
     print("\n" + "="*60)
@@ -294,65 +288,112 @@ def phase_and_quality_factor():
         print(f"β/ω₀={beta/omega0:.2f} → Q={Q/omega0:.2f} → Δω/ω₀={delta_w/omega0:.3f}")
     print("="*60)
 
-def energy_surface(params, omega0, method='rk4'):
+def energy_surface_omega(params, omega0, method='Verlet'):
 
     # Parameter sweeps
-    betas = np.linspace(0.01*omega0, 0.8*omega0, 20)  # Physical damping
-    omegas = np.linspace(-2.5 * omega0, 2.5 * omega0, 20)
+    betas = np.linspace(0*omega0, 1.5*omega0, 40)  # Physical damping
+    omegas = np.linspace(0.1 * omega0, 3 * omega0, 40)
+    dt = [0.01, 0.05, 0.1, 0.5]
+    
+    for dt in dt:
+        # Storage for drift values
+        drift_map = np.zeros((len(betas), len(omegas)))
 
-    # Storage for drift values
-    drift_map = np.zeros((len(betas), len(omegas)))
+        for i, beta in enumerate(betas):
+            for j, omega in enumerate(omegas):
+                #We want that every omega contribute equally
+                cycles = 30
+                T = 2*np.pi / abs(omega)
+                t_max = cycles * T
 
-    for i, beta in enumerate(betas):
-        for j, omega in enumerate(omegas):
+                osc = DrivenOscillation(q0=params.q0, dq0=params.dq0, m=params.mass,gamma=beta * 2 * params.mass, F0=params.F0, omega=omega, t_max=t_max, dt=dt, system='linear', k=params.k, F_external=params.F_external)
+                model = osc.run()
+                history = model.history
 
-            osc = DrivenOscillation(
-                q0=params.q0, dq0=params.dq0, m=params.mass,
-                gamma=beta * 2 * params.mass,
-                F0=params.F0, omega=omega,
-                t= params.t_max, dt=params.dt,
-                system='linear', k=params.k,
-                F_external=params.F_external
-            )
+                E_total = np.array(history[method]['Ek']) +  np.array(history[method]['Ep']) + np.array(history[method]['Wp_diss']) - np.array(history[method]['Wp_drive'])
 
-            model = osc.run()
+                dE = (np.max(E_total) - np.min(E_total)) / np.mean(E_total)
 
-            Ep = np.array(model.history[method]['Ep'])
-            Ek = np.array(model.history[method]['Ek'])
-            E = Ep + Ek
+                drift_map[i, j] = dE   # scalar drift measure
 
-            dE = E - E[0]
-            drift_map[i, j] = np.max(np.abs(dE))   # scalar drift measure
+        print(f'Running {method=} with {dt=}')
 
-    # ---- 3D SURFACE PLOT ----
-    B, W = np.meshgrid(betas / omega0, omegas / omega0, indexing='ij')
+        # ---- 3D SURFACE PLOT ----
+        B, W = np.meshgrid(betas / omega0, omegas / omega0, indexing='ij')
 
-    fig = plt.figure(figsize=(12, 6))
-    ax = fig.add_subplot(121, projection='3d')
+        fig = plt.figure(figsize=(12, 6))
+        ax = fig.add_subplot(121, projection='3d')
 
-    surf = ax.plot_surface(B, W, drift_map, cmap='viridis', edgecolor='none')
-    ax.set_xlabel(r'$\beta / \omega_0$')
-    ax.set_ylabel(r'$\omega / \omega_0$')
-    ax.set_zlabel(r'$\max |\Delta E|$')
-    ax.set_title(f'Energy Drift Surface ({method})')
-    fig.colorbar(surf, ax=ax, shrink=0.6)
+        surf = ax.plot_surface(B, W, drift_map, cmap='viridis', edgecolor='none')
+        ax.set_xlabel(r'$\beta / \omega_0$')
+        ax.set_ylabel(r'$\omega / \omega_0$')
+        ax.set_zlabel(r'$\max |E_{total}|$')
+        ax.set_title(f'Energy Drift Surface ({method})')
 
-    # ---- 2D HEATMAP ----
-    ax2 = fig.add_subplot(122)
-    im = ax2.imshow(
-        drift_map,
-        extent=[omegas[0]/omega0, omegas[-1]/omega0,
-                betas[0]/omega0, betas[-1]/omega0],
-        origin='lower',
-        aspect='auto',
-        cmap='viridis'
-    )
-    ax2.set_xlabel(r'$\omega / \omega_0$')
-    ax2.set_ylabel(r'$\beta / \omega_0$')
-    ax2.set_title(f'Energy Drift Map ({method})')
-    fig.colorbar(im, ax=ax2)
+        # ---- 2D HEATMAP ----
+        ax2 = fig.add_subplot(122)
+        im = ax2.imshow(drift_map, extent=[omegas[0]/omega0, omegas[-1]/omega0, betas[0]/omega0, betas[-1]/omega0], origin='lower', aspect='auto', cmap='viridis')
+        ax2.set_xlabel(r'$\omega / \omega_0$')
+        ax2.set_ylabel(r'$\beta / \omega_0$')
+        ax2.set_title(f'Energy Drift Map ({method})')
+        fig.colorbar(im, ax=ax2)
 
-    plt.tight_layout()
+        plt.tight_layout()
+        plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\energy_surface_OMEGA_{method}_{dt}.png", dpi=300, bbox_inches='tight')
+    
+def energy_surface_F0(params, omega0, method='rk4'):
+
+    # Parameter sweeps
+    betas = np.linspace(0*omega0, 1.5*omega0, 20)  # Physical damping
+    F0s = np.linspace(0.1 * omega0, 3 * omega0, 20)
+    dt = [0.01, 0.05, 0.1, 0.5]
+    
+    for dt in dt:
+        # Storage for drift values
+        drift_map = np.zeros((len(betas), len(F0s)))
+
+        for i, beta in enumerate(betas):
+            for j, F0 in enumerate(F0s):
+                #We want that every omega contribute equally
+                cycles = 30
+                T = 2*np.pi / abs(F0)
+                t_max = cycles * T
+
+                osc = DrivenOscillation(q0=params.q0, dq0=params.dq0, m=params.mass,gamma=beta * 2 * params.mass, F0=F0, omega=params.omega, t_max=t_max, dt=dt, system='linear', k=params.k, F_external=params.F_external)
+                model = osc.run()
+                history = model.history
+
+                E_total = np.array(history[method]['Ek']) +  np.array(history[method]['Ep']) + np.array(history[method]['Wp_diss']) - np.array(history[method]['Wp_drive'])
+
+                dE = (np.max(E_total) - np.min(E_total)) / np.mean(E_total)
+
+                drift_map[i, j] = dE   # scalar drift measure
+
+        print(f'Running {method=} with {dt=}')
+
+        # ---- 3D SURFACE PLOT ----
+        B, W = np.meshgrid(betas / omega0, F0s / omega0, indexing='ij')
+
+        fig = plt.figure(figsize=(12, 6))
+        ax = fig.add_subplot(121, projection='3d')
+
+        surf = ax.plot_surface(B, W, drift_map, cmap='viridis', edgecolor='none')
+        ax.set_xlabel(r'$\beta / \omega_0$')
+        ax.set_ylabel(r'$F0 / \omega_0$')
+        ax.set_zlabel(r'$\max |E_{total}|$')
+        ax.set_title(f'Energy Drift Surface ({method})')
+
+        # ---- 2D HEATMAP ----
+        ax2 = fig.add_subplot(122)
+        im = ax2.imshow(drift_map, extent=[F0s[0]/omega0, F0s[-1]/omega0, betas[0]/omega0, betas[-1]/omega0], origin='lower', aspect='auto', cmap='viridis')
+        ax2.set_xlabel(r'F0 / \omega_0$')
+        ax2.set_ylabel(r'$\beta / \omega_0$')
+        ax2.set_title(f'Energy Drift Map ({method})')
+        fig.colorbar(im, ax=ax2)
+
+        plt.tight_layout()
+        plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\energy_surface_F0_{method}_{dt}.png", dpi=300, bbox_inches='tight')
+    
 ##  
 # ------- Main execution -------
 ##
@@ -360,20 +401,33 @@ if __name__ == "__main__":
 
     # Create linear oscillator
     params = DrivenOscillationParams()
-    osc = DrivenOscillation(q0=params.q0, dq0=params.dq0, m=params.mass, gamma=params.gamma, F0=params.F0, omega=params.omega,t=params.t_max, dt=params.dt, system='linear',  k = params.k, F_external=params.F_external)
     
-    model = osc.run()
-    history, analytical = model.run()
+    numerical_method = ['rk4', 'CN', 'Verlet']
+    omega0 = np.sqrt(params.k/params.mass)
     
-    # Plot regime summary
-    plot_regime_summary(history, analytical)
+    F0_list = [0, 0, 2.0]
+    gamma_list = [0, 1, 3]
 
+    #for idx, (F0_val, gamma_val) in enumerate(zip(F0_list, gamma_list)):
+
+    #    print(f"Running F0={F0_val}, gamma={gamma_val}")
+    
+    #    osc = DrivenOscillation( q0=params.q0, dq0=params.dq0, m=params.mass, gamma=gamma_val, F0=F0_val, omega=params.omega, t_max=params.t_max, dt=params.dt, system='linear', k=params.k, F_external=params.F_external)
+    
+    #    model = osc.run() 
+    
+    #    plot_regime_summary(model.history, model.analytical, F0_val, gamma_val) 
+    
     # Resonance curve
-    beta_vs_power()
-    beta_vs_amplitude()
+    #beta_vs_power(params, omega0)
+    #beta_vs_amplitude(params, omega0)
 
     #Quality factor
 
-    phase_and_quality_factor()
+    #phase_and_quality_factor()
 
-
+    #Energies
+    for i in numerical_method:
+    #energy_surface_omega(params, omega0)
+        energy_surface_F0(params, omega0, i)
+    

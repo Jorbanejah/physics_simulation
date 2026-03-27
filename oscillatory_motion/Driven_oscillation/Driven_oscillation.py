@@ -156,11 +156,23 @@ def analytics(x0, v0, beta, omega0, t, omega, alpha, F_type='sin'):
     A_steady = alpha / np.sqrt(denom)
     delta = np.arctan2(2*beta*omega, omega0 - omega**2)
     
-    x_forced = A_steady * np.sin(omega*t - delta) if F_type == 'sin' else A_steady * np.cos(omega*t - delta)
+    # Forced response
+    if F_type == 'sin':
+        x_forced = A_steady * np.sin(omega*t - delta)
+        x_f0 = A_steady * np.sin(-delta)
+        v_f0 = A_steady * omega * np.cos(-delta)
+    else:  # 'cos'
+        x_forced = A_steady * np.cos(omega*t - delta)
+        x_f0 = A_steady * np.cos(-delta)
+        v_f0 = -A_steady * omega * np.sin(-delta)
     
     # Transient (with x0, v0)
-    C1 = x0
-    C2 = (v0 + beta*x0) / omega_d if omega_d > 0 else 0
+    C1 = x0 - x_f0
+    if omega_d > 0:
+        C2 = (v0 -v_f0 + beta*x0) / omega_d 
+    else:
+        C2 = 0.0
+        
     x_transient = np.exp(-beta*t) * (C1*np.cos(omega_d*t) + C2*np.sin(omega_d*t))
     
     return x_transient + x_forced
