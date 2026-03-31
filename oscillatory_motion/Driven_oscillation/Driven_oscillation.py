@@ -124,7 +124,7 @@ def linear_system(t, y, p):
         force = np.sin(p["omega"] * t)
 
     dxdt = v
-    dvdt = -2 * p["beta"] * v - p["omega0"] * x + p["alpha"] * force
+    dvdt = -2 * p["beta"] * v - p["omega0"]**2 * x + p["alpha"] * force
 
     return np.array([dxdt, dvdt])
 
@@ -149,33 +149,39 @@ def nonlinear_system(t, y, p):
 
 def analytics(x0, v0, beta, omega0, t, omega, alpha, F_type='sin'):
     
-    omega_d = np.sqrt(max(omega0 - beta**2, 0))
+    omega_d = np.sqrt(max(omega0**2 - beta**2, 0))
     
     # Steady-state 
-    denom = (omega0 - omega**2)**2 + (2*beta*omega)**2
+    denom = (omega0**2 - omega**2)**2 + (2*beta*omega)**2
     A_steady = alpha / np.sqrt(denom)
-    delta = np.arctan2(2*beta*omega, omega0 - omega**2)
+    delta = np.arctan2(2*beta*omega, omega0**2 - omega**2)
     
     # Forced response
     if F_type == 'sin':
         x_forced = A_steady * np.sin(omega*t - delta)
+        v_forced = A_steady * omega * np.cos(omega*t - delta)
+
         x_f0 = A_steady * np.sin(-delta)
         v_f0 = A_steady * omega * np.cos(-delta)
     else:  # 'cos'
         x_forced = A_steady * np.cos(omega*t - delta)
+        v_forced = - A_steady * omega * np.sin(omega * t - delta)
+
         x_f0 = A_steady * np.cos(-delta)
         v_f0 = -A_steady * omega * np.sin(-delta)
     
     # Transient (with x0, v0)
     C1 = x0 - x_f0
-    if omega_d > 0:
-        C2 = (v0 -v_f0 + beta*x0) / omega_d 
-    else:
-        C2 = 0.0
-        
-    x_transient = np.exp(-beta*t) * (C1*np.cos(omega_d*t) + C2*np.sin(omega_d*t))
+   
+    C2 = (v0 -v_f0 + beta*C1) / omega_d if omega_d > 0 else 0.0
     
-    return x_transient + x_forced
+    x_transient = np.exp(-beta*t) * (C1*np.cos(omega_d*t) + C2*np.sin(omega_d*t))
+    v_transient = np.exp(-beta * t) * (-beta*(C1*np.cos(omega_d*t) + C2*np.sin(omega_d*t)) + (-C1*omega_d*np.sin(omega_d*t) + C2*omega_d*np.cos(omega_d*t)))
+
+    x = x_transient + x_forced
+    v = v_transient + v_forced
+
+    return x, v
 ##
 # ---------- Main code ---------------
 ##
@@ -258,10 +264,9 @@ class Linear:
 
         # Derived parameters
         self.beta = gamma / (2 * m)
-        self.omega_sq = k / m 
+        self.omega_sq = np.sqrt(k / m) 
         self.alpha = F0 / m
         self.F0 = F0
-
 
         # Phase (steady-state)
         self.delta = np.arctan2((2 * self.beta * self.omega), (self.omega_sq - self.omega**2))
@@ -277,7 +282,7 @@ class Linear:
     def run(self):
 
         n_steps = int(np.ceil(self.t_max / self.dt))
-
+        
         # Parameters for system
         params = {
             "beta": self.beta,
@@ -320,6 +325,7 @@ class Linear:
 
                 # Dissipative power: γ*v²
                 P_diss = self.gamma * dq**2
+
                 # External force: F(t)*v(t)
 
                 if self.F_external == 'sin':
@@ -350,14 +356,18 @@ class Linear:
                     y = method(linear_system, t, y, self.dt, params)
 
         # --- Analytical solution ---
-        self.analytical = {"x": [], "t": []}
-
+        self.analytical = {"x": [], "v": [], "t": []}
+        
         for i in range(n_steps):
+            if i == 0:
+                print(self.v0) 
+        
             t = i * self.dt
             
-            x = analytics(x0=self.y0, v0=self.v0, beta=self.beta, omega0=self.omega_sq, t=t, omega=self.omega, alpha=self.alpha, F_type=self.F_external)
-
+            x, v = analytics(x0=self.y0, v0=self.v0, beta=self.beta, omega0=self.omega_sq, t=t, omega=self.omega, alpha=self.alpha, F_type=self.F_external)
+            
             self.analytical["x"].append(x)
+            self.analytical["v"].append(v)
             self.analytical["t"].append(t)
         
         return self.history, self.analytical

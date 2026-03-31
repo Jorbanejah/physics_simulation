@@ -18,7 +18,7 @@ class DrivenOscillationParams:
     F_external: str = 'cos'
 
     q0: float = 2.0
-    dq0: float = 0.0
+    dq0: float = 2.0
 
     dt: float = 0.01
     t_max: float = 25.0
@@ -56,6 +56,7 @@ def plot_regime_summary(history, analytical, F0_val, gamma_val):
 
         # Row 2: Phase portrait
         axes[1, i].plot(history[method]['q'], history[method]['v'], color=colors[method], linewidth=2, label=method)
+        axes[1, i].plot(analytical['x'], analytical['v'], 'k--', linewidth = 2, label = 'Analytical', alpha = 0.8)
         axes[1, i].set_title('Phase Portrait')
         axes[1, i].set_xlabel('Position (mass)')
         axes[1, i].set_ylabel('Velocity (mass/s)')
@@ -406,21 +407,21 @@ if __name__ == "__main__":
     omega0 = np.sqrt(params.k/params.mass)
     
     F0_list = [0, 0, 2.0]
-    gamma_list = [0, 1, 3]
+    gamma_list = [0, 3, 2]
+#Remenber: w_d = np.sqrt(k/m - gamma/(2m))
+    for idx, (F0_val, gamma_val) in enumerate(zip(F0_list, gamma_list)):
 
-    #for idx, (F0_val, gamma_val) in enumerate(zip(F0_list, gamma_list)):
-
-    #    print(f"Running F0={F0_val}, gamma={gamma_val}")
+        print(f"Running F0={F0_val}, gamma={gamma_val}")
     
-    #    osc = DrivenOscillation( q0=params.q0, dq0=params.dq0, m=params.mass, gamma=gamma_val, F0=F0_val, omega=params.omega, t_max=params.t_max, dt=params.dt, system='linear', k=params.k, F_external=params.F_external)
+        osc = DrivenOscillation( q0=params.q0, dq0=params.dq0, m=params.mass, gamma=gamma_val, F0=F0_val, omega=params.omega, t_max=params.t_max, dt=params.dt, system='linear', k=params.k, F_external=params.F_external)
     
-    #    model = osc.run() 
+        model = osc.run() 
     
-    #    plot_regime_summary(model.history, model.analytical, F0_val, gamma_val) 
+        plot_regime_summary(model.history, model.analytical, F0_val, gamma_val) 
     
     # Resonance curve
-    #beta_vs_power(params, omega0)
-    #beta_vs_amplitude(params, omega0)
+    beta_vs_power(params, omega0)
+    beta_vs_amplitude(params, omega0)
 
     #Quality factor
 
@@ -428,6 +429,7 @@ if __name__ == "__main__":
 
     #Energies
     for i in numerical_method:
-    #energy_surface_omega(params, omega0)
+        energy_surface_omega(params, omega0, i)
         energy_surface_F0(params, omega0, i)
-    
+
+    plt.show()
