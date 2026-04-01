@@ -96,6 +96,7 @@ def plot_error_ana_num(params, numerical_method):
         rf"Numerical error for $\gamma={params.gamma}$, $\omega={params.omega}$, $k={params.k}$",
         fontsize=14
     )
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\plot_error_ana_num.png", dpi=300, bbox_inches='tight')
 
 def phase_portrait_error(params, numerical_method):
 
@@ -116,14 +117,15 @@ def phase_portrait_error(params, numerical_method):
             axes[ax_idx, j].set_ylabel(r"$|y_{\mathrm{exact}} - y_{\mathrm{num}}|$")
             axes[ax_idx, j].legend()
 
-    fig.suptitle(
-        rf"Phase portrait error for $\gamma={params.gamma}$, $\omega={params.omega}$, $k={params.k}$", fontsize=14)
+    fig.suptitle(rf"Phase portrait error for $\gamma={params.gamma}$, $\omega={params.omega}$, $k={params.k}$", fontsize=14)
+    
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\phase_portrait_phase.png", dpi=300, bbox_inches='tight')
     
 if __name__ == "__main__":
 
     params = DrivenOscilation_param()
     numerical_method = ['rk4', 'CN', 'Verlet']
 
-    #plot_error_ana_num(params, numerical_method) #In this first one graphics wwe see how the verlet method doesn't fix correctly with analitcal method due to the fact that velet is for conservative system.On the other hand, the different errors between the two linear cos and sin system is so large so I want to see what happens.
+    plot_error_ana_num(params, numerical_method) 
     phase_portrait_error(params, numerical_method)
     plt.show()

@@ -279,6 +279,9 @@ class Linear:
         # External force type
         self.F_external = F_external
 
+        #if self.omega_sq**2 - self.beta**2 < 0:
+        #    raise ValueError(rf"Change k or $ \gamma $ due to {self.omega_sq**2 - self.beta**2} being negative")
+        
     def run(self):
 
         n_steps = int(np.ceil(self.t_max / self.dt))
@@ -359,8 +362,6 @@ class Linear:
         self.analytical = {"x": [], "v": [], "t": []}
         
         for i in range(n_steps):
-            if i == 0:
-                print(self.v0) 
         
             t = i * self.dt
             
