@@ -1,4 +1,3 @@
-
 import matplotlib.pyplot as plt
 import numpy as np
 from Driven_oscillation import DrivenOscillation  
@@ -88,7 +87,7 @@ def plot_regime_summary(history, analytical, F0_val, gamma_val):
         axes[3, i].set_ylabel('Energy (J)')
         axes[3, i].legend()
         axes[3, i].grid(True, alpha=0.3)
-    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\regime_summary{F0_val}_{gamma_val}.png", dpi=300, bbox_inches='tight')
+    #plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\regime_summary{F0_val}_{gamma_val}.png", dpi=300, bbox_inches='tight')
 # Analitical solution
 def beta_vs_amplitude(params, omega0):
 
@@ -307,15 +306,15 @@ if __name__ == "__main__":
 
     #Remenber: w_d = np.sqrt(k/m - gamma/(2m)) and that must be real
 
-    #for idx, (F0_val, gamma_val) in enumerate(zip(F0_list, gamma_list)):
+    for idx, (F0_val, gamma_val) in enumerate(zip(F0_list, gamma_list)):
 
-    #    print(f"Running F0={F0_val}, gamma={gamma_val}")
+        print(f"Running F0={F0_val}, gamma={gamma_val}")
     
-    #    osc = DrivenOscillation( q0=params.q0, dq0=params.dq0, m=params.mass, gamma=gamma_val, F0=F0_val, omega=params.omega, t_max=params.t_max, dt=params.dt, system='linear', k=params.k, F_external=params.F_external)
+        osc = DrivenOscillation( q0=params.q0, dq0=params.dq0, m=params.mass, gamma=gamma_val, F0=F0_val, omega=params.omega, t_max=params.t_max, dt=params.dt, system='linear', k=params.k, F_external=params.F_external)
     
-    #    model = osc.run() 
+        model = osc.run() 
     
-    #    plot_regime_summary(model.history, model.analytical, F0_val, gamma_val) 
+        plot_regime_summary(model.history, model.analytical, F0_val, gamma_val) 
     
     # Resonance curve
     #beta_vs_power(params, omega0)
@@ -323,6 +322,6 @@ if __name__ == "__main__":
 
     #Quality factor
 
-    phase_and_quality_factor()
+    #phase_and_quality_factor()
 
     plt.show()

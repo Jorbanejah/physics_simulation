@@ -97,7 +97,7 @@ def velocity_verlet(accel, t, y, dt, params=None):
     a = accel(t, q, v, params)
 
     q_new = q + v*dt + 0.5*a*dt**2
-    v_half = v + 0.5 * a * dt**2 # Stability
+    v_half = v + 0.5 * a * dt # Stability
     a_new = accel(t + dt, q_new, v_half, params)
 
     v_new = v + 0.5*dt*(a + a_new)
@@ -143,9 +143,10 @@ def nonlinear_system(t, y, p):
         force = np.sin(p["omega"] * t)
 
     dxdt = v
-    dvdt = -2 * p["beta"] * v - p["omega0"] * np.sin(x) + p["alpha"] * force
+    dvdt = -p["beta"] * v - p["omega0"]**2 * np.sin(x) + p["alpha"] * force
 
     return np.array([dxdt, dvdt])
+
 
 def analytics(x0, v0, beta, omega0, t, omega, alpha, F_type='sin'):
     
@@ -188,7 +189,7 @@ def analytics(x0, v0, beta, omega0, t, omega, alpha, F_type='sin'):
 
 class DrivenOscillation():
 
-    def __init__(self, q0, dq0, m, gamma, F0, omega, t = 15, dt = 0.01,  system = 'Linear', **kwargs):
+    def __init__(self, q0, dq0, m, gamma, F0, omega, t=15, dt = 0.01,  system = 'Linear', **kwargs):
         
         if m <= 0:
             raise ValueError('m must be positive')
@@ -263,7 +264,7 @@ class Linear:
         self.omega = omega  # external frequency
 
         # Derived parameters
-        self.beta = gamma / (2 * m)
+        self.beta = gamma / (2 *m)
         self.omega_sq = np.sqrt(k / m) 
         self.alpha = F0 / m
         self.F0 = F0
@@ -318,6 +319,7 @@ class Linear:
             y = np.array([self.y0, self.v0])
             Wp_diss = 0.0
             Wp_drive = 0.0
+
             for i in range(n_steps):
                 t = i * self.dt
                 q, dq = y
@@ -389,8 +391,8 @@ class Nonlinear():
         self.F0 = F0 
 
         #Pendulum parameter
-        self.beta = gamma/(m * L**2)
-        self.omega_sq = self.g / L
+        self.beta = gamma/ (m * L**2)
+        self.omega_sq = np.sqrt(self.g / L)
         self.alpha = F0/(m * L**2)
 
         #Time
@@ -420,28 +422,44 @@ class Nonlinear():
         }
 
         self.history = {
-            name: {"t": [], "q": [], "v": [], "Ek": [], "Ep": [], "Wp": []}
+            name: {"t": [], "q": [], "v": [], "Ek": [], "Ep": [], "Wp_diss": [], "Wp_drive": []}
             for name in numerical_methods
         }
 
         #Prepare motion history
-        def accel(t, q, v, p):
-            return nonlinear_system(t, np.array([q, v]), p)[1]
+        def accel(t, q, v, params):
+            return nonlinear_system(t, np.array([q, v]), params)[1]
 
         # --- Loop over methods ---
         for name, method in numerical_methods.items():
 
             y = np.array([self.theta0, self.omega0])
-            wp = 0
+            Wp_diss = 0
+            Wp_drive = 0
 
             for i in range(n_steps):
                 t = i * self.dt
                 q, dq = y
 
                 # Energies
-                Ek = 0.5 * self.m * (self.L * dq**2)
+                Ek = 0.5 * self.m * (self.L * dq)**2
                 Ep = self.m * self.g * self.L* (1 - np.cos(q))
-                wp += self.gamma * dq**2 * self.dt
+
+                # Dissipative and drive power
+
+                P_diss = self.gamma * ( dq)**2
+
+                if self.F_external == 'sin':
+                    F_ext = self.F0 * np.sin(self.omega * t)
+                else:
+                    F_ext = self.F0 * np.cos(self.omega * t)
+
+                P_drive = F_ext * dq
+                
+                #Instant dissipative and drive power
+
+                Wp_diss += P_diss * self.dt
+                Wp_drive += P_drive * self.dt
 
                 # Store
                 self.history[name]["t"].append(t)
@@ -449,7 +467,8 @@ class Nonlinear():
                 self.history[name]["v"].append(dq)
                 self.history[name]["Ek"].append(Ek)
                 self.history[name]["Ep"].append(Ep)
-                self.history[name]["Wp"].append(wp)
+                self.history[name]["Wp_diss"].append(Wp_diss)
+                self.history[name]["Wp_drive"].append(Wp_drive)
 
                 # Step
                 if name == "Verlet":
