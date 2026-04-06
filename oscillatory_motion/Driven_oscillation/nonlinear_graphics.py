@@ -22,7 +22,7 @@ class DrivenOscillationParams:
     omega0: float = 1.0
 
     dt: float = 0.01
-    t_max: float = 20.0
+    t_max: float = 100.0
     
     system: str = 'nonlinear'
 
@@ -98,7 +98,9 @@ def plot_regime_summary(history, F0_val, gamma_val):
         axes[3, i].set_ylabel('Energy (J)')
         axes[3, i].legend()
         axes[3, i].grid(True, alpha=0.3)
+
     plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\regime_summary_nonlinear{F0_val}_{gamma_val}.png", dpi=300, bbox_inches='tight')
+
 def average_power(history, method, discard_fraction=0.75):
     t = np.array(history[method]["t"])
     W = np.array(history[method]["Wp_drive"])
@@ -121,9 +123,9 @@ def average_amplitude(history, method, discard_fraction = 0.75):
 def curves(params, omega0, method):
     """Study average dissipated power vs external frequency omega, varying beta"""
     
-    betas = np.array([0.1*omega0, 0.2*omega0, 0.3*omega0, 0.5*omega0, 0.8*omega0])
+    betas = np.array([0.1*omega0, 0.2*omega0, 0.3*omega0, 0.4* omega0, 0.5*omega0])
 
-    omegas = np.linspace(0.1, 3*omega0, 100)
+    omegas = np.linspace(0.1, 3*omega0, 200)
     
     # Colormap
     cmap = plt.colormaps["viridis"]
@@ -143,7 +145,7 @@ def curves(params, omega0, method):
 
             avg_powers.append(average_power(model.history, method))
 
-            amplitude.append(average_amplitude(model.history, method))
+            amplitude.append(average_amplitude(model.history, method, discard_fraction=0.85))
 
         label = rf"$\beta = {beta/omega0:.1f}\,\omega_0$"
         ax1.plot(omegas/omega0, avg_powers, color=colors[i], lw=2.5, label=label)
@@ -163,8 +165,35 @@ def curves(params, omega0, method):
     ax2.legend()
     ax2.grid(True, alpha=0.3)
 
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\resonance_curves_{method}.png", dpi=300, bbox_inches='tight')
     return betas, omegas
 
+def hysteresis(params, method):
+
+    omega_min = 0.5
+    omega_max = 2.5
+    N = 100
+    omegas_up = np.linspace(omega_min, omega_max, N)
+    omegas_down = omegas_up[::-1]
+    amplitudes_down = []
+    amplitudes_up = []
+
+    # Sweep upward
+    for direction, omega_list, storage in [("up", omegas_up, amplitudes_up), ("down", omegas_down, amplitudes_down)]:
+        for w in omega_list:
+            osc = DrivenOscillation(q0=params.theta0, dq0=params.omega0, m=params.mass, gamma= params.gamma, F0 = params.F0, omega=w, t_max=params.t_max, dt=params.dt, system='nonlinear', L=params.L, F_external=params.F_external)
+            sol = osc.run()
+            A = average_amplitude(sol.history, method, discard_fraction=0.8)
+            storage.append(A)
+
+    plt.plot(omegas_up, amplitudes_up, label="Sweep up")
+    plt.plot(omegas_down, amplitudes_down[::-1], label="Sweep down")
+    plt.legend()
+    plt.grid()
+    plt.xlabel(r"Driving frequency $\omega$")
+    plt.ylabel("Steady-state amplitude")
+    plt.title("Hysteresis in Nonlinear Driven Oscillator")
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\hysteresis{method}.png", dpi=300, bbox_inches='tight')
 if __name__ == "__main__":
 
     # Create linear oscillator
@@ -177,17 +206,17 @@ if __name__ == "__main__":
 
     #Remenber: w_d = np.sqrt(k/m - gamma/(2m)) and that must be real
 
-    for idx, (F0_val, gamma_val) in enumerate(zip(F0_list, gamma_list)):
+    #for idx, (F0_val, gamma_val) in enumerate(zip(F0_list, gamma_list)):
 
-        print(f"Running F0={F0_val}, gamma={gamma_val}")
+    #    print(f"Running F0={F0_val}, gamma={gamma_val}")
     
-        osc = DrivenOscillation(q0=params.theta0, dq0=params.omega0, m=params.mass, gamma=gamma_val, F0=F0_val, omega=params.omega, t=params.t_max, dt=params.dt, system='nonlinear', L=params.L, F_external=params.F_external)
+    #    osc = DrivenOscillation(q0=params.theta0, dq0=params.omega0, m=params.mass, gamma=gamma_val, F0=F0_val, omega=params.omega, t=params.t_max, dt=params.dt, system='nonlinear', L=params.L, F_external=params.F_external)
     
-        model = osc.run() 
+    #    model = osc.run() 
     
-        plot_regime_summary(model.history, F0_val, gamma_val) #In this first picture we observe a nuemrical error in energy. What does happened? Sinceresly I dunno know. Because damping vibration animation works perfectly and 
-        # I was studied through Euler integration and the energy more or less was conservative (whole system). However, it seems  that the numerical errors are huge due to nonlinearity of the system
+    #    plot_regime_summary(model.history, F0_val, gamma_val)
 
-    curves(params, omega_sq, method = "rk4")
+    curves(params, omega_sq, method = "Verlet")
+    #hysteresis(params, method = 'rk4')
     plt.show()
     

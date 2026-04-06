@@ -188,6 +188,47 @@ def analytics(x0, v0, beta, omega0, t, omega, alpha, F_type='sin'):
 ##
 
 class DrivenOscillation():
+    
+    """
+    Driven oscillation system.
+
+    Parameters
+    ----------
+    q0 : float
+        Initial generalized coordinate.
+    dq0 : float
+        Initial generalized velocity.
+    m : float
+        Mass of the oscillator.
+    gamma : float
+        Damping coefficient.
+    F0 : float
+        Amplitude of the external driving force.
+    omega : float
+        Angular frequency of the external driving force.
+    t : float, optional
+        Total simulation time (default: 15).
+    dt : float, optional
+        Time step for numerical integration (default: 0.01).
+    system : {'linear', 'nonlinear'}, optional
+        Type of system to simulate (default: 'linear').
+
+    Other Parameters
+    ----------------
+    F_external : {'cos', 'sin'}, optional
+        Type of external driving function (default: 'cos').
+    k : float, optional
+        Spring constant for the linear system.
+    L : float, optional
+        Characteristic length for the nonlinear system.
+
+    Notes
+    -----
+    This class implements a driven oscillation model that can operate in
+    either the linear or nonlinear regime, depending on the selected
+    configuration.
+    """
+
 
     def __init__(self, q0, dq0, m, gamma, F0, omega, t=15, dt = 0.01,  system = 'Linear', **kwargs):
         
