@@ -2,59 +2,36 @@ import numpy as np
 import matplotlib.pyplot as plt
 from time import time
 from Driven_oscillation import DrivenOscillation
-
+from dataclasses import dataclass   
 
 # ============================================================
 #   Parameter container
 # ============================================================
+@dataclass
+class DrivenOscillationParams(): 
+        
+        #Pendulum
+        mass: float = 2
+        gamma: float = 1
+        L: float = 2
 
-class DrivenOscillationParams:
-    """
-    Parameter set for a driven (linear or nonlinear) oscillator.
-    """
-    def __init__(self,
-                 mass=1.0,
-                 gamma=1.0,
-                 L=1.0,
-                 omega=2.0,
-                 F0=2.0,
-                 F_external='cos',
-                 q0=np.deg2rad(30),
-                 dq0=0.0,
-                 dt=0.01,
-                 t_max=50.0,
-                 system='nonlinear'):
+        # External forces
+        omega: float = 2
+        F0: float = 1
+        F_external: str = 'cos'
+        system: str = 'nonlinear'
 
-        self.mass = mass
-        self.gamma = gamma
-        self.L = L
-        self.omega = omega
-        self.F0 = F0
-        self.F_external = F_external
-        self.q0 = q0
-        self.dq0 = dq0
-        self.dt = dt
-        self.t_max = t_max
-        self.system = system
+        #Initial condition
+        q0: float = np.deg2rad(30)
+        dq0: float = 0 
 
-    def as_key(self, method: str):
-        """
-        Build a hashable key for caching.
-        """
-        return (self.q0, self.dq0,
-                self.mass, self.gamma, self.L,
-                self.F0, self.omega,
-                self.dt, self.t_max,
-                self.system, self.F_external,
-                method)
-
-
+        #Times
+        dt: float = 0.01
+        t_max: float = 20
+        
 # ============================================================
-#   Simulation + cache
+#   Simulation and time
 # ============================================================
-
-_SIM_CACHE = {}
-
 
 def run_simulation(params: DrivenOscillationParams):
     """
@@ -67,20 +44,6 @@ def run_simulation(params: DrivenOscillationParams):
     model = osc.run()
     runtime = time() - start
     return model.history, runtime
-
-
-def cached_simulation(params: DrivenOscillationParams, method: str):
-    """
-    Cached version of run_simulation to avoid recomputing identical cases.
-    """
-    key = params.as_key(method)
-    if key in _SIM_CACHE:
-        return _SIM_CACHE[key]
-
-    history, runtime = run_simulation(params)
-    _SIM_CACHE[key] = (history, runtime)
-    return history, runtime
-
 
 # ============================================================
 #   Energy + diagnostics from history
@@ -97,12 +60,12 @@ def total_energy(history, method: str):
     return Ek + Ep + (Wd - Wf)
 
 
-def energy_drift_from_history(history, method: str):
+def energy_from_history(history, method: str):
     """
     Energy drift = max(E) - min(E) from a given history.
     """
     E = total_energy(history, method)
-    return np.max(E) - np.min(E)
+    return np.max(E),  np.min(E), E[0]
 
 
 def max_amplitude_from_history(history, method: str):
@@ -117,71 +80,199 @@ def max_amplitude_from_history(history, method: str):
 #   Plotting utilities
 # ============================================================
 
-def plot_energy_vs_initial_angle(theta, drift):
-    plt.figure(figsize=(6, 5))
-    plt.plot(theta, drift)
-    plt.xlabel("Initial angle (rad)")
-    plt.ylabel(r"Energy drift $\Delta E$")
-    plt.title("Energy Drift vs Initial Angle")
-    plt.grid(alpha=0.3)
-    plt.tight_layout()
+def plot_energy_vs_initial_angle(theta, results_energy, methods):
+    
+    fig, ax = plt.subplots(1, len(methods), figsize = (15, 10), tight_layout = True)
 
-def plot_runtime(dt_values, runtimes):
+    # Ensure ax is iterable even if only one method
+    if len(methods) == 1:
+        ax = [ax]
+
+    for i, method in enumerate(methods):
+        Emax = [results_energy[method]["E_max"][th] for th in theta]
+        Emin = [results_energy[method]["E_min"][th] for th in theta]
+
+        E0 = np.array([results_energy[method]["E0"][th] for th in theta])
+
+        dE = (np.array(Emax) - np.array(Emin)) / E0
+
+        ax[i].plot(theta, dE, label=r"$\Delta E / E_0$")
+
+        ax[i].set_title(f"{method}")
+        ax[i].set_xlabel("Initial angle (rad)")
+        ax[i].set_ylabel(r"Energy drift $\Delta E / E_0$")
+        ax[i].grid(alpha=0.3)
+        ax[i].legend()
+
+    fig.suptitle("Energy Drift vs Initial Angle", fontsize=14)
+    
+def plot_runtime(dt_values, Errors, methods):
+
     plt.figure(figsize=(6, 5))
-    plt.plot(dt_values, runtimes, "o-", lw=2)
+
+    for method in methods:
+        plt.plot(dt_values, Errors[method]["time"], "o-", lw=2)
+
+    
     plt.xlabel(r"Time step $\Delta t$")
     plt.ylabel("Runtime (s)")
     plt.title("Runtime vs Time Step")
     plt.grid(alpha=0.3)
     plt.tight_layout()
 
-def plot_stability(dt_values, amplitudes, method):
-    plt.figure(figsize=(6, 5))
-    plt.plot(dt_values, amplitudes, "o-", lw=2, markersize=6)
-    plt.xlabel(r"Time step $\Delta t$")
-    plt.ylabel(r"Max $|\theta|$")
-    plt.title(f"Numerical Stability ({method})", loc="left")
-    plt.grid(alpha=0.3)
-    plt.tight_layout()
+def plot_stability(dt_values, Errors, methods):
 
+    fig, ax = plt.subplots(1, len(methods), figsize = (13, 8), tight_layout = True)
 
-def plot_convergence(dt_values, errors, method):
+    if len(methods) == 1:
+        ax = [ax]
+
+    for i, method in enumerate(methods):
+        ax[i].plot(dt_values, Errors[method]["max_amplitude"], "o-", lw=2)
+        ax[i].set_title(f"Numerical Stability ({method})")
+        ax[i].set_xlabel(r"Time step $\Delta t$")
+        ax[i].set_ylabel(r"Max $|\theta|$")
+        ax[i].grid(alpha=0.3)
+
+    fig.suptitle("Stability vs Time Step", fontsize=14)
+    
+def plot_convergence(dt_values, Errors, methods):
     """
     Plot log(error) vs log(dt) and include theoretical slope lines.
     """
     dt_values = np.array(dt_values, dtype=float)
-    errors = np.array(errors, dtype=float)
 
-    plt.figure(figsize=(6, 5))
-    plt.loglog(dt_values, errors, "o-", lw=2, markersize=6, label=method)
+    fig, ax = plt.subplots(1, len(methods), figsize = (15, 10), tight_layout = True)
+
+    if len(methods) == 1:
+        ax = [ax]
 
     theoretical_order = {
-        "rk4": 4,
-        "crank_nicolson": 2,
-        "verlet": 2
-    }.get(method.lower(), None)
+            "rk4": 4,
+            "CN": 2,
+            "Verlet": 2
+        }
+    
+    for i, method in enumerate(methods):
 
-    if theoretical_order is not None:
-        x0 = dt_values[len(dt_values) // 2]
-        y0 = errors[len(errors) // 2]
-        slope_line = y0 * (dt_values / x0) ** theoretical_order
+        err = np.array(Errors[method]["Error"])
 
-        plt.loglog(dt_values, slope_line, "--", color="gray",
-                   label=rf"Slope ≈ {theoretical_order}")
+        ax[i].loglog(dt_values, err, "o-", lw=2, markersize=6, label=method)
 
-    plt.xlabel(r"Time step $\Delta t$")
-    plt.ylabel("Error")
-    plt.title(f"Convergence Test ({method})", loc="left")
-    plt.grid(True, which="both", alpha=0.3)
-    plt.legend()
-    plt.tight_layout()
+        # Add theoretical slope line if known
+        order = theoretical_order.get(method, None)
+
+        if order is not None:
+            x0 = dt_values[len(dt_values) // 2]
+            y0 = err[len(err) // 2]
+            slope_line = y0 * (dt_values / x0) ** order
+            ax[i].loglog(dt_values, slope_line, "--", color="gray",
+                         label=rf"Slope ≈ {order}")
+
+        ax[i].set_title(f"Convergence ({method})")
+        ax[i].set_xlabel(r"Time step $\Delta t$")
+        ax[i].set_ylabel("Error")
+        ax[i].grid(True, which="both", alpha=0.3)
+        ax[i].legend()
+
+    fig.suptitle("Convergence Test", fontsize=14)
 
 
 # ============================================================
 #   Main error analysis
 # ============================================================
 
-def run_error_analysis(base_method):
+def Energy_vs_initial_angle(params, methods):
+    """
+    ---------------------------------------------------------
+    1. Energy drift vs initial angle
+    ---------------------------------------------------------
+    Computes the maximum and minimum energy for each numerical
+    method as a function of the initial angle. For each angle,
+    the simulation is run and the energy drift is extracted.
+    Results are stored in a nested dictionary:
+
+        results_energy[method]["E_max"][theta]
+        results_energy[method]["E_min"][theta]
+
+    Finally, the function plots energy drift vs initial angle.
+    """
+    print("Energy drift vs initial angle")
+
+    results_energy = {
+        name: {"E_max": {},
+        "E_min": {}, "E0": {}} for name in methods
+    }
+    
+    theta_deg = np.arange(1, 81)
+    theta_values = np.deg2rad(theta_deg)
+
+    for th in theta_values:
+        params.q0 = th
+        history, _ = run_simulation(params)
+        for method in methods:
+            Emax, Emin, E0 = energy_from_history(history, method)
+            results_energy[method]["E_max"][th] = Emax
+            results_energy[method]["E_min"][th] = Emin
+            results_energy[method]["E0"][th] = E0
+
+
+    plot_energy_vs_initial_angle(theta_values, results_energy, methods)
+    
+
+def convergence_runtime(params, dt_values, methods):
+    """
+    ---------------------------------------------------------
+    2. Convergence test (reference RK4) and runtime
+    ---------------------------------------------------------
+    For each timestep dt:
+        - Runs the simulation
+        - Uses RK4 as reference solution
+        - Computes RMS error for each method
+        - Stores runtime and max amplitude
+    Produces:
+        - Convergence plot
+        - Runtime plot
+        - Stability plot
+    """
+    
+    Errors = {name: {"Error": [], "dt": [], "time":[], "max_amplitude": []} for name in methods}
+    
+    history, _ = run_simulation(params)
+    #Reference RK4
+    t_ref = history["rk4"]["t"]
+    q_ref = history["rk4"]["q"]
+
+    for dt in dt_values:
+        params.dt = dt
+        history, time = run_simulation(params)
+        
+        for method in methods:
+            Errors[method]["dt"].append(dt)
+            Errors[method]["time"].append(time)
+            Errors[method]["max_amplitude"].append(max_amplitude_from_history(history, method))
+
+            theta_num = history[method]["q"]
+            t_num = history[method]["t"]
+
+            #Interpolate reference onto numerical grid
+            theta_ref_interp = np.interp(t_num, t_ref, q_ref)
+
+            err = np.sqrt(np.mean((theta_num - theta_ref_interp) ** 2))
+            Errors[method]["Error"].append(err)
+
+    print("Plotting convergence")
+    plot_convergence(dt_values, Errors, methods)
+    print("Plotting runtime")
+    plot_runtime(dt_values, Errors, methods)
+    print("Plotting stability")
+    plot_stability(dt_values, Errors, methods) # 
+
+    plt.show()
+
+
+if __name__ == "__main__":
+    
     """
     Run all numerical analyses for the driven nonlinear oscillator.
 
@@ -193,87 +284,11 @@ def run_error_analysis(base_method):
     """
 
     params = DrivenOscillationParams()
-    dt_values = [0.2, 0.1, 0.05, 0.01]
+    dt_values = [0.2, 0.1, 0.05, 0.01, 0.005, 0.001]
+    methods = ['rk4', 'CN', 'Verlet']
 
-    results = {
-        "energy_drift": {},
-        "convergence": {},
-        "stability": {},
-        "runtime": {},
-        "parameter_sweep": {}
-    }
+    Energy_vs_initial_angle(params, methods)
 
-    # ---------------------------------------------------------
-    # 1. Energy drift vs initial angle
-    # ---------------------------------------------------------
-    print("Energy drift vs initial angle")
-    theta_deg = np.arange(1, 81)
-    theta_values = np.deg2rad(theta_deg)
+    convergence_runtime(params, dt_values, methods)
 
-    drift_list = []
-    for th in theta_values:
-        params.q0 = th
-        history, _ = cached_simulation(params, base_method)
-        drift = energy_drift_from_history(history, base_method)
-        drift_list.append(drift)
-
-    drift_list = np.array(drift_list)
-    results["energy_drift"]["theta"] = theta_values
-    results["energy_drift"]["drift"] = drift_list
-    plot_energy_vs_initial_angle(theta_values, drift_list)
     plt.show()
-
-    # ---------------------------------------------------------
-    # 2. Convergence test (reference RK4)
-    # ---------------------------------------------------------
-    print("Method convergence")
-    errors = []
-    for dt in dt_values:
-        params.dt = dt
-        history, _ = cached_simulation(params, base_method)
-        drift = energy_drift_from_history(history, base_method)
-        errors.append(drift)
-
-    errors = np.array(errors)
-    results["convergence"]["dt"] = np.array(dt_values)
-    results["convergence"]["errors"] = errors
-    plot_convergence(dt_values, errors, base_method)
-    plt.show()
-    # ---------------------------------------------------------
-    # 3. Numerical stability test (max |theta| vs dt)
-    # ---------------------------------------------------------
-    print("Numerical stability")
-    amplitudes = []
-    for dt in dt_values:
-        params.dt = dt
-        history, _ = cached_simulation(params, base_method)
-        A = max_amplitude_from_history(history, base_method)
-        amplitudes.append(A)
-
-    amplitudes = np.array(amplitudes)
-    results["stability"]["dt"] = np.array(dt_values)
-    results["stability"]["amplitudes"] = amplitudes
-    plot_stability(dt_values, amplitudes, base_method)
-    plt.show()
-    # ---------------------------------------------------------
-    # 4. Runtime vs dt
-    # ---------------------------------------------------------
-    print("Runtime")
-    runtimes = []
-    for dt in dt_values:
-        params.dt = dt
-        # force recomputation for runtime measurement (ignore cache)
-        history, runtime = run_simulation(params)
-        _SIM_CACHE[params.as_key(base_method)] = (history, runtime)
-        runtimes.append(runtime)
-
-    runtimes = np.array(runtimes)
-    results["runtime"]["dt"] = np.array(dt_values)
-    results["runtime"]["runtime"] = runtimes
-    plot_runtime(dt_values, runtimes)
-    plt.show()
-    return results
-
-if __name__ == "__main__":
-    for i in ['rk4', 'CN', 'Verlet']:
-        run_error_analysis(i)
