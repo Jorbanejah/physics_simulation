@@ -75,14 +75,13 @@ def max_amplitude_from_history(history, method: str):
     q = history[method]["q"]
     return np.max(np.abs(q))
 
-
 # ============================================================
 #   Plotting utilities
 # ============================================================
 
 def plot_energy_vs_initial_angle(theta, results_energy, methods):
     
-    fig, ax = plt.subplots(1, len(methods), figsize = (15, 10), tight_layout = True)
+    fig, ax = plt.subplots(1, len(methods), figsize = (12, 8), tight_layout = True)
 
     # Ensure ax is iterable even if only one method
     if len(methods) == 1:
@@ -105,24 +104,24 @@ def plot_energy_vs_initial_angle(theta, results_energy, methods):
         ax[i].legend()
 
     fig.suptitle("Energy Drift vs Initial Angle", fontsize=14)
-    
-def plot_runtime(dt_values, Errors, methods):
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\plot_energy_vs_initial_angle_{params.dt}.png", dpi=300, bbox_inches='tight')
+
+def plot_runtime(dt_values, Errors):
 
     plt.figure(figsize=(6, 5))
 
-    for method in methods:
-        plt.plot(dt_values, Errors[method]["time"], "o-", lw=2)
-
+    plt.plot(dt_values, Errors['rk4']["time"], "o-", lw=2)
     
     plt.xlabel(r"Time step $\Delta t$")
     plt.ylabel("Runtime (s)")
     plt.title("Runtime vs Time Step")
     plt.grid(alpha=0.3)
     plt.tight_layout()
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\runtime_nonlinear.png", dpi=300, bbox_inches='tight')
 
 def plot_stability(dt_values, Errors, methods):
 
-    fig, ax = plt.subplots(1, len(methods), figsize = (13, 8), tight_layout = True)
+    fig, ax = plt.subplots(1, len(methods), figsize = (12, 8), tight_layout = True)
 
     if len(methods) == 1:
         ax = [ax]
@@ -135,28 +134,27 @@ def plot_stability(dt_values, Errors, methods):
         ax[i].grid(alpha=0.3)
 
     fig.suptitle("Stability vs Time Step", fontsize=14)
-    
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\stability_nonlinear.png", dpi=300, bbox_inches='tight')
+
 def plot_convergence(dt_values, Errors, methods):
     """
     Plot log(error) vs log(dt) and include theoretical slope lines.
     """
     dt_values = np.array(dt_values, dtype=float)
 
-    fig, ax = plt.subplots(1, len(methods), figsize = (15, 10), tight_layout = True)
+    fig, ax = plt.subplots(1, len(methods), figsize = (12, 8), tight_layout = True)
 
     if len(methods) == 1:
         ax = [ax]
 
     theoretical_order = {
-            "rk4": 4,
             "CN": 2,
             "Verlet": 2
         }
     
     for i, method in enumerate(methods):
-
         err = np.array(Errors[method]["Error"])
-
+        
         ax[i].loglog(dt_values, err, "o-", lw=2, markersize=6, label=method)
 
         # Add theoretical slope line if known
@@ -166,8 +164,7 @@ def plot_convergence(dt_values, Errors, methods):
             x0 = dt_values[len(dt_values) // 2]
             y0 = err[len(err) // 2]
             slope_line = y0 * (dt_values / x0) ** order
-            ax[i].loglog(dt_values, slope_line, "--", color="gray",
-                         label=rf"Slope ≈ {order}")
+            ax[i].loglog(dt_values, slope_line, "--", color="gray", label=rf"Slope ≈ {order}")
 
         ax[i].set_title(f"Convergence ({method})")
         ax[i].set_xlabel(r"Time step $\Delta t$")
@@ -176,7 +173,7 @@ def plot_convergence(dt_values, Errors, methods):
         ax[i].legend()
 
     fig.suptitle("Convergence Test", fontsize=14)
-
+    plt.savefig(f"C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\figures\\convergence_nonlinear.png", dpi=300, bbox_inches='tight')
 
 # ============================================================
 #   Main error analysis
@@ -206,7 +203,7 @@ def Energy_vs_initial_angle(params, methods):
     
     theta_deg = np.arange(1, 81)
     theta_values = np.deg2rad(theta_deg)
-
+    params.dt = 0.001
     for th in theta_values:
         params.q0 = th
         history, _ = run_simulation(params)
@@ -240,13 +237,13 @@ def convergence_runtime(params, dt_values, methods):
     
     history, _ = run_simulation(params)
     #Reference RK4
-    t_ref = history["rk4"]["t"]
-    q_ref = history["rk4"]["q"]
+  
 
     for dt in dt_values:
         params.dt = dt
         history, time = run_simulation(params)
-        
+        t_ref = history["rk4"]["t"]
+        q_ref = history["rk4"]["q"]
         for method in methods:
             Errors[method]["dt"].append(dt)
             Errors[method]["time"].append(time)
@@ -262,9 +259,9 @@ def convergence_runtime(params, dt_values, methods):
             Errors[method]["Error"].append(err)
 
     print("Plotting convergence")
-    plot_convergence(dt_values, Errors, methods)
+    plot_convergence(dt_values, Errors, methods[1:])
     print("Plotting runtime")
-    plot_runtime(dt_values, Errors, methods)
+    plot_runtime(dt_values, Errors)
     print("Plotting stability")
     plot_stability(dt_values, Errors, methods) # 
 
@@ -284,7 +281,7 @@ if __name__ == "__main__":
     """
 
     params = DrivenOscillationParams()
-    dt_values = [0.2, 0.1, 0.05, 0.01, 0.005, 0.001]
+    dt_values = [0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.01, 0.005, 0.001]
     methods = ['rk4', 'CN', 'Verlet']
 
     Energy_vs_initial_angle(params, methods)
