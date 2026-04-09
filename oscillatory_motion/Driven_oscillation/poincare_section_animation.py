@@ -20,7 +20,7 @@ class DrivenOscillationParameter:
     omega: float = 2 * np.pi * 0.8
 
     #Time
-    t: int = 2000 #We need a huge time even 8000
+    t: int = 200 #We need a huge time even 8000
     dt: float = 0.01
 
     #System
@@ -34,14 +34,14 @@ class DynamicalSystem:
     def __init__(self):
         self.params = DrivenOscillationParameter()
         self.alphas = np.linspace(0.3, 2.5, 30)  # Range showing normal→chaotic
-        self.methods = ["rk4", "CN", "Verlet"]
+        self.methods = ["rk4"]
 
         # Allocate storage
         self.poincare_sections = {
             method: {"q": {}, "dq": {}} for method in self.methods
         }
 
-    def extract_poincare_section(self, q_traj, dq_traj, omega, t_start=5):
+    def extract_poincare_section(self, q_traj, dq_traj, omega, t_start=100):
         """Extract Poincaré section by sampling at driving period."""
 
         period = 2 * np.pi / omega
@@ -62,10 +62,10 @@ class DynamicalSystem:
             filled = int(progress * bar_length)
             bar = "█" * filled + "-" * (bar_length - filled)
 
-            print(fr"[{bar}]  {progress*100:5.1f}%   $\alpha$ = {alpha:.2f}", end="\r", flush=True)
+            print(rf"[{bar}]  {progress*100:5.1f}%   $\alpha$ = {alpha:.2f}", end="\r", flush=True)
             
             # Update F0 = alpha
-            F0 = alpha * self.params.m * self.parmas.L**2
+            F0 = alpha * self.params.m * self.params.L**2
             
             # Create oscillator with current parameters
             osc = DrivenOscillation(q0=self.params.q0, dq0=self.params.dq0, m=self.params.m, gamma=self.params.gamma, F0=F0, omega=self.params.omega, t = self.params.t, system=self.params.system, L=self.params.L, F_external = self.params.F_external)
@@ -88,6 +88,7 @@ class DynamicalSystem:
 
     def store(self, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\poincare_sections.npz"):
         """Store results."""
+        
         np.savez(filename, **self.poincare_sections)
         print(f"Data stored in {filename}")
 
@@ -100,7 +101,7 @@ if __name__ == "__main__":
     rk4 = data["rk4"].item()
 
     for alpha, arr in rk4["q"].items():
-        print(alpha, len(arr))
+        print(alpha, len(arr), arr)
 
 class PoincareSectionsScene(Scene):
     """Main animation scene showing Poincaré section evolution."""
