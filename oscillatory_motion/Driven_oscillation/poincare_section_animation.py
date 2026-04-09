@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import numpy as np
 from Driven_oscillation import DrivenOscillation
-import manim as m
+from manim import *
 
 @dataclass
 class DrivenOscillationParameter:
@@ -20,7 +20,7 @@ class DrivenOscillationParameter:
     omega: float = 2 * np.pi * 0.8
 
     #Time
-    t: int = 2000
+    t: int = 2000 #We need a huge time even 8000
     dt: float = 0.01
 
     #System
@@ -41,13 +41,14 @@ class DynamicalSystem:
             method: {"q": {}, "dq": {}} for method in self.methods
         }
 
-    def extract_poincare_section(self, q_traj, dq_traj, omega, t_start=500):
+    def extract_poincare_section(self, q_traj, dq_traj, omega, t_start=5):
         """Extract Poincaré section by sampling at driving period."""
 
         period = 2 * np.pi / omega
         dt = self.params.dt
-        t_sample = np.arange(t_start, len(q_traj) * dt, period)
-        t_sample = t_sample[t_sample/dt < len(q_traj)].astype(int)
+        steps_per_period = int(period/dt)
+
+        t_sample = np.arange(int(t_start/dt), len(q_traj), steps_per_period)
         
         return q_traj[t_sample], dq_traj[t_sample]
 
@@ -56,13 +57,18 @@ class DynamicalSystem:
         print("Computing Poincaré sections...")
         
         for i, alpha in enumerate(self.alphas):
-            print(f"Alpha {i+1}/{len(self.alphas)}: {alpha:.2f}")
+            progress = (i + 1) / len(self.alphas)
+            bar_length = 12
+            filled = int(progress * bar_length)
+            bar = "█" * filled + "-" * (bar_length - filled)
+
+            print(fr"[{bar}]  {progress*100:5.1f}%   $\alpha$ = {alpha:.2f}", end="\r", flush=True)
             
             # Update F0 = alpha
-            F0 = alpha
+            F0 = alpha * self.params.m * self.parmas.L**2
             
             # Create oscillator with current parameters
-            osc = DrivenOscillation(q0=self.params.q0, dq0=self.params.dq0, m=self.params.m, gamma=self.params.gamma, F0=F0, omega=self.params.omega, system=self.params.system, L=self.params.L, F_external = self.params.F_external)
+            osc = DrivenOscillation(q0=self.params.q0, dq0=self.params.dq0, m=self.params.m, gamma=self.params.gamma, F0=F0, omega=self.params.omega, t = self.params.t, system=self.params.system, L=self.params.L, F_external = self.params.F_external)
             
             # Run simulation
             model = osc.run()
@@ -71,7 +77,7 @@ class DynamicalSystem:
             for method in self.methods:
                 q_full = np.array(model.history[method]["q"])
                 dq_full = np.array(model.history[method]["v"])
-                
+
                 # Extract Poincaré section (discard transients)
                 q_poincare, dq_poincare = self.extract_poincare_section(q_full, dq_full, self.params.omega)
                 
@@ -80,7 +86,7 @@ class DynamicalSystem:
         
         return self.poincare_sections
 
-    def store(self, filename="poincare_sections.npz"):
+    def store(self, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\poincare_sections.npz"):
         """Store results."""
         np.savez(filename, **self.poincare_sections)
         print(f"Data stored in {filename}")
@@ -90,13 +96,18 @@ if __name__ == "__main__":
     system = DynamicalSystem()
     sections = system.run_parameter_sweep()
     system.store()
+    data = np.load("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\poincare_sections.npz", allow_pickle=True)
+    rk4 = data["rk4"].item()
 
-class PoincareSectionsScene(m.Scene):
+    for alpha, arr in rk4["q"].items():
+        print(alpha, len(arr))
+
+class PoincareSectionsScene(Scene):
     """Main animation scene showing Poincaré section evolution."""
     
     def construct(self):
         # Load pre-computed data
-        data = np.load("poincare_sections.npz", allow_pickle=True)
+        data = np.load("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\poincare_sections.npz", allow_pickle=True)
         rk4_data = data["rk4"].item()
         
         alphas = sorted(rk4_data["q"].keys())
@@ -111,43 +122,73 @@ class PoincareSectionsScene(m.Scene):
         self.animate_poincare_morphing(axes, rk4_data, alphas)
     
     def show_equation(self):
+
         """Display the driven pendulum equation."""
-        eq = m.MathTex(
-            r"\ddot{q} + \gamma \dot{q} + \frac{g}{L}\sin(q) = \frac{F_0}{m}\cos(\omega t)"
-        ).scale(0.9).to_edge(m.UP)
+
+        #Create title
+        title = Text("Driven pendulum equation").to_corner(UL)
+
+        #Main equation   
+        eq = MathTex(
+            r"\ddot{q} + \frac{\gamma}{m L^2} \dot{q} + \frac{g}{L} \sin(q) = \frac{F_0}{m L^2} \cos(\omega t)"
+        ).scale(0.9)
+
+        self.play(FadeIn(title, shift=DOWN))
+
+        self.play(Write(eq))
+
+        self.wait()
         
-        self.play(m.Write(eq))
-        self.wait(1.5)
-    
+        #Change equation
+        transform_eq =  MathTex(
+            r"\ddot{q} + \beta \dot{q} + \omega_0^2 \sin(q) = \alpha \cos(\omega t)"
+        ).scale(0.9)
+        
+        self.play(
+            Transform(eq, transform_eq),
+        )
+
+        self.wait()
+
+        # Replace title
+        new_title = Text("Poincaré section").to_corner(UL)
+        self.play(Transform(title, new_title))
+        self.wait()
+
+        #Slide the equation away
+        self.play(
+            eq.animate.shift(3*RIGHT + DOWN)
+        )
+
     def create_phase_portrait_axes(self):
         """Create phase space axes with grid and labels."""
-        axes = m.Axes(
+        axes = Axes(
             x_range=[-np.pi, np.pi, np.pi/2],
             y_range=[-3, 3, 1],
             x_length=8,
             y_length=5,
             axis_config={"include_tip": False, "font_size": 24},
             tips=False
-        ).shift(m.DOWN * 0.5)
+        ).shift(DOWN * 0.5)
         
-        x_label = axes.get_x_axis_label(m.MathTex(r"q"))
-        y_label = axes.get_y_axis_label(m.MathTex(r"\dot{q}"))
+        x_label = axes.get_x_axis_label(MathTex(r"q"))
+        y_label = axes.get_y_axis_label(MathTex(r"\dot{q}"))
         
-        grid = m.NumberPlane(
+        grid = NumberPlane(
             x_range=[-np.pi, np.pi, np.pi/4],
             y_range=[-3, 3, 0.5],
             background_line_style={
                 "stroke_opacity": 0.15, 
                 "stroke_width": 1,
-                "stroke_color": m.GREY
+                "stroke_color": GREY
             }
-        ).scale(0.7).shift(m.DOWN * 0.5)
+        ).scale(0.7).shift(DOWN * 0.5)
         
         self.play(
-            m.Create(grid),
-            m.Create(axes),
-            m.FadeIn(x_label),
-            m.FadeIn(y_label),
+            Create(grid),
+            Create(axes),
+            FadeIn(x_label),
+            FadeIn(y_label),
             run_time=2
         )
         self.wait(0.5)
@@ -159,48 +200,58 @@ class PoincareSectionsScene(m.Scene):
         # Initial alpha (normal behavior)
         alpha0 = alphas[0]
         dots = self.make_dots(axes, rk4_data, alpha0)
-        
-        alpha_label = m.MathTex(f"\\alpha = {alpha0:.2f}").scale(1.2).to_corner(m.UR)
-        behavior_label = m.Text("Normal", font_size=24).next_to(alpha_label, m.DOWN)
-        
+        self.add(dots) #ensure dots are in the scene
+
+        # Static label object
+        alpha_label = MathTex("").scale(1.2).to_corner(UR)
+        behavior_label = Text("", font_size=24).next_to(alpha_label, DOWN)
+
+        self.add(alpha_label, behavior_label)
+
+        # Set initial label values
+        alpha_label.become(MathTex(f"\\alpha = {alpha0:.2f}").scale(1.2).to_corner(UR))
+        behavior_label.become(Text("Normal", font_size=24).next_to(alpha_label, DOWN))
+
         self.play(
-            m.FadeIn(dots, scale=0.8),
-            m.Write(alpha_label),
-            m.Write(behavior_label)
+            FadeIn(dots, scale=0.8),
+            FadeIn(alpha_label),
+            FadeIn(behavior_label)
         )
         self.wait(1.5)
-        
-        # Morph through alphas
-        for i, alpha in enumerate(alphas[1:]):
+
+        # --- MORPH THROUGH ALPHAS ---
+        for alpha in alphas[1:]:
+
             new_dots = self.make_dots(axes, rk4_data, alpha)
-            
-            # Update behavior label based on alpha
+
+            # Behavior classification
             if alpha < 0.8:
                 behavior = "Normal"
-                color = m.BLUE
             elif alpha < 1.5:
                 behavior = "Erratic"
-                color = m.YELLOW
             else:
                 behavior = "Chaotic"
-                color = m.RED
-            
-            new_alpha_label = m.MathTex(f"\\alpha = {alpha:.2f}").scale(1.2).to_corner(m.UR)
-            new_behavior_label = m.Text(behavior, font_size=24).next_to(new_alpha_label, m.DOWN)
-            
-            self.play(
-                m.Transform(dots, new_dots),
-                m.Transform(alpha_label, new_alpha_label),
-                m.Transform(behavior_label, new_behavior_label),
-                run_time=0.6
+
+            # Update labels IN PLACE
+            alpha_label.become(
+                MathTex(f"\\alpha = {alpha:.2f}").scale(1.2).to_corner(UR)
             )
+            behavior_label.become(
+                Text(behavior, font_size=24).next_to(alpha_label, DOWN)
+            )
+
+            # Replace dots
+            self.play(
+                ReplacementTransform(dots, new_dots),
+                FadeIn(alpha_label),
+                FadeIn(behavior_label),
+                run_time=0.6
             
+            )
+
             dots = new_dots
-            alpha_label = new_alpha_label
-            behavior_label = new_behavior_label
-            
             self.wait(0.3)
-        
+
         self.wait(2)
     
     def make_dots(self, axes, rk4_data, alpha):
@@ -209,16 +260,18 @@ class PoincareSectionsScene(m.Scene):
         dq = np.array(rk4_data["dq"][alpha])
         
         # Limit points for performance and clarity
+        q = (q + np.pi) % (2*np.pi) - np.pi
+
         n_points = min(800, len(q))
         indices = np.linspace(0, len(q)-1, n_points, dtype=int)
-        
-        dots = m.VGroup(*[
-            m.Dot(
-                axes.c2p(q[idx], dq[idx]), 
-                radius=0.035, 
-                color=m.BLUE
+
+        dots = VGroup(*[
+            Dot(
+                axes.c2p(q[i], dq[i]), 
+                radius=0.04, 
+                color=BLUE
             )
-            for idx in indices
+            for i in indices
         ])
         
         return dots
