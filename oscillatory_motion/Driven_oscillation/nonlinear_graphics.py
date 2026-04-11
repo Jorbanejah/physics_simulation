@@ -22,7 +22,7 @@ class DrivenOscillationParams:
     omega0: float = 1.0
 
     dt: float = 0.01
-    t_max: float = 100.0
+    t_max: float = 20.0
     
     system: str = 'nonlinear'
 
@@ -204,19 +204,18 @@ if __name__ == "__main__":
     F0_list = [0, 0, 2.0]
     gamma_list = [0, 1, 2]
 
-    #Remenber: w_d = np.sqrt(k/m - gamma/(2m)) and that must be real
-
-    #for idx, (F0_val, gamma_val) in enumerate(zip(F0_list, gamma_list)):
-
-    #    print(f"Running F0={F0_val}, gamma={gamma_val}")
     
-    #    osc = DrivenOscillation(q0=params.theta0, dq0=params.omega0, m=params.mass, gamma=gamma_val, F0=F0_val, omega=params.omega, t=params.t_max, dt=params.dt, system='nonlinear', L=params.L, F_external=params.F_external)
-    
-    #    model = osc.run() 
-    
-    #    plot_regime_summary(model.history, F0_val, gamma_val)
+    for idx, (F0_val, gamma_val) in enumerate(zip(F0_list, gamma_list)):
 
-    curves(params, omega_sq, method = "Verlet")
+        print(f"Running F0={F0_val}, gamma={gamma_val}")
+    
+        osc = DrivenOscillation(q0=params.theta0, dq0=params.omega0, m=params.mass, gamma=gamma_val, F0=F0_val, omega=params.omega, t=params.t_max, dt=params.dt, system='nonlinear', L=params.L, F_external=params.F_external)
+    
+        model = osc.run() 
+    
+        plot_regime_summary(model.history, F0_val, gamma_val)
+
+    #curves(params, omega_sq, method = "Verlet")
     #hysteresis(params, method = 'rk4')
     plt.show()
     

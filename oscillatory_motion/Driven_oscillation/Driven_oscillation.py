@@ -143,7 +143,7 @@ def nonlinear_system(t, y, p):
         force = np.sin(p["omega"] * t)
 
     dxdt = v
-    dvdt = -p["beta"] * v - p["omega0"]**2 * np.sin(x) + p["alpha"] * force
+    dvdt = - 2*p["beta"] * v - p["omega0"]**2 * np.sin(x) + p["alpha"] * force
 
     return np.array([dxdt, dvdt])
 
@@ -432,9 +432,9 @@ class Nonlinear():
         self.F0 = F0 
 
         #Pendulum parameter
-        self.beta = gamma/ (m * L**2)
-        self.omega_sq = np.sqrt(self.g / L)
-        self.alpha = F0/(m * L**2)
+        self.beta = gamma/ (2 * m * L**2) # [kg * m**2 / s**2]/ [kg *m**2] = 1/s
+        self.omega_sq = np.sqrt(self.g / L) #1/s
+        self.alpha = F0/(m * L**2) # 1/s**2
 
         #Time
         self.dt = dt
