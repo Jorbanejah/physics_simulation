@@ -63,20 +63,20 @@ class PhasePortraitScene(Scene):
         alpha_periodic = alphas[0]
         alpha_quasi    = alphas[len(alphas)//3]
         alpha_chaotic  = alphas[-1]
-
+        
         curves = [
             self.make_continuous_phase_plot(axes, rk4_data, alpha_periodic),
             self.make_continuous_phase_plot(axes, rk4_data, alpha_quasi),
             self.make_continuous_phase_plot(axes, rk4_data, alpha_chaotic)
         ]
 
-        labels = ["Periodic", "Quasi-periodic", "Chaotic"]
+        labels = [rf"Periodic: $\alpha ={alphas[0]}$", rf"Quasi-periodic:  $\alpha ={alphas[len(alphas)//3]}", rf"Chaotic:  $\alpha ={alphas[-1]}"]
 
         for curve, label in zip(curves, labels):
             text = Text(label).to_corner(DL)
             self.play(FadeIn(text))
             self.play(Create(curve), run_time=10)
-            self.wait(1.5)
+            self.wait()
             self.play(FadeOut(text), FadeOut(curve))
 
     def make_continuous_phase_plot(self, axes, rk4_data, alpha):
@@ -114,14 +114,16 @@ class PhasePortraitScene(Scene):
 
         # Grid matching the axes
         grid = NumberPlane(
-            x_range=[-np.pi, np.pi, np.pi/4],
-            y_range=[-30, 30, 25],
+            x_range= axes.x_range,
+            y_range= axes.y_range,
+            x_length=8,
+            y_length=5.5,
             background_line_style={
                 "stroke_opacity": 0.12,
                 "stroke_width": 1,
                 "stroke_color": WHITE
             }
-        ).match_width(axes).match_height(axes).move_to(axes)
+        ).move_to(axes)
 
         self.play(
             Create(grid),

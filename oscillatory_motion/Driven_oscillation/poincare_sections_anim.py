@@ -72,14 +72,16 @@ class PoincareSectionsScene(Scene):
 
         # Grid matching the axes
         grid = NumberPlane(
-            x_range=[-np.pi, np.pi, np.pi/4],
-            y_range=[-30, 30, 25],
+            x_range= axes.x_range,
+            y_range= axes.y_range,
+            x_length=8,
+            y_length=5.5,
             background_line_style={
                 "stroke_opacity": 0.12,
                 "stroke_width": 1,
                 "stroke_color": WHITE
             }
-        ).match_width(axes).match_height(axes).move_to(axes)
+        ).move_to(axes)
 
         self.play(
             Create(grid),
@@ -91,6 +93,7 @@ class PoincareSectionsScene(Scene):
         self.wait(0.5)
 
         return axes
+    
     def animate_poincare_morphing(self, axes, rk4_data, alphas):
         """Animate Poincaré sections morphing through alpha values."""
         # Initial alpha (normal behavior)
@@ -124,11 +127,11 @@ class PoincareSectionsScene(Scene):
             self.add(new_dots)
 
             # Behavior classification
-            if alpha < 3:
+            if alpha < 1.065:
                 behavior = "Normal"
-            elif alpha < 6:
+            elif alpha < 1.070:
                 behavior = "Erratic"
-            elif alpha < 12:
+            elif alpha < 1.075:
                 behavior = "Chaotic"
             else:
                 behavior = "Strongly Chaotic"

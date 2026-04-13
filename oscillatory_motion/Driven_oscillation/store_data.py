@@ -1,135 +1,176 @@
-from dataclasses import dataclass
 import numpy as np
-from Driven_oscillation import DrivenOscillation
-'''
-The following code store the differents trajectories that will be used inside the animations: Poincare sections, Lypunov coefficient and bifurcation diagram.
-We have used the Taylor parameters, and stored the trajectories inside of trajectories.npz:
+from dataclasses import dataclass
 
+# ============================================================
+# 1. PARAMETERS AND EQUATION (Taylor form)
+# ============================================================
 
-Taylor forms are different too: 
-
-d2(theta) + beta*d(theta) + sin(theta)  = gamma * cos(omega)
-
-𝛽 = B/(𝑚 * L**2 * g/L)
-gamma = F0 /(𝑚 * g * L)
-omega = Ω/omega0 ---> Ω omega driven
-
-
-1.060 < gamma < 1.087
-
-omega_driven = 2/3
-
-beta = 0.25
-
-q0 = 0
-dq0 =0 
-omega_0 = 1 --- omega_0 = sqrt(g/L) then L = 9.8
-
-Taylor's book does not explicity take the steady state, however, he discards 200-300 samples and takes the folowing 100-200 samples
-So, period(T) = 2pi/omega = 3pi -----> t = ?
-
-'''
 @dataclass
-class DrivenOscillationParameter:
-    #Initial condition
+class Params:
+    beta: float = 0.25          # damping
+    omega: float = 2/3          # drive frequency
+    dt: float = 0.01            # time step
 
-    q0: float = 0
-    dq0: float = 0
 
-    #
-    q02: float = np.deg2rad(0.1)
+def rhs(t, y, p, gamma):
+    """Taylor form: theta'' + beta*theta' + sin(theta) = gamma*cos(omega t)."""
+    theta, omega = y
+    dtheta = omega
+    domega = -p.beta * omega - np.sin(theta) + gamma * np.cos(p.omega * t)
+    return np.array([dtheta, domega])
 
-    #Innate parameter
-    L: float = 1
-    m: float = 2
-    gamma: float = 0.1
 
-    #External force
-    F0: float = 2
-    F_external: str = 'cos'
-    omega: float = 2 * np.pi * 0.5
+# ============================================================
+# 2. RK4 INTEGRATOR
+# ============================================================
 
-    #Time
-    t: int = 800 #We need a huge time even 2000
-    dt: float = 0.01
+def rk4_step(f, t, y, dt, p, gamma):
+    k1 = f(t,         y,           p, gamma)
+    k2 = f(t+dt/2,    y+dt*k1/2,   p, gamma)
+    k3 = f(t+dt/2,    y+dt*k2/2,   p, gamma)
+    k4 = f(t+dt,      y+dt*k3,     p, gamma)
+    return y + dt*(k1 + 2*k2 + 2*k3 + k4)/6
 
-    #System
-    system: str = 'nonlinear'
 
-class DynamicalSystem:
+def integrate_steps(p, gamma, n_steps, y0, t0=0.0):
     """
-    Encapsulates numerical simulation for a sweep of the forcing amplitude.
+    Integrate for exactly n_steps steps.
+    Returns q(t), dq(t), and final state y_end.
     """
+    q = np.empty(n_steps)
+    dq = np.empty(n_steps)
+    y = y0.copy()
+    t = t0
+    dt = p.dt
 
-    def __init__(self):
-        self.params = DrivenOscillationParameter()
-        self.alphas = np.linspace(1.060, 1.087, 40)  # Range showing normal→chaotic
-        self.methods = ["rk4"]
+    for i in range(n_steps):
+        q[i], dq[i] = y
+        y = rk4_step(rhs, t, y, dt, p, gamma)
+        t += dt
 
-        # Allocate storage
-        self.poincare_sections = {
-            method: {"q": {}, "dq": {}, "q_full": {}, "dq_full": {}} for method in self.methods
-        }
+    return q, dq, y, t
 
-    def extract_poincare_section(self, q_traj, dq_traj, omega, t_start=400):
-        """Extract Poincaré section by sampling at driving period."""
+# ============================================================
+# 3. POINCARÉ SECTION
+# ============================================================
 
-        period = 2 * np.pi / omega
-        dt = self.params.dt
-        steps_per_period = int(period/dt)
+def poincare_section(p, gamma, y0, t_transient=300.0, n_samples=200):
+    """
+    Compute Poincaré section by sampling once per drive period
+    after a transient. This is phase-locked and matches the
+    standard driven pendulum bifurcation diagrams.
+    """
+    T = 2.0 * np.pi / p.omega
+    dt = p.dt
+    steps_transient = int(t_transient / dt)
+    steps_per_period = int(round(T / dt))
 
-        t_sample = np.arange(int(t_start/dt), len(q_traj), steps_per_period)
-        
-        return q_traj[t_sample], dq_traj[t_sample]
+    # 1) Transient
+    q_tr, dq_tr, y, t = integrate_steps(p, gamma, steps_transient, y0, t0=0.0)
 
-    def run_parameter_sweep(self):
-        """Compute Poincaré sections for all alpha values."""
-        print("Computing Poincaré sections...")
-        
-        for i, alpha in enumerate(self.alphas):
-            progress = (i + 1) / len(self.alphas)
-            bar_length = 12
-            filled = int(progress * bar_length)
-            bar = "█" * filled + "-" * (bar_length - filled)
+    # 2) Poincaré sampling
+    q_p = []
+    dq_p = []
 
-            print(rf"[{bar}]  {progress*100:5.1f}%   $\alpha$ = {alpha:.2f}", end="\r", flush=True)
+    for _ in range(n_samples):
+        # integrate exactly one drive period
+        q_tmp, dq_tmp, y, t = integrate_steps(p, gamma, steps_per_period, y, t0=t)
+        theta, omega_v = y
+
+        # wrap theta to [-pi, pi]
+        theta = (theta + np.pi) % (2.0*np.pi) - np.pi
+
+        q_p.append(theta)
+        dq_p.append(omega_v)
+
+    return np.array(q_p), np.array(dq_p), y, t
+
+
+
+# ============================================================
+# 4. LYAPUNOV EXPONENT
+# ============================================================
+
+def lyapunov(p, gamma, y0, t_transient=300, n_periods=800, delta0=1e-8):
+    T = 2*np.pi / p.omega
+
+    # transient
+    q_tr, dq_tr = integrate_steps(p, gamma, t_transient, y0)
+    y1 = np.array([q_tr[-1], dq_tr[-1]])
+    y2 = y1 + np.array([delta0, 0.0])
+
+    sum_log = 0.0
+    t = 0.0
+    steps_per_period = int(T / p.dt)
+    total_steps = n_periods * steps_per_period
+
+    for i in range(total_steps):
+        y1 = rk4_step(rhs, t, y1, p.dt, p, gamma)
+        y2 = rk4_step(rhs, t, y2, p.dt, p, gamma)
+        t += p.dt
+
+        if (i+1) % steps_per_period == 0:
+            d = np.linalg.norm(y2 - y1)
+            if d == 0:
+                d = 1e-16
+            sum_log += np.log(d / delta0)
+            # renormalize
+            y2 = y1 + (delta0 / d) * (y2 - y1)
+
+    return sum_log / (n_periods * T)
+
+
+# ============================================================
+# 5. SWEEP OVER ALPHAS AND STORE EVERYTHING
+# ============================================================
+
+def compute_and_store(alphas, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\store_data.npz"):
+    p = Params()
+    data = {
+        "q_full": {},
+        "dq_full": {},
+        "q_poincare": {},
+        "dq_poincare": {},
+        "lambda": {}
+    }
+
+    y0_base = np.array([0.0, 0.0])  # initial state
+
+    for i, alpha in enumerate(alphas):
+       
+        progress = (i + 1) / len(alphas)
+        bar_length = 12
+        filled = int(progress * bar_length)
+        bar = "█" * filled + "-" * (bar_length - filled)
+
+        print(rf"[{bar}]  {progress*100:5.1f}%   $\alpha$ = {alpha:.2f}", end="\r", flush=True)
             
-            # Update F0 = alpha
-            F0 = alpha * self.params.m * self.params.L**2
-            
-            # Create oscillator with current parameters
-            osc = DrivenOscillation(q0=self.params.q0, dq0=self.params.dq0, m=self.params.m, gamma=self.params.gamma, F0=F0, omega=self.params.omega, t = self.params.t, system=self.params.system, L=self.params.L, F_external = self.params.F_external)
-            
-            # Run simulation
-            model = osc.run()
-            
-            # Extract Poincaré sections for each method
-            for method in self.methods:
-                q_full = np.array(model.history[method]["q"])
-                dq_full = np.array(model.history[method]["v"])
 
-                # Extract Poincaré section (discard transients)
-                q_poincare, dq_poincare = self.extract_poincare_section(q_full, dq_full, self.params.omega)
-                
-                self.poincare_sections[method]["q"][alpha] = q_poincare
-                self.poincare_sections[method]["dq"][alpha] = dq_poincare
-                self.poincare_sections[method]["q_full"][alpha] = q_full
-                self.poincare_sections[method]["dq_full"][alpha] = dq_full
-        return self.poincare_sections
+      # 1) Full trajectory (for visualization, not too long)
+        t_full = 150.0
+        steps_full = int(t_full / p.dt)
+        q_full, dq_full, _, _ = integrate_steps(p, alpha, steps_full, y0_base, t0=0.0)
 
-    def store(self, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\poincare_sections.npz"):
-        """Store results."""
-        
-        np.savez(filename, **self.poincare_sections)
-        print(f"Data stored in {filename}")
+        # 2) Poincaré section (phase-locked)
+        q_p, dq_p, _, _ = poincare_section(
+            p, alpha, y0_base, t_transient=300.0, n_samples=200
+        )
 
-# Pre-compute data (run this first)
+        # store
+        data["q_full"][alpha] = q_full
+        data["dq_full"][alpha] = dq_full
+        data["q_poincare"][alpha] = q_p
+        data["dq_poincare"][alpha] = dq_p
+
+    np.savez(filename, **data)
+    print(f"\nSaved to {filename}")
+
+
+# ============================================================
+# 6. RUN
+# ============================================================
+
 if __name__ == "__main__":
-    system = DynamicalSystem()
-    sections = system.run_parameter_sweep()
-    system.store()
-    data = np.load("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\poincare_sections.npz", allow_pickle=True)
-    rk4 = data["rk4"].item()
 
-    for alpha, arr in rk4["q"].items():
-        print(alpha, len(arr), arr)
+    alphas = np.linspace(1.060, 1.087, 50)
+    compute_and_store(alphas, "store_data.npz")
