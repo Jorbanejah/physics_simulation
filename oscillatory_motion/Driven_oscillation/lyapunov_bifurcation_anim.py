@@ -1,27 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-data = np.load("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\poincare_sections.npz", allow_pickle=True)
+data = np.load("C:\\Users\\JORGE\\store_data.npz", allow_pickle=True)
+q_p = data["q_poincare"].item()
 
-rk4_data = data["rk4"].item()
+all_A = []
+all_theta = []
 
-alphas = sorted(rk4_data["q_steady"].keys())
+for A in sorted(q_p.keys()):
+    qvals = np.array(q_p[A])
+    all_A.extend([A] * len(qvals))
+    all_theta.extend(qvals)
 
-all_alphas = []
-all_q = []
-for alpha in alphas:
-    q = np.array(rk4_data["q_steady"][alpha])
-
-    # -pi to pi
-    q = (q + np.pi) % (2*np.pi) - np.pi
-
-    order = np.argsort(q)
-    all_alphas.extend(len(q) * [alpha])
-    all_q.extend(q)
-
-plt.figure(figsize=(10, 6))
-plt.scatter(x = all_alphas, y = all_q, s = 5)
-plt.title("Bifurcation diagram")
-plt.xlabel(r"$\alpha$")
-plt.ylabel(r"$\theta$")
+plt.figure(figsize=(10,6))
+plt.scatter(all_A, all_theta, s=5, color="black")
+plt.xlabel("A")
+plt.ylabel("θ (wrapped)")
+plt.title("Driven Pendulum Bifurcation Diagram")
 plt.show()
