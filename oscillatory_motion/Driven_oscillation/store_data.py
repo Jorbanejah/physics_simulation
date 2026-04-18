@@ -80,7 +80,7 @@ def trajectory(f, p, A, T, n_periods=300, dt=0.01):
 
     sol = solve_ivp(f, [0, t_final], p.y0, args=(p,), max_step=dt, dense_output=True)
 
-    t_vals = np.linspace(0, t_final, int(t_final/dt))
+    t_vals = np.linspace(n_periods, t_final, int(t_final/dt))
     theta_vals, omega_vals = sol.sol(t_vals)
 
     theta_vals = (theta_vals + np.pi) % (2*np.pi) - np.pi
@@ -161,10 +161,13 @@ def compute_and_store(filename="C:\\Users\\JORGE\\Desktop\\Programas\\Python\\ph
     p = Params()
 
     data = {
-        "full_trajectory": {},
-        "results_alpha": [],
-        "q_poincare": [],
-        "dq_poincare": []
+        "bifur_q": {},
+        "bifur_dq": {},
+        "q_poincare": {},
+        "dq_poincare": {},
+        "trajectory_q": {},
+        "trajectory_dq": {},
+        "Lyapunov": {}
     }
 
     # 1) Poincare sections
@@ -182,23 +185,15 @@ def compute_and_store(filename="C:\\Users\\JORGE\\Desktop\\Programas\\Python\\ph
     
 if __name__ == "__main__":
     p =Params()
-    alphas = np.linspace(1.060, 1.087, 20)
-    #alphas = [1.065, 1.070, 1.082, 1.086]
+    alphas = np.linspace(1.060, 1.087, 150)
+    #alphas = [1.062, 1.070, 1.080, 1.086] cambiar a trayectorias mas vistosas 1.080 y 1.062 ok
     
+    A = 1.086
 
-    lam = []
-    for i, alpha in enumerate(alphas):
-        progress = (i + 1) / len(alphas)
-        bar_length = 12
-        filled = int(progress * bar_length)
-        bar = "█" * filled + "-" * (bar_length - filled)
-    
-        print(rf"Lyapunov exponent: [{bar}]  {progress*100:5.1f}%   A = {alpha:.4f}", end="\r", flush=True)
-
-        l = lyapunov_exponent(driven_equation, p, alpha)
-        lam.append(l)
+    q, dq = poincare_sections(driven_equation, A, p, T=2*np.pi/p.omega_drive)
 
     plt.figure(figsize = (10, 6))
-    plt.axhline(0, )
-    plt.plot(alphas, lam, "*")
+    plt.scatter(q, dq)
+    plt.axhline(0)
+    plt.axvline(0)
     plt.show()
