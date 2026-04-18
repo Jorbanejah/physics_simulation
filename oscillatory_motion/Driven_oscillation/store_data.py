@@ -70,36 +70,39 @@ def bifurcation_diagram(f, p, alphas, T, t_transient = 100, t_steady = 50):
         p.y0 = sol.y[:, -1]
 
     
-    return results_A, results_poin_omega, results_poin_theta
+    return results_A, results_poin_theta, results_poin_omega
 
-def trajectory(f, p, A, T, n_periods=300, dt=0.01):
+def trajectory(f, p, A, T, n_periods=80, dt=0.01):
 
+    
     p.A = A
 
     t_final = n_periods * T
 
     sol = solve_ivp(f, [0, t_final], p.y0, args=(p,), max_step=dt, dense_output=True)
 
-    t_vals = np.linspace(n_periods, t_final, int(t_final/dt))
+    t_vals = np.linspace(0, t_final, int(t_final/dt))
     theta_vals, omega_vals = sol.sol(t_vals)
 
     theta_vals = (theta_vals + np.pi) % (2*np.pi) - np.pi
 
     return theta_vals, omega_vals
 
-def poincare_sections(f, A, p, T, n_trans=1000, n_points=300):
+def poincare_sections(f, A, p, T, n_trans=200, n_points=200):
 
     p.A = A
     theta_list = []
     omega_list = []
 
-    # 1) Transient period
-    sol = solve_ivp(f, [0, n_trans*T], p.y0, args=(p,), max_step=0.05)
+    # 1) Transient 
+    sol = solve_ivp(f, [0, n_trans*T], p.y0, args=(p,), max_step=0.05, dense_output= True)
+
     y = sol.y[:, -1]   # final state
 
     # 2) Integration per period
     for _ in range(n_points):
         sol = solve_ivp(f, [0, T], y, args=(p,), dense_output=True, max_step=0.05)
+
         y = sol.y[:, -1]   # Update the state
 
         # 3) t =T
@@ -112,7 +115,7 @@ def poincare_sections(f, A, p, T, n_trans=1000, n_points=300):
         theta_list.append(theta)
         omega_list.append(omega)
 
-    p.y0 = y  # seguir rama del atractor
+    p.y0 = y  
 
     return theta_list, omega_list
 
@@ -156,44 +159,107 @@ def lyapunov_exponent(f, p, A, steps=8000, dt=0.01, delta0=1e-8):
     return S / (steps * dt)
 
 
-def compute_and_store(filename="C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\store_data.npz"):
+def compute_and_store(alphas, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\data_bifurcation.npz"):
 
     p = Params()
 
-    data = {
-        "bifur_q": {},
-        "bifur_dq": {},
-        "q_poincare": {},
-        "dq_poincare": {},
-        "trajectory_q": {},
-        "trajectory_dq": {},
-        "Lyapunov": {}
+    data_L_bi = {
+        "alphas": None,
+        "bifur_q": None,
+        "bifur_dq": None,
+        "Lyapunov": []
     }
 
-    # 1) Poincare sections
+    # 1) Bifurcation diagram
     
-    T = 2 * np.pi /p.omega
+    T = 2 * np.pi /p.omega_drive
        
-    results_A, dq_p, q_p, _= bifurcation_diagram(driven_equation, p, alphas, T, t_transient=100, t_steady=50)
+    results_A, q_b, dq_b= bifurcation_diagram(driven_equation, p, alphas, T, t_transient=100, t_steady=50)
 
-    data["results_alpha"] = results_A
-    data["q_poincare"] = q_p
-    data["dq_poincare"] = dq_p
-
-    np.savez(filename, **data)
-    print(f"\nSaved to {filename}")
+    data_L_bi["alphas"] = results_A
+    data_L_bi["bifur_q"] = q_b
+    data_L_bi["bifur_dq"] = dq_b
     
+    for i, A in enumerate(alphas):
+
+        progress = (i + 1) / len(alphas)
+        bar_length = 12
+        filled = int(progress * bar_length)
+        bar = "█" * filled + "-" * (bar_length - filled)
+
+        print(rf"Lyapunov: [{bar}]  {progress*100:5.1f}%   A = {A:.4f}", end="\r", flush=True)
+
+        Lam = lyapunov_exponent(driven_equation, p, A)
+
+        data_L_bi["Lyapunov"].append(Lam)
+
+    data_L_bi["Lyapunov"] = np.array(data_L_bi["Lyapunov"])
+    np.savez(filename, **data_L_bi)
+
+    print(f"\nSaved to {filename}")
+
+    return data_L_bi
+
+def plot_trajectory_and_poincare(f, p, A_values):
+
+    T = 2 * np.pi/p.omega_drive
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 12), tight_layout=True)
+
+    # Bright, contrasting colors
+    traj_colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#9467bd"]   # blue, green, orange, purple
+    poin_colors = ["#d62728", "#17becf", "#e377c2", "#8c564b"]  # red, cyan, pink, brown
+
+    for idx, A in enumerate(A_values):
+        
+        progress = (idx + 1) / len(A_values)
+        bar_length = 12
+        filled = int(progress * bar_length)
+        bar = "█" * filled + "-" * (bar_length - filled)
+
+        print(rf"Poincare and trajectories: [{bar}]  {progress*100:5.1f}%   A = {A:.4f}", end="\r", flush=True)
+
+        row = idx // 2
+        col = idx % 2
+        ax = axes[row][col]
+        
+        p.y0 = np.array([0.0, 0.0])
+        # Compute trajectory
+        theta_traj, omega_traj = trajectory(f, p, A, T, n_periods=300, dt=0.01)
+
+        # Compute Poincaré section
+        theta_poin, omega_poin = poincare_sections(f, A, p, T)
+
+        # Plot trajectory
+        ax.plot(theta_traj, omega_traj,
+                color=traj_colors[idx],
+                alpha=0.35,
+                linewidth=1.2,
+                label="Trajectory")
+
+        # Plot Poincaré points
+        ax.scatter(theta_poin, omega_poin,
+                   color=poin_colors[idx],
+                   s=25,
+                   edgecolor="black",
+                   linewidth=0.4,
+                   label="Poincaré")
+
+        ax.set_title(f"A = {A}", fontsize=14, weight="bold")
+        ax.set_xlabel(r"$\theta$", fontsize=12)
+        ax.set_ylabel(r"$\dot{\theta}$", fontsize=12)
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+
+    plt.suptitle("Driven Pendulum: Trajectories and Poincaré Sections", fontsize=18, weight="bold")
+    plt.show()
+
 if __name__ == "__main__":
     p =Params()
-    alphas = np.linspace(1.060, 1.087, 150)
+    #alphas = np.linspace(1.060, 1.087, 150)
     #alphas = [1.062, 1.070, 1.080, 1.086] cambiar a trayectorias mas vistosas 1.080 y 1.062 ok
+    A_values = [1.073, 1.081, 1.0829, 1.086]   # period‑1, 2, 4, chaos
+
+
+    plot_trajectory_and_poincare(driven_equation, p, A_values)
     
-    A = 1.086
-
-    q, dq = poincare_sections(driven_equation, A, p, T=2*np.pi/p.omega_drive)
-
-    plt.figure(figsize = (10, 6))
-    plt.scatter(q, dq)
-    plt.axhline(0)
-    plt.axvline(0)
-    plt.show()
