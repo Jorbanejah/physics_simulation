@@ -86,13 +86,15 @@ def trajectory(f, p, A, T, n_periods=80, dt=0.01):
 
     theta_vals = (theta_vals + np.pi) % (2*np.pi) - np.pi
 
-    return theta_vals, omega_vals
+    t_wrapped =(t_vals % T)
+    return theta_vals, omega_vals, t_wrapped
 
-def poincare_sections(f, A, p, T, n_trans=200, n_points=200):
+def poincare_sections(f, A, p, T, n_trans=400, n_points=400):
 
     p.A = A
     theta_list = []
     omega_list = []
+    t_list = []
 
     # 1) Transient 
     sol = solve_ivp(f, [0, n_trans*T], p.y0, args=(p,), max_step=0.05, dense_output= True)
@@ -114,10 +116,11 @@ def poincare_sections(f, A, p, T, n_trans=200, n_points=200):
 
         theta_list.append(theta)
         omega_list.append(omega)
+        t_list.append(0.0) #always the same phase
 
     p.y0 = y  
 
-    return theta_list, omega_list
+    return theta_list, omega_list, t_list
 
 def lyapunov_exponent(f, p, A, steps=8000, dt=0.01, delta0=1e-8):
 
@@ -200,65 +203,69 @@ def compute_and_store(alphas, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Py
 
     return data_L_bi
 
+from mpl_toolkits.mplot3d import Axes3D
+
 def plot_trajectory_and_poincare(f, p, A_values):
 
-    T = 2 * np.pi/p.omega_drive
+    T = 2 * np.pi / p.omega_drive
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 12), tight_layout=True)
-
+    fig = plt.figure(figsize=(14, 12))
+    
     # Bright, contrasting colors
-    traj_colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#9467bd"]   # blue, green, orange, purple
-    poin_colors = ["#d62728", "#17becf", "#e377c2", "#8c564b"]  # red, cyan, pink, brown
+    traj_colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#9467bd"]
+    poin_colors = ["#d62728", "#17becf", "#e377c2", "#8c564b"]
 
     for idx, A in enumerate(A_values):
-        
+
         progress = (idx + 1) / len(A_values)
         bar_length = 12
         filled = int(progress * bar_length)
         bar = "█" * filled + "-" * (bar_length - filled)
+        print(rf"Poincare and trajectories: [{bar}]  {progress*100:5.1f}%   A = {A:.4f}",
+              end="\r", flush=True)
 
-        print(rf"Poincare and trajectories: [{bar}]  {progress*100:5.1f}%   A = {A:.4f}", end="\r", flush=True)
+        # 3D subplot
+        ax = fig.add_subplot(2, 2, idx+1, projection='3d')
 
-        row = idx // 2
-        col = idx % 2
-        ax = axes[row][col]
-        
+        # Reset initial condition
         p.y0 = np.array([0.0, 0.0])
-        # Compute trajectory
-        theta_traj, omega_traj = trajectory(f, p, A, T, n_periods=300, dt=0.01)
+
+        # Compute 3D trajectory
+        theta_traj, omega_traj, t_wrap = trajectory(f, p, A, T, n_periods=300, dt=0.01)
 
         # Compute Poincaré section
-        theta_poin, omega_poin = poincare_sections(f, A, p, T)
+        theta_poin, omega_poin, t_poin = poincare_sections(f, A, p, T)
 
-        # Plot trajectory
-        ax.plot(theta_traj, omega_traj,
+        # Plot trajectory (3D curve)
+        ax.plot(theta_traj, omega_traj, t_wrap,
                 color=traj_colors[idx],
-                alpha=0.35,
+                alpha=0.55,
                 linewidth=1.2,
                 label="Trajectory")
 
-        # Plot Poincaré points
-        ax.scatter(theta_poin, omega_poin,
+        # Plot Poincaré points (all at same t mod T)
+        ax.scatter(theta_poin, omega_poin, t_poin,
                    color=poin_colors[idx],
-                   s=25,
+                   s=35,
                    edgecolor="black",
                    linewidth=0.4,
                    label="Poincaré")
 
         ax.set_title(f"A = {A}", fontsize=14, weight="bold")
-        ax.set_xlabel(r"$\theta$", fontsize=12)
-        ax.set_ylabel(r"$\dot{\theta}$", fontsize=12)
+        ax.set_xlabel(r"$\theta$")
+        ax.set_ylabel(r"$\dot{\theta}$")
+        ax.set_zlabel(r"$t mod(T)$")
         ax.grid(True, alpha=0.3)
         ax.legend()
 
-    plt.suptitle("Driven Pendulum: Trajectories and Poincaré Sections", fontsize=18, weight="bold")
+    plt.suptitle("Driven Pendulum: 3D Trajectories and Poincaré Sections", fontsize=18, weight="bold")
     plt.show()
 
 if __name__ == "__main__":
     p =Params()
     #alphas = np.linspace(1.060, 1.087, 150)
     #alphas = [1.062, 1.070, 1.080, 1.086] cambiar a trayectorias mas vistosas 1.080 y 1.062 ok
-    A_values = [1.073, 1.081, 1.0829, 1.086]   # period‑1, 2, 4, chaos
+    A_values = [0.5, 1.07, 1.08, 1.5]   # period‑1, 2, 4, chaos
 
 
     plot_trajectory_and_poincare(driven_equation, p, A_values)
