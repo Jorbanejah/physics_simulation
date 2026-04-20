@@ -2,7 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 from dataclasses import dataclass, field
+"""
+This code store in store.data.npz: 
+- Lypunov coefficient through different values
+- Bifurcation diagram: alpha vs theta, alpaha vs dtheta
+- The trajectories of 1, 2, 4 - periods and chaotic motion
+- Poincare sections of chaotic motion.
 
+The following functions are commented and described
+"""
 @dataclass
 class Params:
     beta: float = 0.5         # damping
@@ -74,7 +82,6 @@ def bifurcation_diagram(f, p, alphas, T, t_transient = 100, t_steady = 50):
 
 def trajectory(f, p, A, T, n_periods=80, dt=0.01):
 
-    
     p.A = A
 
     t_final = n_periods * T
@@ -89,38 +96,33 @@ def trajectory(f, p, A, T, n_periods=80, dt=0.01):
     t_wrapped =(t_vals % T)
     return theta_vals, omega_vals, t_wrapped
 
-def poincare_sections(f, A, p, T, n_trans=400, n_points=400):
+def poincare_sections(f, A, p, T, n_trans=400, n_points=300):
 
     p.A = A
     theta_list = []
     omega_list = []
-    t_list = []
 
-    # 1) Transient 
-    sol = solve_ivp(f, [0, n_trans*T], p.y0, args=(p,), max_step=0.05, dense_output= True)
+    # 1) Transient
+    sol = solve_ivp(f, [0, n_trans*T], p.y0, args=(p,), max_step=0.05, dense_output=True)
+    y = sol.y[:, -1]
+    t0 = sol.t[-1]
 
-    y = sol.y[:, -1]   # final state
-
-    # 2) Integration per period
+    # 2) Period-by-period integration with absolute time
     for _ in range(n_points):
-        sol = solve_ivp(f, [0, T], y, args=(p,), dense_output=True, max_step=0.05)
+        sol = solve_ivp(f, [t0, t0 + T], y, args=(p,), max_step=0.05, dense_output=True)
+        y = sol.y[:, -1]
+        t0 = sol.t[-1]
 
-        y = sol.y[:, -1]   # Update the state
+        theta = sol.sol(t0)[0]
+        omega = sol.sol(t0)[1]
 
-        # 3) t =T
-        theta = sol.sol(T)[0]
-        omega = sol.sol(T)[1]
-
-        # 4) Wrap
         theta = (theta + np.pi) % (2*np.pi) - np.pi
 
         theta_list.append(theta)
         omega_list.append(omega)
-        t_list.append(0.0) #always the same phase
 
-    p.y0 = y  
+    return theta_list, omega_list, None
 
-    return theta_list, omega_list, t_list
 
 def lyapunov_exponent(f, p, A, steps=8000, dt=0.01, delta0=1e-8):
 
@@ -162,9 +164,11 @@ def lyapunov_exponent(f, p, A, steps=8000, dt=0.01, delta0=1e-8):
     return S / (steps * dt)
 
 
-def compute_and_store(alphas, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\data_bifurcation.npz"):
+def compute_and_store(alphas, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\poincare_sections.npz"):
 
     p = Params()
+
+    # 1) Bifurcation diagram + Lypaunov coefficient -------> ~ 5/7 min
 
     data_L_bi = {
         "alphas": None,
@@ -172,36 +176,94 @@ def compute_and_store(alphas, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Py
         "bifur_dq": None,
         "Lyapunov": []
     }
-
-    # 1) Bifurcation diagram
-    
     T = 2 * np.pi /p.omega_drive
        
-    results_A, q_b, dq_b= bifurcation_diagram(driven_equation, p, alphas, T, t_transient=100, t_steady=50)
+    #results_A, q_b, dq_b= bifurcation_diagram(driven_equation, p, alphas, T, t_transient=100, t_steady=50)
 
-    data_L_bi["alphas"] = results_A
-    data_L_bi["bifur_q"] = q_b
-    data_L_bi["bifur_dq"] = dq_b
+    #data_L_bi["alphas"] = results_A
+    #data_L_bi["bifur_q"] = q_b
+    #data_L_bi["bifur_dq"] = dq_b
     
-    for i, A in enumerate(alphas):
+    #for i, A in enumerate(alphas):
+
+    #    progress = (i + 1) / len(alphas)
+    #    bar_length = 12
+    #    filled = int(progress * bar_length)
+    #    bar = "█" * filled + "-" * (bar_length - filled)
+
+    #    print(rf"Lyapunov: [{bar}]  {progress*100:5.1f}%   A = {A:.4f}", end="\r", flush=True)
+
+    #    Lam = lyapunov_exponent(driven_equation, p, A)
+
+    #    data_L_bi["Lyapunov"].append(Lam)
+
+    #data_L_bi["Lyapunov"] = np.array(data_L_bi["Lyapunov"])
+
+    # Stored Bifurcation diagram and Lyapunov coefficient
+    #np.savez(filename, **data_L_bi)
+
+    # 2) Poincare sections (chaotic regime)
+    
+    data_P = {
+        "poincare_q": {},
+        "poincare_dq": {}
+    }
+    initial_y0 = np.array([0.0, 0.0])
+
+    for i, alpha in enumerate(alphas):
 
         progress = (i + 1) / len(alphas)
         bar_length = 12
         filled = int(progress * bar_length)
         bar = "█" * filled + "-" * (bar_length - filled)
 
-        print(rf"Lyapunov: [{bar}]  {progress*100:5.1f}%   A = {A:.4f}", end="\r", flush=True)
+        print(f"Poincare sections: [{bar}]  {progress*100:5.1f}% $\alpha$", "= {alpha:.4f}", end="\r", flush=True)
 
-        Lam = lyapunov_exponent(driven_equation, p, A)
+        p.y0 = initial_y0.copy()
+        theta_list, omega_list, _ = poincare_sections(driven_equation, alpha, p, T)
 
-        data_L_bi["Lyapunov"].append(Lam)
+        data_P["poincare_q"][alpha] = theta_list
+        data_P["poincare_dq"][alpha] = omega_list
+    
+    np.savez(filename, **data_P)
 
-    data_L_bi["Lyapunov"] = np.array(data_L_bi["Lyapunov"])
-    np.savez(filename, **data_L_bi)
+    # 3) Trajectories  + poincare sections ----> (~ 1 min)
 
+    data_t_p = {
+        "q_poincare": {},
+        "dq_poincare": {},
+        "q_trajectory": {},
+        "dq_trajectory":{},
+        "t_mod_T": {}
+    }
+
+    
+    #for i, alpha in enumerate(A_values):
+
+    #    progress = (i + 1) / len(alphas)
+    #    bar_length = 12
+    #    filled = int(progress * bar_length)
+    #    bar = "█" * filled + "-" * (bar_length - filled)
+
+    #    print(f"Poincare sections: [{bar}]  {progress*100:5.1f}% $\alpha$ = {alpha:.4f}", end="\r", flush=True)
+
+    #    theta_vals, omega_vals, t_wrapped = trajectory(driven_equation, p, alpha, T)
+
+    #    data_t_p["q_trajectory"][alpha] = theta_vals
+    #    data_t_p["dq_trajectory"][alpha] = omega_vals
+    #    data_t_p["t_mod_T"][alpha] = t_wrapped
+
+    #    theta_list, omega_list, _ = poincare_sections(driven_equation, alpha, p, T)
+
+    #    data_t_p["q_poincare"][alpha] = theta_list
+    #    data_t_p["dq_poincare"][alpha] = omega_list
+
+    #np.savez(filename, **data_t_p)
+    
     print(f"\nSaved to {filename}")
 
-    return data_L_bi
+    return data_t_p
+
 
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -263,10 +325,16 @@ def plot_trajectory_and_poincare(f, p, A_values):
 
 if __name__ == "__main__":
     p =Params()
-    #alphas = np.linspace(1.060, 1.087, 150)
-    #alphas = [1.062, 1.070, 1.080, 1.086] cambiar a trayectorias mas vistosas 1.080 y 1.062 ok
-    A_values = [0.5, 1.07, 1.08, 1.5]   # period‑1, 2, 4, chaos
-
-
-    plot_trajectory_and_poincare(driven_equation, p, A_values)
+    alphas = np.linspace(1.060, 1.087, 100) #----> Bifurcation and Lyapunov coefficient 
     
+    #A_values = [0.5, 1.07, 1.09, 1.5]  #-----> trajectories and poincare sections
+
+    #alphas = np.linspace(1.3, 1.6, 10) # -----> poincare sections (chaos)
+
+    compute_and_store(alphas)
+
+    
+
+
+
+
