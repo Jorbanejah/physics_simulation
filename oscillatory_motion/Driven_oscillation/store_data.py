@@ -217,7 +217,7 @@ def compute_and_store(alphas, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Py
         filled = int(progress * bar_length)
         bar = "█" * filled + "-" * (bar_length - filled)
 
-        print(f"Poincare sections: [{bar}]  {progress*100:5.1f}% $\alpha$", "= {alpha:.4f}", end="\r", flush=True)
+        print(fr"Poincare sections: [{bar}]  {progress*100:5.1f}% $\alpha$", "= {alpha:.4f}", end="\r", flush=True)
 
         p.y0 = initial_y0.copy()
         theta_list, omega_list, _ = poincare_sections(driven_equation, alpha, p, T)
@@ -262,7 +262,7 @@ def compute_and_store(alphas, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Py
     
     print(f"\nSaved to {filename}")
 
-    return data_t_p
+    
 
 
 from mpl_toolkits.mplot3d import Axes3D
@@ -325,11 +325,11 @@ def plot_trajectory_and_poincare(f, p, A_values):
 
 if __name__ == "__main__":
     p =Params()
-    alphas = np.linspace(1.060, 1.087, 100) #----> Bifurcation and Lyapunov coefficient 
+    #alphas = np.linspace(1.060, 1.087, 100) #----> Bifurcation and Lyapunov coefficient 
     
     #A_values = [0.5, 1.07, 1.09, 1.5]  #-----> trajectories and poincare sections
 
-    #alphas = np.linspace(1.3, 1.6, 10) # -----> poincare sections (chaos)
+    alphas = np.linspace(1.1, 1.6, 100) # -----> poincare sections (chaos regime)
 
     compute_and_store(alphas)
 
