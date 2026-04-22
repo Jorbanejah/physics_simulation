@@ -108,11 +108,11 @@ class PhasePortraitScene(Scene):
         theta_dict, omega_dict = y
         colors = [BLUE_C, GREEN_C, ORANGE, RED_C, PURPLE, TEAL]
 
-        total_time = 60  # 1 minutes
+        total_time = 20  # 1 minutes
         time_per_alpha = total_time / len(alphas)
 
         # Create persistent alpha label
-        alpha_label = Text(r"$\alpha$ = ", font_size=24)
+        alpha_label = Text(r"α = ", font_size=24)
         alpha_value = DecimalNumber(0, num_decimal_places=4, font_size=24)
         alpha_group = VGroup(alpha_label, alpha_value).arrange(RIGHT).to_corner(DR)
         self.add(alpha_group)

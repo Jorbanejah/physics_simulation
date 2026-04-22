@@ -217,7 +217,7 @@ def compute_and_store(alphas, filename="C:\\Users\\JORGE\\Desktop\\Programas\\Py
         filled = int(progress * bar_length)
         bar = "█" * filled + "-" * (bar_length - filled)
 
-        print(fr"Poincare sections: [{bar}]  {progress*100:5.1f}% $\alpha= {alpha:.4f}$", end="\r", flush=True)
+        print(rf"Poincare sections: [{bar}]  {progress*100:5.1f}% $\alpha= {alpha:.4f}$", end="\r", flush=True)
 
         p.y0 = initial_y0.copy()
         theta_list, omega_list, _ = poincare_sections(driven_equation, alpha, p, T)
