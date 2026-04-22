@@ -1,8 +1,27 @@
 import numpy as np
 from manim import *
 from collections import defaultdict
+#This program takes ~5/7 minutes to run. It animates 300
 
 
+data = np.load("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\data_bifurcation.npz", allow_pickle=True)
+
+        #Load bifurcation
+q_p = data["bifur_q"] # length = 7500
+alphas_bi = data["alphas"] # length =7500
+
+        #Load Lyapunov
+Lyapunov = data["Lyapunov"] # length 150
+alphas_L = np.linspace(1.060, 1.087, 150)
+       
+bifur_dict = defaultdict(list)
+
+for A, q in zip(alphas_bi, q_p):
+        bifur_dict[A].append(q)
+
+unique_alphas = sorted(bifur_dict.keys()) # Now we have 150 values
+print(len(unique_alphas))
+print(len(alphas_L))
 class LyapunovBifurcation(Scene):
 
     def construct(self):
@@ -89,94 +108,87 @@ class LyapunovBifurcation(Scene):
     
     def Bifurcation_Lyapunov(self, alphas_L, Lyapunov, bifur_dict, unique_alphas, ax_bif, ax_lyap):
 
-        lyap_curve = VMobject().set_stroke(RED, 3)
-        lyap_points = []
+        # --- VALUE TRACKERS ---
+        alpha_tracker = ValueTracker(alphas_L[0])
+        lambda_tracker = ValueTracker(Lyapunov[0])
+
+        # --- LABELS ---
+           
+        alpha_label = MathTex(r"\alpha =", font_size=24)
+        alpha_label.next_to(ax_bif, RIGHT, buff=0.5)
+
+        alpha_value = always_redraw(
+            lambda: DecimalNumber(
+                alpha_tracker.get_value(),
+                num_decimal_places=4,
+                font_size=24
+            ).next_to(alpha_label, RIGHT, buff=0.2)
+        )
+
+        self.add(alpha_label, alpha_value)
+
+        lambda_label = MathTex(r"\lambda =", font_size=24)  
+        lambda_label.next_to(ax_lyap, RIGHT, buff=0.5)
+
+        lambda_value = always_redraw(
+            lambda: DecimalNumber(
+                lambda_tracker.get_value(),
+                num_decimal_places=4,
+                font_size=24
+            ).next_to(lambda_label, RIGHT, buff=0.2)
+        )
+
+        self.add(lambda_label, lambda_value)
+
+        # --- LYAPUNOV CURVE (grows dynamically) ---
+        lyap_curve = VMobject().set_stroke(RED_C, 3)
+
+        def update_lyap_curve(mob):
+            # Compute all points up to current alpha
+            current_alpha = alpha_tracker.get_value()
+            mask = alphas_L <= current_alpha
+            pts = [ax_lyap.c2p(a, l) for a, l in zip(alphas_L[mask], Lyapunov[mask])]
+            if len(pts) > 1:
+                mob.set_points_as_corners(pts)
+
+        lyap_curve.add_updater(update_lyap_curve)
         self.add(lyap_curve)
 
-        total_time = 25
-        time_per_alpha = total_time / len(alphas_L)
+        # --- BIFURCATION POINTS (only show those with alpha <= current) ---
+        all_bif_points = VGroup()
 
-        # Persistent alpha and lambda label
-        alpha_label = Text(r"$\alpha =$", font_size=24)
-        alpha_value = DecimalNumber(0, num_decimal_places=4, font_size=24)
-        alpha_group = VGroup(alpha_label, alpha_value).arrange(RIGHT)
-        alpha_group.next_to(ax_bif, RIGHT, buff=0.5)
+        for a in unique_alphas:
+            for th in bifur_dict[a]:
+                dot = Dot(ax_bif.c2p(a, th), radius=0.015, color=BLUE_C)
+                dot.alpha_value = a  # store alpha for filtering
+                all_bif_points.add(dot)
 
-        self.add(alpha_group)
+        def update_bif_points(group):
+            current_alpha = alpha_tracker.get_value()
+            for dot in group:
+                dot.set_opacity(1 if dot.alpha_value <= current_alpha else 0)
 
-        lambda_label = Text(r"$\lambda =$", font_size=24)
-        lambda_value = DecimalNumber(0, num_decimal_places=4, font_size=24)
-        lambda_group = VGroup(lambda_label, lambda_value).arrange(RIGHT)
-        lambda_group.next_to(ax_lyap, RIGHT, buff=0.5)
+        all_bif_points.add_updater(update_bif_points)
+        self.add(all_bif_points)
 
-        self.add(lambda_group)
+        # --- LAMBDA TRACKER UPDATER ---
+        def update_lambda(tracker, dt):
+            # Find nearest alpha index
+            current_alpha = alpha_tracker.get_value()
+            idx = np.searchsorted(alphas_L, current_alpha)
+            idx = np.clip(idx, 0, len(Lyapunov)-1)
+            tracker.set_value(Lyapunov[idx])
 
-        # Store previous Lyapunov exponent
-        prev_lam = None
-        prev_prev_lam = None
-        counter = 0
+        lambda_tracker.add_updater(update_lambda)
 
-        # --- MAIN LOOP ---
-        for alpha_b, alpha_L in zip(unique_alphas, alphas_L):
-
-            # Update α label
-            self.play(alpha_value.animate.set_value(alpha_L), run_time=0.2)
-
-            # --- BIFURCATION POINTS ---
-            theta_vals = np.array(bifur_dict[alpha_b])
-            bif_points = VGroup(*[
-                Dot(ax_bif.c2p(alpha_b, th), radius=0.015, color=BLUE)
-                for th in theta_vals
-            ])
-
-            # --- LYAPUNOV POINT ---
-            lam = Lyapunov[np.where(alphas_L == alpha_L)[0][0]]
-            lyap_points.append(ax_lyap.c2p(alpha_L, lam))
-            lyap_curve.set_points_as_corners(lyap_points)
-
-            self.play(lambda_value.animate.set_value(lam), run_time =0.2)
-
-            triggered = False
-
-            # 1) Detect 2→4 and 4→chaos (sign change)
-            if prev_lam is not None:
-                if prev_lam < 0 and lam > 0 and counter < 4:
-                    triggered = True
-                    counter +=1
-
-            # 2) Detect 1→2 (local minimum)
-            if prev_prev_lam is not None:
-                if prev_lam < prev_prev_lam and prev_lam < lam and counter == 0:
-                    # local minimum == first bifurcation
-                    triggered = True
-                    counter +=1
-
-            if triggered:
-                vline_bif = ax_bif.get_vertical_line(
-                    ax_bif.c2p(alpha_L, 0), color=YELLOW
-                ).set_stroke(width=2)
-
-                vline_lyap = ax_lyap.get_vertical_line(
-                    ax_lyap.c2p(alpha_L, 0), color=YELLOW
-                ).set_stroke(width=2)
-
-                self.play(
-                    FadeIn(vline_bif),
-                    FadeIn(vline_lyap),
-                    run_time=0.4
-                )
-
-            prev_prev_lam = prev_lam
-            prev_lam = lam
-
-            # Animate both
-            self.play(
-                FadeIn(bif_points, scale=0.5),
-                lyap_curve.animate.set_stroke(RED, 3),
-                run_time=time_per_alpha,
-                rate_func=linear
-            )
+        # --- MAIN ANIMATION ---
+        self.play(
+            alpha_tracker.animate.set_value(alphas_L[-1]),
+            run_time=25,
+            rate_func=linear
+        )
 
         self.wait(2)
+    
         
 # manim -pqh Desktop\Programas\Python\physics_simulation\oscillatory_motion\Driven_oscillation\lyapunov_bifurcation_anim.py LyapunovBifurcation -o my_animation.mp4
