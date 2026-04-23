@@ -1,0 +1,8 @@
+# This file is used internally by FFMPEG.
+file 'file:C:/Users/JORGE/Desktop/Programas/Python/physics_simulation/oscillatory_motion/Driven_oscillation/media/videos/lyapunov_bifurcation_anim/1080p60/partial_movie_files/LyapunovBifurcation/2257293077_3317010127_223132457.mp4'
+file 'file:C:/Users/JORGE/Desktop/Programas/Python/physics_simulation/oscillatory_motion/Driven_oscillation/media/videos/lyapunov_bifurcation_anim/1080p60/partial_movie_files/LyapunovBifurcation/2135761390_3343869681_1218665805.mp4'
+file 'file:C:/Users/JORGE/Desktop/Programas/Python/physics_simulation/oscillatory_motion/Driven_oscillation/media/videos/lyapunov_bifurcation_anim/1080p60/partial_movie_files/LyapunovBifurcation/2135761390_1754310298_2949647907.mp4'
+file 'file:C:/Users/JORGE/Desktop/Programas/Python/physics_simulation/oscillatory_motion/Driven_oscillation/media/videos/lyapunov_bifurcation_anim/1080p60/partial_movie_files/LyapunovBifurcation/2135761390_2434603665_3149845430.mp4'
+file 'file:C:/Users/JORGE/Desktop/Programas/Python/physics_simulation/oscillatory_motion/Driven_oscillation/media/videos/lyapunov_bifurcation_anim/1080p60/partial_movie_files/LyapunovBifurcation/2135761390_1135562577_1666280314.mp4'
+file 'file:C:/Users/JORGE/Desktop/Programas/Python/physics_simulation/oscillatory_motion/Driven_oscillation/media/videos/lyapunov_bifurcation_anim/1080p60/partial_movie_files/LyapunovBifurcation/2135761390_724345881_3106311367.mp4'
+file 'file:C:/Users/JORGE/Desktop/Programas/Python/physics_simulation/oscillatory_motion/Driven_oscillation/media/videos/lyapunov_bifurcation_anim/1080p60/partial_movie_files/LyapunovBifurcation/2135761390_2408024828_2171780499.mp4'

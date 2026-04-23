@@ -3,25 +3,6 @@ from manim import *
 from collections import defaultdict
 #This program takes ~5/7 minutes to run. It animates 300
 
-
-data = np.load("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\data_bifurcation.npz", allow_pickle=True)
-
-        #Load bifurcation
-q_p = data["bifur_q"] # length = 7500
-alphas_bi = data["alphas"] # length =7500
-
-        #Load Lyapunov
-Lyapunov = data["Lyapunov"] # length 150
-alphas_L = np.linspace(1.060, 1.087, 150)
-       
-bifur_dict = defaultdict(list)
-
-for A, q in zip(alphas_bi, q_p):
-        bifur_dict[A].append(q)
-
-unique_alphas = sorted(bifur_dict.keys()) # Now we have 150 values
-print(len(unique_alphas))
-print(len(alphas_L))
 class LyapunovBifurcation(Scene):
 
     def construct(self):
@@ -147,6 +128,7 @@ class LyapunovBifurcation(Scene):
             # Compute all points up to current alpha
             current_alpha = alpha_tracker.get_value()
             mask = alphas_L <= current_alpha
+            
             pts = [ax_lyap.c2p(a, l) for a, l in zip(alphas_L[mask], Lyapunov[mask])]
             if len(pts) > 1:
                 mob.set_points_as_corners(pts)
@@ -172,18 +154,20 @@ class LyapunovBifurcation(Scene):
         self.add(all_bif_points)
 
         # --- LAMBDA TRACKER UPDATER ---
-        def update_lambda(tracker, dt):
-            # Find nearest alpha index
+        dummy = Dot(radius=0.0001, color=WHITE)
+
+        def update_lambda(mob):
             current_alpha = alpha_tracker.get_value()
             idx = np.searchsorted(alphas_L, current_alpha)
             idx = np.clip(idx, 0, len(Lyapunov)-1)
-            tracker.set_value(Lyapunov[idx])
+            lambda_tracker.set_value(Lyapunov[idx])
 
-        lambda_tracker.add_updater(update_lambda)
+        dummy.add_updater(update_lambda)
+        self.add(dummy)
 
         # --- MAIN ANIMATION ---
         self.play(
-            alpha_tracker.animate.set_value(alphas_L[-1]),
+           alpha_tracker.animate.set_value(alphas_L[-1]),
             run_time=25,
             rate_func=linear
         )
