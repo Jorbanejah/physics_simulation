@@ -1,2 +1,0 @@
-# This file is used internally by FFMPEG.
-file 'file:C:/Users/JORGE/Desktop/Programas/Python/physics_simulation/oscillatory_motion/Driven_oscillation/media/videos/prueba/1080p60/partial_movie_files/PhasePortraitAxesDemo/567239430_2693396515_619662418.mp4'

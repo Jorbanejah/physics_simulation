@@ -1,12 +1,27 @@
-Hey, hello, there you are.
-I am glad you see again.
-Today we are going to talk about driven oscillation, the last one of single oscillation that I have studied in physics degree.
+Hello, and welcome to this repository.
 
-This repository is structure with the following files:
+This project explores **driven oscillations**, the final topic in the family of single-degree-of-freedom oscillators that I studied during my physics degree.
 
-- Linear: where we discuss about the linear driven oscillation, the spring or the small-angle aproximation pendulum, the weird phenomenon call resonance.
-- Nonlinear: where we discuss about the nonlinear driven oscillation, the pendulum with extra force, the weird phenomenon call nonlinear-resonance (that's not exist but we see what happen when I try to compute the same as in Linear). But, the driven pendulum is the first one we can call with chaotic motion. So, let us explore bifurcation diagram, poincare section and the famous Lyapunov exponent
-- Figures
-- Media: where we store all videos
+The repository is organized into the following sections:
 
-and of course, the differents files we use to store the data.
+### ** Linear**
+This folder covers the **linear driven oscillator**, such as the driven spring–mass system or the small-angle approximation of the pendulum.  
+Here we discuss the well-known phenomenon of **resonance** and how it emerges in linear systems.
+
+### ** Nonlinear**
+This folder focuses on the **nonlinear driven pendulum**, where the restoring force is no longer approximated.  
+We explore how the system behaves when the driving force interacts with the full nonlinear dynamics.  
+Although “nonlinear resonance” is not a standard term, we examine what happens when we attempt to reproduce the same analysis used in the linear case.  
+The driven nonlinear pendulum is also the first system in this series that exhibits **chaotic motion**, so we study:
+
+- bifurcation diagrams  
+- Poincaré sections  
+- the Lyapunov exponent  
+
+### ** Figures**
+Contains the figures generated throughout the project.
+
+### ** Media**
+Stores all video animations produced during the simulations.
+
+Additionally, the repository includes the data files used for the numerical computations and the animations code make it with manim library (I also take about that later).

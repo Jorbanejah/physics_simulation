@@ -57,8 +57,8 @@ class PhasePortraitScene(ThreeDScene):
         Traj = Text("Trajectories")
         
         self.add_fixed_in_frame_mobjects(PS, Traj)
-        PS.to_corner(UR)
-        Traj.to_corner(UL)
+        PS.to_corner(DR)
+        Traj.to_corner(DL)
         self.play(FadeIn(PS, Traj))
         
     def create_phase_portrait_axes(self, trajectory):
@@ -80,13 +80,13 @@ class PhasePortraitScene(ThreeDScene):
         # 3D AXES (world space)
         # --------------------------
         axes3d = ThreeDAxes(
-            x_range=[-3, 3, (dq_max - dq_min) / 6],
-            y_range=[-3, 3, (q_max - q_min)/ 6],
+            x_range=[-5, 5, (dq_max - dq_min) / 6],
+            y_range=[-5, 5, (q_max - q_min)/ 6],
             z_range=[t_min, t_max, (t_max - t_min) / 6],
-            x_length=5.5,
-            y_length=5.5,
-            z_length=5.5,
-        ).to_corner(UR).shift(LEFT * 0.5)
+            x_length=7.5,
+            y_length=7.5,
+            z_length=3.5,
+        ).to_corner(UR).shift(LEFT * 0.8)
 
 
         self.add(axes3d)
@@ -148,7 +148,6 @@ class PhasePortraitScene(ThreeDScene):
             for qv, dqv in zip(q_poin[alpha], dq_poin[alpha]):
                 pt = axes2d.c2p(qv, dqv)
                 dot = Dot(pt, radius=0.05, color=YELLOW)
-                self.add_fixed_in_frame_mobjects(dot)
                 pts2d.append(dot)
 
             data[alpha] = {
@@ -169,20 +168,21 @@ class PhasePortraitScene(ThreeDScene):
         for alpha, label in zip(alphas, labels):
 
             curve = data[alpha]["curve"]
-            points = data[alpha]["points"]
+            poincare_points = data[alpha]["points"]
 
             # Label for this regime
-            text = Text(label, font_size=24).to_corner(DR).shift(LEFT * 1.5 + DOWN * 0.3)
+            text = Text(label, font_size=24).to_corner(UL)
             self.add_fixed_in_frame_mobjects(text)
 
-            # Animate curve +  poincaré points
+            # Animate curve + poincaré points
             self.play(
                 Write(text),
                 Create(curve, run_time=5),
             )
 
             # Point appearance
-            points_group = VGroup(*points)
+            points_group = VGroup(*poincare_points)
+            self.add_fixed_in_frame_mobjects(points_group)
             self.play(FadeIn(points_group, scale=1.5), run_time=0.5)
 
             self.wait(1)
