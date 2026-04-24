@@ -4,7 +4,7 @@ class PoincareSectionsScene(Scene):
     
     def construct(self):
         # Load pre-computed data
-        data = np.load("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\poincare_sections.npz", allow_pickle=True)
+        data = np.load("poincare_sections.npz", allow_pickle=True)
         rk4_data = data["rk4"].item()
         
         alphas = sorted(rk4_data["q"].keys())

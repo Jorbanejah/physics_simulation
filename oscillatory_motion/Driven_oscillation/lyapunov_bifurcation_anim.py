@@ -174,5 +174,4 @@ class LyapunovBifurcation(Scene):
 
         self.wait(2)
     
-        
-# manim -pqh Desktop\Programas\Python\physics_simulation\oscillatory_motion\Driven_oscillation\lyapunov_bifurcation_anim.py LyapunovBifurcation -o my_animation.mp4
+#    manim -pqh lyapunov_bifurcation_anim.py LyapunovBifurcation -o my_animation.mp4

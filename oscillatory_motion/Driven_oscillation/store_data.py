@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 from dataclasses import dataclass, field
 """
-This code store in store.data.npz: 
-- Lypunov coefficient through different values
-- Bifurcation diagram: alpha vs theta, alpaha vs dtheta
-- The trajectories of 1, 2, 4 - periods and chaotic motion
-- Poincare sections of chaotic motion.
+This code store in different .npz file the following data: 
+- Lypunov coefficient through different values. (data_bifurcation.npz)
+- Bifurcation diagram: alpha vs theta, alpaha vs dtheta. (data_bifurcation.npz)
+- The trajectories of 1, 2, 4 - periods and chaotic motion. (data_poin_traj.npz)
+- Poincare sections of chaotic motion. (poincare_sections.npz)
 
-The following functions are commented and described
+The following functions are commented and described. 
 """
 @dataclass
 class Params:
@@ -39,7 +39,17 @@ def driven_equation(t, y, p):
     return [omega, -p.beta * omega - np.sin(theta) + p.A * np.cos(p.omega_drive * t)]
 
 def bifurcation_diagram(f, p, alphas, T, t_transient = 100, t_steady = 50):
+    """
+    Calculus of bifurcation diagram data
 
+    Ags:
+        f: function
+        p: function params
+        alphas: varible to change
+        T: period
+        t_transient (default): 100
+        t_steady (default): 50
+    """
     results_A = []
     results_poin_theta = []
     results_poin_omega = []

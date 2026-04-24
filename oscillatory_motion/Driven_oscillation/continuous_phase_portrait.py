@@ -6,7 +6,7 @@ class PhasePortraitScene(Scene):
     
     def construct(self):
         # Load pre-computed data (adjust path as needed)
-        data = np.load("C:\\Users\\JORGE\\Desktop\\Programas\\Python\\physics_simulation\\oscillatory_motion\\Driven_oscillation\\poincare_sections.npz", allow_pickle=True)
+        data = np.load("poincare_sections.npz", allow_pickle=True)
         
         q_poincare = data["poincare_q"].item()
         dq_poincare = data["poincare_dq"].item()
@@ -217,4 +217,4 @@ class PoincareBuildup(Scene):
 
 # Usage:
 # 1. Run: python poincare_section_animation.py  (computes and stores data)
-# 2. Run: manim -pqh Desktop\Programas\Python\physics_simulation\oscillatory_motion\Driven_oscillation\continuous_phase_portrait.py PhasePortraitScene -o my_animation.mp4
+# 2. Run: manim -pqh continuous_phase_portrait.py PhasePortraitScene -o my_animation.mp4

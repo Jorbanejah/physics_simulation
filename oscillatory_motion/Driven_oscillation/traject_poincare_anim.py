@@ -25,7 +25,7 @@ class PhasePortraitScene(ThreeDScene):
         alphas = sorted(dq_poincare.keys())
 
         # Set 3D camera orientation (only affects 3D objects)
-        self.set_camera_orientation(phi=75 * DEGREES, theta=-45 * DEGREES)
+        self.set_camera_orientation(phi=75 * DEGREES, theta=45 * DEGREES)
 
         # 1. Show equation (2D)
         self.show_equation()
@@ -51,7 +51,8 @@ class PhasePortraitScene(ThreeDScene):
         self.wait()
     
         #Slide the equation away
-        self.play(group.animate.to_corner(UR).shift(DOWN * 0.5))
+        self.play(FadeOut(eq, title))
+        
 
     def create_phase_portrait_axes(self, trajectory):
         """Create 3D axes for trajectories and 2D axes for Poincaré sections."""
@@ -62,6 +63,9 @@ class PhasePortraitScene(ThreeDScene):
         q_vals = np.concatenate(list(q_dict.values()))
         dq_vals = np.concatenate(list(dq_dict.values()))
         t_vals = np.concatenate(list(t_dict.values()))
+
+        t_scale = 5
+        t_vals_scaled = t_vals * t_scale
 
         pad = 0.1
 
@@ -77,16 +81,15 @@ class PhasePortraitScene(ThreeDScene):
             x_length=5.5,
             y_length=5.5,
             z_length=5.5,
-        ).shift(LEFT * 4)
+        ).shift(LEFT * 5)
 
         labels3d = axes3d.get_axis_labels(
             x_label="q",
             y_label="t_{mod T}",
             z_label=r"\dot{q}"
         )
-        trajectories = Text("Trajectories", font_size=24)
-    
-        self.add(axes3d, labels3d, trajectories)
+
+        self.add(axes3d, labels3d)
 
         # 2D axes (must stay flat)
         axes2d = Axes(
@@ -96,16 +99,19 @@ class PhasePortraitScene(ThreeDScene):
             y_length=5.5,
             axis_config={"include_tip": False, "font_size": 24},
             tips=False
-        ).shift(RIGHT * 3)
+        )
 
-        poincare = Text("Poincaré sections", font_size=24).next_to(axes2d, UP, buff=0.2)
+        # Place 2D axes in a fixed screen position (not world coordinates)
+        axes2d.to_corner(UR).shift(LEFT * 0.5)
+
         labels2d = axes2d.get_axis_labels(x_label="q", y_label=r"\dot{q}")
+        poincare = Text("Poincaré sections", font_size=24).next_to(axes2d, UP, buff=0.2)
 
         # Keep 2D axes fixed in screen space
         self.add_fixed_in_frame_mobjects(axes2d, labels2d, poincare)
 
         self.play(
-            FadeIn(axes3d), FadeIn(trajectories),
+            FadeIn(axes3d), FadeIn(labels3d),
             FadeIn(axes2d), FadeIn(labels2d), FadeIn(poincare),
             run_time=1.5
         )
@@ -148,7 +154,7 @@ class PhasePortraitScene(ThreeDScene):
         # Animate each regime
         for i, (curve, points, label) in enumerate(zip(all_curves, all_points, labels)):
 
-            text = Text(label, font_size=24).to_corner(DR).shift(LEFT * 1.5 + DOWN * 0.3) # cambiar al centro de la animacion abajo.
+            text = Text(label, font_size=24).to_corner(DR).shift(LEFT * 1.5 + DOWN * 0.3) 
             self.add_fixed_in_frame_mobjects(text)
 
             self.play(
@@ -161,11 +167,6 @@ class PhasePortraitScene(ThreeDScene):
             self.wait(1)
 
             self.play(FadeOut(text), FadeOut(curve), FadeOut(points))
-
-        # Final 3D rotation
-        self.begin_ambient_camera_rotation(rate=0.2)
-        self.wait(3)
-        self.stop_ambient_camera_rotation()
 
     def make_continuous_phase_plot(self, axes3d, y_traj, alpha):
 
