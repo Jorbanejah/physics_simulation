@@ -1,26 +1,33 @@
-## Linear Driven Oscillation
+<h1>Linear Driven Oscillation</h1>
 
-First, we consider the **linear driven, damped oscillator**.
-
-## Equation
+<p>
+In this section we study the <strong>linear driven damped oscillator</strong> under a periodic external force. 
+The governing equation is
+</p>
 
 <p>
 $$
-m\ddot{q} +  \gamma \dot{q} + k q = F0 \cos(\omega t)
+m \ddot{q} + \gamma \dot{q} + k q = F_0 \cos(\omega t).
 $$
 </p>
 
-We introduce the standard parameters
+<p>
+To simplify notation, we introduce the standard parameters:
+</p>
 
 <p>
 $$
-\alpha = \frac{F_0}{m}, \qquad 
-\beta = \frac{\gamma}{2m}, \qquad
+\alpha = \frac{F_0}{m}, 
+\qquad 
+\beta = \frac{\gamma}{2m}, 
+\qquad
 \omega_0^2 = \frac{k}{m},
 $$
 </p>
 
+<p>
 so the equation becomes
+</p>
 
 <p>
 $$
@@ -28,19 +35,26 @@ $$
 $$
 </p>
 
-This is a **second‑order linear non‑homogeneous ODE**, so the general solution is
+<hr>
+
+<h2>General Solution</h2>
+
+<p>
+This is a second‑order linear non‑homogeneous ODE. Its solution is the sum of:
+</p>
 
 <p>
 $$
 q(t) = q_{\text{hom}}(t) + q_{\text{part}}(t).
 $$
+  
 </p>
 
----
+<h3>Homogeneous Solution</h3>
 
-## Homogeneous Solution
-
+<p>
 The homogeneous equation is
+</p>
 
 <p>
 $$
@@ -48,7 +62,9 @@ $$
 $$
 </p>
 
+<p>
 The characteristic equation
+</p>
 
 <p>
 $$
@@ -56,7 +72,9 @@ r^2 + 2\beta r + \omega_0^2 = 0
 $$
 </p>
 
+<p>
 has roots
+</p>
 
 <p>
 $$
@@ -64,7 +82,9 @@ r = -\beta \pm \sqrt{\beta^2 - \omega_0^2}.
 $$
 </p>
 
-For the underdamped case $\beta$ < $\omega_0$, the solution is
+<p>
+For the <strong>underdamped</strong> case, $\beta < \omega_0$, the solution becomes
+</p>
 
 <p>
 $$
@@ -73,7 +93,9 @@ q_{\text{hom}}(t) = e^{-\beta t}
 $$
 </p>
 
-where the **damped natural frequency** is
+<p>
+where the <strong>damped natural frequency</strong> is
+</p>
 
 <p>
 $$
@@ -81,23 +103,25 @@ $$
 $$
 </p>
 
----
+<h3>Particular (Steady‑State) Solution</h3>
 
-## Particular (Steady‑State) Solution
-
+<p>
 We assume a solution of the form
+</p>
 
 <p>
 $$
-q_{\text{part}}(t) = C \cos(\omega t - \delta).
+q_{\text{part}}(t) = A \cos(\omega t - \delta).
 $$
 </p>
 
-Solving for the amplitude C and phase lag $\delta$ gives
+<p>
+Solving for the amplitude and phase lag gives
+</p>
 
 <p>
 $$
-C = \frac{\alpha}{\sqrt{(\omega_0^2 - \omega^2)^2 + (2\beta\omega)^2}},
+A = \frac{\alpha}{\sqrt{(\omega_0^2 - \omega^2)^2 + (2\beta\omega)^2}},
 $$
 </p>
 
@@ -107,13 +131,17 @@ $$
 $$
 </p>
 
----
+<p>
+This steady‑state term dominates after transients decay.
+</p>
 
-## Verlet Method
+<hr>
 
-After discussing resonance analytically, we introduce the **Verlet method**, a symplectic integrator used for conservative systems.
+<h2>Verlet Method</h2>
 
-Starting from Newton’s second law
+<p>
+As I promise when I start this oscillation folder, in every motion I teach you a new numerical method. To compare this time our known numerical methods, we introduce the <strong>velocity Verlet</strong> integrator, commonly used for conservative systems. Starting from Newton’s law
+</p>
 
 <p>
 $$
@@ -121,7 +149,9 @@ m\ddot{q} = F(q),
 $$
 </p>
 
-the **velocity Verlet** update equations are
+<p>
+the update equations are
+</p>
 
 <p>
 $$
@@ -141,16 +171,55 @@ v_{n+1} = v_n + \frac{1}{2}(a_n + a_{n+1})\Delta t.
 $$
 </p>
 
-As shown in the figure, Verlet performs extremely well compared with RK4 and Crank–Nicolson, both in energy conservation and in reproducing the analytical trajectory.
+<p>
+Although Verlet is designed for conservative systems, it performs remarkably well in this linear driven case, showing excellent energy behavior as well as RK4 and Crank–Nicolson.
+</p>
 
----
+![Regime summary γ = 2, F₀ = 1](../figures/regime_summary2.0_1.png)
 
-## Resonance
+<p>
+  As we can see, the numerical methods match the analytical solution remarkably well. In particular, the total energy of the system (blue curve in the thrid row) remains essentially constant, demonstrating the excellent stability of the integrators.
+  For a deeper analysis of numerical errors, several 3-dimensional heatmaps are included in figures folder. These explore how the energy drift varies when sweeping over different normalized values of $\omega$ and $\beta$, allowing to us to identify regions of stability (far from resonance) and instability (close to resonance) across the parameter space.
 
-Now we are ready to discuss **resonance**.  
-Resonance occurs when transient behavior dies out and only the steady‑state oscillation remains.
+![Heatmap_rk4](../figures/heatmap_errorsrk4_0.png)
 
-The long‑term solution is
+  Before discussing resonance, we must understand how energy flows in a non-conservative system. 
+  Of course, our mechanical energy is $E_mec = T + U = \frac{1}{2}m dq^2 + \frac{1}{2} k q^2$ - Note: the U's formula depends on potential. However, because of damping and external parameter forcing, the system is not conservative, so $\Delta E_mec \neq 0$.
+  
+How will we deal with? With the Work-Energy theorem states:
+</p>
+
+<p>
+  $$
+  \frac{d E_{mec}}{dt} = \sum P_{non-conservative} = P_{drive} - P_{diss},
+  $$
+</p>
+
+<p>
+As we know, $P = F v$ or $P = F dq$. While dissipative force is $F_{diss}= - \gamma dq$, drive force is $F_{ext} = F_0 cos(\omega t)$. So, $P_{drive} =  F_{ext} dq$ is the instantaneous power injected by the external force, and $P_{diss} = \gamma dq^2$ is the instantaneous power lost to damping.
+</p>
+<p>
+Integrating over the time gives the work contributions. On the one hand, dissipative energy: $W_{diss} = \int \gamma dq^2\ dt$. On the othen hand, drive energy: $W_{drive}= \int F_{ext} dq\ dt$.
+So, the total energy system is: 
+</p>
+
+<p>
+  $$
+  E = E_{mec} + W_{diss} - W{drive}
+  $$
+</p>
+   
+<h2>Resonance</h2>
+
+<p>
+Resonance occurs when the driving frequency ($\omega$) approaches the natural frequency ($\omega_0$) of the system as we can see in the following picture:
+</p>
+
+![Resonance](../figures/beta_vs_power.png)
+
+<p>
+In the long‑term, the motion is purely steady‑state because of exponential term:
+</p>
 
 <p>
 $$
@@ -158,7 +227,9 @@ q_{\text{steady}}(t) = A \cos(\omega t - \delta),
 $$
 </p>
 
-with amplitude
+<p>
+with amplitude:
+</p>
 
 <p>
 $$
@@ -166,9 +237,16 @@ A = \frac{\alpha}{\sqrt{(\omega_0^2 - \omega^2)^2 + (2\beta\omega)^2}}.
 $$
 </p>
 
-### What happens near resonance?
 
+![Resonance](../figures/beta_vs_amplitude.png)
+
+<hr>
+
+<h3>Near Resonance</h3>
+
+<p>
 If
+</p>
 
 <p>
 $$
@@ -176,20 +254,43 @@ $$
 $$
 </p>
 
-and we choose \(\omega \approx \omega_0\),  
-the denominator becomes small and the amplitude grows large.
-
-This produces the classical **resonance peak**.
-
-We can simulate two scenarios:
-
-1. **Tune the natural frequency** $\omega_0$ close to the driving frequency $\omega$. Then:
 <p>
-$$
-A = \frac{F0}{2 \beta \omega_0}
-$$
+and $\omega \approx \omega_0$, the denominator becomes small and the amplitude grows large, producing the classical resonance peak as we have showed in the previous pictures.
+</p>
 
 <p>
-2. **Tune the driving frequency** $\omega$ close to the natural frequency $\omega_0$.
+Two equivalent ways to observe resonance:
+</p>
 
-Both produce the characteristic resonance behavior.
+<ol>
+  <li>
+    Tune the natural frequency $\omega_0$ close to the driving frequency $\omega$:
+    
+    
+    A \approx \frac{F_0}{2\beta\omega_0}.
+    
+  </li>
+
+  <li>
+    Tune the driving frequency $\omega$ close to $\omega_0$ .  
+    To find the frequency that maximizes the steady‑state amplitude, we minimize the denominator:
+    
+    
+    D(\omega) = (\omega_0^2 - \omega^2)^2 + (2\beta\omega)^2.
+        
+    Differentiating and setting \( dD/d\omega = 0 \) gives the resonance condition
+    
+    
+    \omega_{\text{res}} = \sqrt{\omega_0^2 - 2\beta^2}.
+
+        
+    Thus the strongest response occurs when the driving frequency is slightly below the natural frequency, with the shift depending on the damping.
+  </li>
+  
+</ol>
+
+<p>
+Both approaches reveal the characteristic resonance behavior.
+</p>
+
+
