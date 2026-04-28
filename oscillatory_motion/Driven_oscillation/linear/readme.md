@@ -50,7 +50,7 @@ $$
   
 </p>
 
-<h3>Homogeneous Solution</h3>
+<h3>Homogeneous (transient-state) Solution</h3>
 
 <p>
 The homogeneous equation is
@@ -116,13 +116,28 @@ $$
 </p>
 
 <p>
-Solving for the amplitude and phase lag gives
+We substitute the trial solution into the differential equation. First compute de derivatives, then substitute into the equation of motion:
 </p>
 
 <p>
-$$
-A = \frac{\alpha}{\sqrt{(\omega_0^2 - \omega^2)^2 + (2\beta\omega)^2}},
-$$
+  $$
+  - A \omega cos(\omega t -\delta) + 2 \beta A \omega sin(\omega t + \delta) + \omega_0^2 A cos(\omega  t - \delta) = \alpha cos(\omega t)
+  $$
+</p>
+
+<p>
+  We group cosine and sine terms and then, using the trigonometric identities, we can collecting coefficients of $cos(\omega t)$ and $sin(\omega t)$, obtaining the system.
+</p>
+
+<p>
+  $$
+  A [(\omega_0^2 - \omega^2)cos(\delta) - 2 \beta \omega sin(\delta)] = \alpha \\
+  A [(\omega_0^2 - \omega^2)sin(\delta) +  2 \beta \omega cos(\delta)] = 0
+  $$
+</p>
+
+<p>
+  With the second equation, dividing by $cos(\delta)$, you can solve the phase lag:
 </p>
 
 <p>
@@ -132,7 +147,27 @@ $$
 </p>
 
 <p>
+  To solve the amplitude, we have to eliminate the phase, we square and add both equation. Solving for the amplitude yields:
+</p>
+
+<p>
+$$
+A = \frac{\alpha}{\sqrt{(\omega_0^2 - \omega^2)^2 + (2\beta\omega)^2}},
+$$
+</p>
+
+<p>
 This steady‑state term dominates after transients decay.
+</p>
+
+<p>
+  So the complete equation for a driven damped harmonic oscillator is:
+</p>
+
+<p>
+  $$
+  q (t) = e^{-\beta t} \left(A\cos(\omega_d t) + B\sin(\omega_d t)\right) + A \cos(\omega t - \delta)
+  $$
 </p>
 
 <hr>
@@ -181,7 +216,7 @@ Although Verlet is designed for conservative systems, it performs remarkably wel
   As we can see, the numerical methods match the analytical solution remarkably well. In particular, the total energy of the system (blue curve in the thrid row) remains essentially constant, demonstrating the excellent stability of the integrators.
   For a deeper analysis of numerical errors, several 3-dimensional heatmaps are included in figures folder. These explore how the energy drift varies when sweeping over different normalized values of $\omega$ and $\beta$, allowing to us to identify regions of stability (far from resonance) and instability (close to resonance) across the parameter space.
 
-![Heatmap_rk4](../figures/heatmap_errorsrk4_0.png)
+![Heatmap_rk4](../figures/heatmap_errorsVerlet_0.png)
 
   Before discussing resonance, we must understand how energy flows in a non-conservative system. 
   Of course, our mechanical energy is $E_mec = T + U = \frac{1}{2}m dq^2 + \frac{1}{2} k q^2$ - Note: the U's formula depends on potential. However, because of damping and external parameter forcing, the system is not conservative, so $\Delta E_mec \neq 0$.
@@ -260,37 +295,54 @@ and $\omega \approx \omega_0$, the denominator becomes small and the amplitude g
 
 <p>
 Two equivalent ways to observe resonance:
+   
+  1_ Tune the natural frequency $\omega_0$ close to the driving frequency $\omega$:
+</p>
+<p>
+  $$
+    A \approx \frac{\alpha}{2\beta\omega_0}.
+  $$
 </p>
 
-<ol>
-  <li>
-    Tune the natural frequency $\omega_0$ close to the driving frequency $\omega$:
-    
-    
-    A \approx \frac{F_0}{2\beta\omega_0}.
-    
-  </li>
-
-  <li>
-    Tune the driving frequency $\omega$ close to $\omega_0$ .  
+<p>
+  2_  Tune the driving frequency $\omega$ close to $\omega_0$ .  
     To find the frequency that maximizes the steady‑state amplitude, we minimize the denominator:
-    
-    
-    D(\omega) = (\omega_0^2 - \omega^2)^2 + (2\beta\omega)^2.
-        
-    Differentiating and setting \( dD/d\omega = 0 \) gives the resonance condition
-    
-    
-    \omega_{\text{res}} = \sqrt{\omega_0^2 - 2\beta^2}.
+</p>
 
+<p>
+  $$
+   D(\omega) = (\omega_0^2 - \omega^2)^2 + (2\beta\omega)^2.
+  $$
+</p>
+
+  <p>
+    Differentiating and setting  $\frac{d D}{d \omega} = 0$ gives the resonance condition
+  </p>
         
-    Thus the strongest response occurs when the driving frequency is slightly below the natural frequency, with the shift depending on the damping.
-  </li>
-  
-</ol>
+<p>
+  $$
+  \omega_{\text{res}} = \sqrt{\omega_0^2 - 2\beta^2}.
+  $$
+</p>
+
+<p>
+Thus the strongest response occurs when the driving frequency is slightly below the natural frequency, with the shift depending on the damping.
+</p>    
 
 <p>
 Both approaches reveal the characteristic resonance behavior.
 </p>
 
+<hr>
 
+<h3>Bibliography</h3>
+
+<p>
+The following resources were consulted during the preparation of this section:
+</p>
+
+<a href="https://ocw.mit.edu/courses/res-8-009-introduction-to-oscillations-and-waves-summer-2017/mitres_8_009su17_lec5.pdf">MIT OCW – Driven Oscillations (Lecture 5)</a>
+
+Class notebooks and lecture notes
+
+Physics notes from <a href="https://github.com/RubenCarrionCastro">https://github.com/RubenCarrionCastro</a>
