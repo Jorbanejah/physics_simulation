@@ -1,9 +1,0 @@
-# Ignore large data files
-*.npz
-*.npy
-*.hdf5
-*.pickle
-
-# Ignore simulation outputs
-data/
-outputs/
