@@ -1,27 +1,31 @@
 """Double pendulum simulation.
 
-The angles are measured from the vertical axis.  The full model is integrated
+The angles are measured from the vertical axis. The full model is integrated
 from the Lagrange equations using the physical mass matrix, which keeps the
 signs and coupling terms explicit.
+
+
+Description:
+
 """
 
 from __future__ import annotations # It lets me define varaible types that it has not already defined. This kind of function goes with "_"
 
 from collections.abc import Sequence # This is a command abstract type would let me represent whatever structure (list, tuple, string...) without involve it.
 from dataclasses import dataclass #With that, python will generate __init__/ __repr__/ __eq__
-from typing import Callable # It lets me describe the function type. It is use for those function which pass as arguments
+from typing import Callable # It lets me describe the function type. It is use for those functions which pass as arguments
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import solve_ivp
 
 
-State = np.ndarray #Define an alias who store the current state: [th1, w1, th2, w2]
+State = np.ndarray #Define an alias where we will store the current state: [th1, w1, th2, w2]
 Dynamics = Callable[[float, State, "Params"], State] #It is a function whose inputs are: (time (float), state, Params), and its ouput is State
 
 
 ###
-#------- Parameters and function who control the physics of the system -------
+#------- Parameters and functions where control the physics of the system -------
 #
 # _as_pair() -----> The function control whether the current state has two values for q and dq
 #_time_grid() -----> The function control whether both the time and the time step is positive
@@ -50,7 +54,7 @@ def _time_grid(duration: float, dt: float) -> np.ndarray:
     return times
 
 
-@dataclass(slots=True) #Attributes are stored in a compact C‑level array, however, you cannot describe new varaibles
+@dataclass(slots=True) #Attributes are stored in a compact C‑level array, however, you cannot describe new variables
 class Params:
     """Physical parameters and initial conditions for the pendulum."""
 
@@ -85,7 +89,7 @@ class Params:
 
 def velocity_verlet(f: Dynamics, t: float, y: State, dt: float, params: Params) -> State:
     """Velocity Verlet step for systems whose acceleration depends on position."""
-    y = np.asarray(y, dtype=float) #Convert the input to an array
+    y = np.asarray(y, dtype=float) #Convert the input to an ndarray
     theta = y[:2] # th1, th2
     omega = y[2:] # w1, w2
 
@@ -187,7 +191,7 @@ class DoublePendulum:
         self.small_angle = small_angle
         self.method = method
         self.sol = None
-        self.t: np.ndarray | None = None
+        self.t: np.ndarray | None = None # The varaible can be either a numpy ndarray or None
         self.y: np.ndarray | None = None
 
     def _dynamics(self) -> Dynamics:
