@@ -47,10 +47,9 @@ def _time_grid(duration: float, dt: float) -> np.ndarray:
         raise ValueError("Time step must be positive.")
 
     times = np.arange(0.0, duration, dt, dtype=float)
-    if times.size == 0 or not np.isclose(times[-1], duration):
-        times = np.append(times, duration)
-    else:
-        times[-1] = duration
+    
+    #Force exact final time
+    times[-1] = duration
     return times
 
 
