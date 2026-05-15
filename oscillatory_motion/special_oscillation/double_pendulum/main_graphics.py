@@ -22,7 +22,7 @@ Another performance:
 """
 
 from dataclasses import dataclass
-from collections.abc import Sequence
+from typing import Sequence, Dict, Any
 from double_pendulum import DoublePendulum
 
 import numpy as np
@@ -140,42 +140,67 @@ def regime_summary(sol:Sequence[float], energy: Sequence[float], position: Seque
 
     plt.show()
 
-def initial_angle_error(params, theta1: Sequence[float], theta2: Sequence[float]) -> np.ndarray:
+def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], filename: str = (
+        r"C:\Users\JORGE\Desktop\Programas\Python\physics_simulation" 
+        r"\oscillatory_motion\special_oscillation\double_pendulum\initial_small_angle.npz")
+    ) -> Dict[str, Any]:
+    """
+    Compute energy drift for:
+    - varying theta1 with theta2 = 0
+    - varying theta2 with theta1 = 0
+    - full grid (theta1, theta2)
 
-    if len(theta1) or len(theta2) == 0:
-        raise ValueError("Theta1 or theta2 must be contains both at least one angle")
-    
+    Returns a dictionary with three entries:
+        "theta1_scan", "theta2_scan", "grid"
+    """
+    #Validation
+    if len(theta1) == 0 or len(theta2) == 0:
+        raise ValueError("theta1 and theta2 must each contain at least one angle")
 
-    angles_theta1 = {angle: {"Drift energy":[]} for angle in theta1}
-    angles_theta2 = {angle: {"Drift energy": []} for angle in theta2}
-    conbination = {angle: {"Drift energy": []} for angle in theta1}
-
-    for theta in theta1:
-
-        params.q0 = theta, 0
-        double =DoublePendulum(params =P, small_angle=True, method = "Verlet")
-        sol = double.run()
-        energy = double.energies()
-
-        _, _ ,Et = energy
-        Energy_drift =np.abs(Et[-1] - Et[0])
-
-        angles_theta1[theta]["Drift energy"].append(Energy_drift)
-
-    for theta in theta2:
-
-        params.q0 = 0, theta
-        double =DoublePendulum(params =P, small_angle=True, method = "Verlet")
-        sol = double.run()
-        energy = double.energies()
-
-        _, _ ,Et = energy
-        Energy_drift =np.abs(Et[-1] - Et[0])
-
-        angles_theta2[theta]["Drift energy"].append(Energy_drift)
+    #Define dictionaries
+    theta1_scan = {th: None for th in theta1}
+    theta2_scan = {th: None for th in theta2}
+    grid = {th1: {th2: None for th2 in theta2} for th1 in theta1}
 
     
+    def _compute_energy_drift(q0):
+        params.q0 = q0
+        double = DoublePendulum(params=params, small_angle=True, method="Verlet")
+        double.run()
+        _, _, Et = double.energies()
+        return float(abs(Et[-1] - Et[0]))
 
+    # Scan theta1 (theta2 = 0)
+    for th in theta1:
+        theta1_scan[th] = _compute_energy_drift((th, 0.0))
+
+    #Scan theta2 (theta1 = 0)
+    for th in theta2:
+        theta2_scan[th] = _compute_energy_drift((0.0, th))
+
+    # Full grid (theta1, theta2)
+    total = len(theta1)
+    bar_len = 20
+
+    for i, th1 in enumerate(theta1):
+        progress = (i + 1) / total
+        filled = int(progress * bar_len)
+        bar = "█" * filled + "-" * (bar_len - filled)
+        print(f"[{bar}]  {progress*100:5.1f}%   θ₁ = {th1:.4f}", end="\r", flush=True)
+
+        for th2 in theta2:
+            grid[th1][th2] = _compute_energy_drift((th1, th2))
+
+    print()  # newline after progress bar
+
+    # -----------------------------
+    # 6. Save results
+    # -----------------------------
+    np.savez(filename, theta1_scan=theta1_scan, theta2_scan=theta2_scan, grid=grid)
+
+    return {"theta1_scan": theta1_scan, "theta2_scan": theta2_scan, "grid": grid}
+
+    
 P = Params()
 double = DoublePendulum(params= P, small_angle=True, method="Verlet")
 sol = double.run()
@@ -192,9 +217,17 @@ colors = {
     "Et": "#2ca02c",
 }
 
-regime_summary(sol = sol, energy=energy, position=postion, colors = colors, name = "Verlet")
+#regime_summary(sol = sol, energy=energy, position=postion, colors = colors, name = "Verlet")
+
+theta1 = np.linspace(0, np.pi/2, 40)
+theta2  = np.linspace(0, np.pi/2, 40)
+
+angles = compute_initial_angles(params=P, theta1= theta1, theta2= theta2)
 
 
+plt.figure(figsize=(10, 6))
+plt.plot(theta1, angles["theta1_scan"], "b-")
+plt.show()
 """
 class SmallAngles:
     def __init__(self, Params: Sequence[float], Instance: float):
