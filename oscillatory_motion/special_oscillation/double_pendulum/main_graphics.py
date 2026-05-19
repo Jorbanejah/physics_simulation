@@ -89,7 +89,7 @@ class Params:
 # --------------------- Main graphics --------------------------
 ###
 
-def regime_summary(sol:Sequence[float], energy: Sequence[float], position: Sequence[float], colors: Sequence[float], name: str):
+def regime_summary(sol:Sequence[float], energy: Sequence[float], position: Sequence[float], colors: Sequence[float], name: str)-> plt.figure:
     """
     Regime summary -- Position, energies and phase space
     """
@@ -104,7 +104,6 @@ def regime_summary(sol:Sequence[float], energy: Sequence[float], position: Seque
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14, 7))
 
     fig.suptitle(f"Double Pendulum Summary — {name}", fontsize=16, weight="bold")
-    fig.tight_layout()
 
     # Position
     ax1.plot(x1, y1, color=colors["mass1"], label="Mass 1")
@@ -137,8 +136,63 @@ def regime_summary(sol:Sequence[float], energy: Sequence[float], position: Seque
     ax3.set_ylabel(r"$\omega$ [rad/s]")
     ax3.legend()
     ax3.grid(True, which="both", linestyle="--", alpha=0.4)
-
+    plt.tight_layout()
     plt.show()
+
+
+def double_pendulum_animation(sol:Sequence[float], energy:Sequence, position:Sequence[float], colors:Sequence[float], name: str):
+
+    theta1, theta2, omega1, omega2 = sol["y"]
+    times = sol["t"]
+    x1, y1, x2, y2 = position
+    T, U, Et = energy
+
+    if len(times) != len(x1) or len(x1) != len(T):
+        raise TypeError("Something goes wrong. The length between energy, position and sol don't fix it.")
+    
+    fig, axes = plt.subplots(1, 3, figsize = (14, 10))
+    
+    for i, t in enumerate(times):
+        
+        # Motion
+        axes[0].plot([0, x1[i]],[0, y1[i]], "k-", linewidth = 2)
+        axes[0].plot([x1], [y1], "o", color = colors["mass1"], markersize =10)
+        axes[0].plot([x1[i], y2[i]], [y1[i],x2[i]], "k-", lw =2)
+        axes[0].plot([x2], [y2], "o", color = colors["mass2"], markersize =10)
+        
+        j = max(y2) if max(y2) > 0 else j = 3 # axes-y lim
+
+        axes[0].set_xlim(min(x2) -1, max(x2) + 1)
+        axes[0].set_ylim(j, min(y2))
+        axes[0].axhline(0, color='black', lw=0.5)
+        axes[0].set_xlabel(r"x [m]")
+        axes[0].set_ylabel(r"y [m]")
+
+        #Energies
+
+        axes[1].plot([t[:i]],[T[:i]], "-", lw = 2, color = colors["T"], label= "T")
+        axes[1].plot([t[:i]],[U[:i]], "-", lw = 2, color = colors["U"], label = "U")
+        axes[1].plot([t[:i]],[Et[:i]], "-", lw = 2, color = colors["Et"], label = "Et")
+        axes[1].set_ylim(min(U) - 1, max(T) + 1)
+        axes[1].set_xlim(times[0], times[-1])
+        axes[1].axhline(0, color = "black", lw = 0.5)
+        axes[1].set_xlabel(r"t [s]")
+        axes[1].set_ylabel(r"E [J]")
+
+        #Phase space
+
+        axes[2].plot([theta1[:i]],[omega1[:i]], "b--", lw = 2)
+        axes[2].plot([theta2[:i]],[omega2[:i]], "b--", lw = 2)
+        axes[2].plot([theta1[i]],[omega1[i]], "o", color = colors["mass1"], lw = 2, label = "mass1")
+        axes[2].plot([theta2[i]],[omega2[i]], "o", color = colors["mass2"], lw = 2, label = "mass2")
+
+        axes[2].set_xlabel(r"\theta")
+        axes[2].set_ylabel(r"\omega")
+        axes[2].set_xlim(min(theta1, theta2) -1, max(theta1, theta2) +2)
+        axes[2].set_ylim(min(omega1, omega2) -1, max(omega1, omega2) +2)
+
+    plt.tight_layout()
+    plt.plot()
 
 def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], filename: str = (
         r"C:\Users\JORGE\Desktop\Programas\Python\physics_simulation" 
@@ -217,17 +271,9 @@ colors = {
     "Et": "#2ca02c",
 }
 
-#regime_summary(sol = sol, energy=energy, position=postion, colors = colors, name = "Verlet")
-
-theta1 = np.linspace(0, np.pi/2, 40)
-theta2  = np.linspace(0, np.pi/2, 40)
-
-angles = compute_initial_angles(params=P, theta1= theta1, theta2= theta2)
+regime_summary(sol = sol, energy=energy, position=postion, colors = colors, name = "Verlet")
 
 
-plt.figure(figsize=(10, 6))
-plt.plot(theta1, angles["theta1_scan"], "b-")
-plt.show()
 """
 class SmallAngles:
     def __init__(self, Params: Sequence[float], Instance: float):
