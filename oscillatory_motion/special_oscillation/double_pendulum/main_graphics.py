@@ -28,7 +28,7 @@ from double_pendulum import DoublePendulum
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+from matplotlib.animation import FuncAnimation
 #Stablish automatically: font sizes, grid visibility, color harmony, spacing
 plt.style.use("seaborn-v0_8-paper")
 sns.set_theme(context="notebook", style="whitegrid", palette="viridis", font_scale=1.2)
@@ -67,7 +67,7 @@ class Params:
     L1: float = 1.0  # m
     L2: float = 2.0  # m
 
-    q0: tuple[float, float] = (np.deg2rad(10.0), np.deg2rad(10.0))  # rad
+    q0: tuple[float, float] = (np.deg2rad(60.0), np.deg2rad(0.0))  # rad
     dq0: tuple[float, float] = (0.0, 0.0)  # rad/s
 
     t: float = 15.0  # s
@@ -137,10 +137,10 @@ def regime_summary(sol:Sequence[float], energy: Sequence[float], position: Seque
     ax3.legend()
     ax3.grid(True, which="both", linestyle="--", alpha=0.4)
     plt.tight_layout()
-    plt.show()
+    return fig
 
 
-def double_pendulum_animation(sol:Sequence[float], energy:Sequence, position:Sequence[float], colors:Sequence[float], name: str):
+def double_pendulum_animation(sol:Sequence[float], energy:Sequence[float], position:Sequence[float], colors:Sequence[float], name: str)-> plt.figure:
 
     theta1, theta2, omega1, omega2 = sol["y"]
     times = sol["t"]
@@ -150,49 +150,76 @@ def double_pendulum_animation(sol:Sequence[float], energy:Sequence, position:Seq
     if len(times) != len(x1) or len(x1) != len(T):
         raise TypeError("Something goes wrong. The length between energy, position and sol don't fix it.")
     
-    fig, axes = plt.subplots(1, 3, figsize = (14, 10))
+    fig, axes = plt.subplots(1, 3, figsize = (14, 10), tight_layout = True)
     
-    for i, t in enumerate(times):
-        
+    # --- MOTION PANEL ---
+    ax_m = axes[0]
+    rod1, = ax_m.plot([], [], "k-", lw=2)
+    rod2, = ax_m.plot([], [], "k-", lw=2)
+    m1, = ax_m.plot([], [], "o", color=colors["mass1"], markersize=10)
+    m2, = ax_m.plot([], [], "o", color=colors["mass2"], markersize=10)
+    ax_m.set_title("Double pendulum motion")
+    ax_m.set_xlim(min(x2)-1, max(x2)+1)
+    ax_m.set_ylim(min(y2)-1, 1)
+    ax_m.set_xlabel("x [m]")
+    ax_m.set_ylabel("y [m]")
+    ax_m.axhline(0, color="black", lw=0.5)
+
+    # --- ENERGY PANEL ---
+    ax_e = axes[1]
+    lineT, = ax_e.plot([], [], color=colors["T"], lw=2, label="T")
+    lineU, = ax_e.plot([], [], color=colors["U"], lw=2, label="U")
+    lineEt, = ax_e.plot([], [], color=colors["Et"], lw=2, label="Et")
+    ax_e.set_title("Energies")
+    ax_e.set_xlim(times[0], times[-1])
+    ax_e.set_ylim(min(U)-1, max(T)+1)
+    ax_e.set_xlabel(r"t [s]")
+    ax_e.set_ylabel(r"E [J]")
+    ax_e.legend()
+
+    # --- PHASE SPACE PANEL ---
+    ax_p = axes[2]
+    ps1, = ax_p.plot([], [], "--", color=colors["mass1"], lw=2)
+    ps2, = ax_p.plot([], [], "--", color=colors["mass2"], lw=2)
+    dot1, = ax_p.plot([], [], "o", color=colors["mass1"])
+    dot2, = ax_p.plot([], [], "o", color=colors["mass2"])
+
+    combine_theta = theta1 + theta2
+    combine_omega = omega1 + omega2
+    max_x = max(combine_theta)
+    max_y = max(combine_omega)
+    min_x = min(combine_theta)
+    min_y = min(combine_omega)
+    ax_p.set_title(r"Phase space $\theta$ vs $\omega$")
+    ax_p.set_xlim(min_x, max_x)
+    ax_p.set_ylim(min_y, max_y)
+    ax_p.set_xlabel(r"$\theta$ [rad]")
+    ax_p.set_ylabel(r"$\omega$ [rad/s]")
+
+    # --- UPDATE FUNCTION ---
+    def update(i):
         # Motion
-        axes[0].plot([0, x1[i]],[0, y1[i]], "k-", linewidth = 2)
-        axes[0].plot([x1], [y1], "o", color = colors["mass1"], markersize =10)
-        axes[0].plot([x1[i], y2[i]], [y1[i],x2[i]], "k-", lw =2)
-        axes[0].plot([x2], [y2], "o", color = colors["mass2"], markersize =10)
-        
-        j = max(y2) if max(y2) > 0 else j = 3 # axes-y lim
+        rod1.set_data([0, x1[i]], [0, y1[i]])
+        rod2.set_data([x1[i], x2[i]], [y1[i], y2[i]])
+        m1.set_data([x1[i]], [y1[i]])
+        m2.set_data([x2[i]], [y2[i]])
 
-        axes[0].set_xlim(min(x2) -1, max(x2) + 1)
-        axes[0].set_ylim(j, min(y2))
-        axes[0].axhline(0, color='black', lw=0.5)
-        axes[0].set_xlabel(r"x [m]")
-        axes[0].set_ylabel(r"y [m]")
+        # Energies
+        lineT.set_data([times[:i]], [T[:i]])
+        lineU.set_data([times[:i]], [U[:i]])
+        lineEt.set_data([times[:i]], [Et[:i]])
 
-        #Energies
+        # Phase space
+        ps1.set_data([theta1[:i]], [omega1[:i]])
+        ps2.set_data([theta2[:i]], [omega2[:i]])
+        dot1.set_data([theta1[i]], [omega1[i]])
+        dot2.set_data([theta2[i]], [omega2[i]])
 
-        axes[1].plot([t[:i]],[T[:i]], "-", lw = 2, color = colors["T"], label= "T")
-        axes[1].plot([t[:i]],[U[:i]], "-", lw = 2, color = colors["U"], label = "U")
-        axes[1].plot([t[:i]],[Et[:i]], "-", lw = 2, color = colors["Et"], label = "Et")
-        axes[1].set_ylim(min(U) - 1, max(T) + 1)
-        axes[1].set_xlim(times[0], times[-1])
-        axes[1].axhline(0, color = "black", lw = 0.5)
-        axes[1].set_xlabel(r"t [s]")
-        axes[1].set_ylabel(r"E [J]")
+        return rod1, rod2, m1, m2, lineT, lineU, lineEt, ps1, ps2, dot1, dot2
 
-        #Phase space
-
-        axes[2].plot([theta1[:i]],[omega1[:i]], "b--", lw = 2)
-        axes[2].plot([theta2[:i]],[omega2[:i]], "b--", lw = 2)
-        axes[2].plot([theta1[i]],[omega1[i]], "o", color = colors["mass1"], lw = 2, label = "mass1")
-        axes[2].plot([theta2[i]],[omega2[i]], "o", color = colors["mass2"], lw = 2, label = "mass2")
-
-        axes[2].set_xlabel(r"\theta")
-        axes[2].set_ylabel(r"\omega")
-        axes[2].set_xlim(min(theta1, theta2) -1, max(theta1, theta2) +2)
-        axes[2].set_ylim(min(omega1, omega2) -1, max(omega1, omega2) +2)
-
-    plt.tight_layout()
-    plt.plot()
+    frame_step = 5
+    anim = FuncAnimation(fig, update, frames = np.arange(0, len(times), frame_step), interval = 50, blit = False, repeat = False)
+    return anim
 
 def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], filename: str = (
         r"C:\Users\JORGE\Desktop\Programas\Python\physics_simulation" 
@@ -256,9 +283,9 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
 
     
 P = Params()
-double = DoublePendulum(params= P, small_angle=True, method="Verlet")
+double = DoublePendulum(params= P, small_angle=True, method="Rk45")
 sol = double.run()
-postion = double.transform()
+position = double.transform()
 energy = double.energies()
 
 cmap = plt.colormaps["viridis"]
@@ -271,8 +298,9 @@ colors = {
     "Et": "#2ca02c",
 }
 
-regime_summary(sol = sol, energy=energy, position=postion, colors = colors, name = "Verlet")
-
+#regime_summary(sol = sol, energy=energy, position=postion, colors = colors, name = "Verlet")
+fig = double_pendulum_animation(sol = sol, energy=energy, position=position, colors= colors, name = "Rk45")
+plt.show()
 
 """
 class SmallAngles:
