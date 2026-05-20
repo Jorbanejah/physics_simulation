@@ -95,10 +95,12 @@ def velocity_verlet(f: Dynamics, t: float, y: State, dt: float, params: Params) 
     acceleration = f(t, y, params)[2:] # Returns only w1, w2
     theta_new = theta + omega * dt + 0.5 * acceleration * dt**2
 
-    # In the small-angle model acceleration is position-only, so the old
-    # velocity is sufficient for evaluating the next acceleration.
+    # NOTE:
+    # For the full nonlinear double pendulum the acceleration depends on both   
+    # angles and velocities. Therefore this Verlet implementation is only
+    # strictly symplectic for the small-angle approximation.
 
-    predicted_state = np.array([theta_new[0], theta_new[1], omega[0], omega[1]])
+    predicted_state = np.array([theta_new[0], theta_new[1], omega[0], omega[1]], dtype = float)
 
     acceleration_new = f(t + dt, predicted_state, params)[2:]
 
@@ -156,7 +158,8 @@ def equation_double_pendulum(t: float, y: State, p: Params) -> State:
     #      (A_21, A_22) (alpha2) = (b2)
     # A X = B ----> X = A^-1 * B
 
-    alpha1, alpha2 = np.linalg.solve(mass_matrix, forcing)
+    alpha = np.linalg.solve(mass_matrix, forcing)
+    alpha1, alpha2 = alpha
     return np.array([omega1, omega2, alpha1, alpha2])
 
 
@@ -247,7 +250,7 @@ class DoublePendulum:
             self.y = y_history
 
         elif method in self._SOLVE_IVP_METHODS:
-            sol = solve_ivp(dynamics, (0.0, self.params.t), y0, args=(self.params,), t_eval=t_eval, method=method, rtol=1e-9, atol=1e-11,)
+            sol = solve_ivp(dynamics, (0.0, self.params.t), y0, args=(self.params,), t_eval=t_eval, method=method, rtol=1e-12, atol=1e-12, max_step=self.params.dt, first_step = self.params.dt,)
 
             if not sol.success:
                 raise RuntimeError(f"Integration failed: {sol.message}")
@@ -287,19 +290,14 @@ class DoublePendulum:
         L1, L2 = self.params.L1, self.params.L2
         g = self.params.g
 
-        _, y1, _, y2 = self.transform()
+        delta = theta1 - theta2
 
-        vx1 = L1 * omega1 * np.cos(theta1)
-        vy1 = L1 * omega1 * np.sin(theta1)
-        vx2 = vx1 + L2 * omega2 * np.cos(theta2)
-        vy2 = vy1 + L2 * omega2 * np.sin(theta2)
+        kinetic = (
+            0.5 * (m1 + m2) * L1**2 * omega1**2
+            + 0.5 * m2 * L2**2 * omega2**2
+            + m2 * L1 * L2 * omega1 * omega2 * np.cos(delta)
+            )
 
-        kinetic_1 = 0.5 * m1 * (vx1**2 + vy1**2)
-        kinetic_2 = 0.5 * m2 * (vx2**2 + vy2**2)
-        kinetic = kinetic_1 + kinetic_2
-
-        potential_1 = m1 * g * y1
-        potential_2 = m2 * g * y2
-        potential = potential_1 + potential_2
+        potential = -(m1 + m2) * g * L1 * np.cos(theta1) - m2 * g * L2 * np.cos(theta2)
 
         return kinetic, potential, kinetic + potential

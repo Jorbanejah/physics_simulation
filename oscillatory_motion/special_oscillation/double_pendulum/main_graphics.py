@@ -3,12 +3,12 @@ MAIN GRPAHICS: double pendulum
 
 Small angles
 - Drift energy (E(t) - E(0)) vs intial angle (theta1) vs intial angle (theta2) (heatmap - after a long time)
-- Regime summary (position, energies, phase space)
+- Regime summary (position, energies, phase space) ---Done
 - Verlet vs rk45 vs DOP853 methods
 
 Motion
 - Drift energy vs large time
-- Regime summary
+- Regime summary -------- Done
 - Fractal motion
 - Lyapunov coefficient
 - Poincare sections
@@ -29,6 +29,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.animation import FuncAnimation
+from matplotlib.gridspec import GridSpec
+
 #Stablish automatically: font sizes, grid visibility, color harmony, spacing
 plt.style.use("seaborn-v0_8-paper")
 sns.set_theme(context="notebook", style="whitegrid", palette="viridis", font_scale=1.2)
@@ -67,11 +69,11 @@ class Params:
     L1: float = 1.0  # m
     L2: float = 2.0  # m
 
-    q0: tuple[float, float] = (np.deg2rad(60.0), np.deg2rad(0.0))  # rad
+    q0: tuple[float, float] = (np.deg2rad(20.0), np.deg2rad(10.0))  # rad
     dq0: tuple[float, float] = (0.0, 0.0)  # rad/s
 
     t: float = 15.0  # s
-    dt: float = 0.01  # s
+    dt: float = 1e-3  # s
 
     def __post_init__(self) -> None: #Validate parameters. Default function after dataclass function
         if self.g <= 0.0:
@@ -124,7 +126,7 @@ def regime_summary(sol:Sequence[float], energy: Sequence[float], position: Seque
     ax2.set_ylabel("Energy [J]")
     ax2.legend()
     ax2.grid(True, which="both", linestyle="--", alpha=0.4)
-    ax2.annotate(f"Drift = {Et[-1] - Et[0]:.2e}", xy=(0.05, 0.1), xycoords="axes fraction", fontsize=10, bbox=dict(boxstyle="round", fc="white", alpha=0.7))
+    ax2.annotate(f"Drift = {(Et[-1] - Et[0])/Et[0]:.2e}", xy=(0.05, 0.1), xycoords="axes fraction", fontsize=10, bbox=dict(boxstyle="round", fc="white", alpha=0.7))
 
     # Phase space
     ax3.plot(theta1, omega1, color=colors["mass1"], label="Mass 1")
@@ -143,6 +145,13 @@ def regime_summary(sol:Sequence[float], energy: Sequence[float], position: Seque
 def double_pendulum_animation(sol:Sequence[float], energy:Sequence[float], position:Sequence[float], colors:Sequence[float], name: str)-> plt.figure:
 
     theta1, theta2, omega1, omega2 = sol["y"]
+    
+    def wrapped_theta(theta:Sequence[float])->np.ndarray:
+        return (theta + np.pi) % (2*np.pi) - np.pi
+    
+    theta1 = wrapped_theta(theta1)
+    theta2 = wrapped_theta(theta2)
+
     times = sol["t"]
     x1, y1, x2, y2 = position
     T, U, Et = energy
@@ -150,51 +159,49 @@ def double_pendulum_animation(sol:Sequence[float], energy:Sequence[float], posit
     if len(times) != len(x1) or len(x1) != len(T):
         raise TypeError("Something goes wrong. The length between energy, position and sol don't fix it.")
     
-    fig, axes = plt.subplots(1, 3, figsize = (14, 10), tight_layout = True)
+    fig = plt.figure(figsize= (12, 6))
+    gs = GridSpec(2, 2, width_ratios=[2, 1], height_ratios=[1, 1], figure=fig)
     
+    ax_anim = fig.add_subplot(gs[:, 0])   # Left: animation (takes both rows)
+    ax_top  = fig.add_subplot(gs[0, 1])   # Right-top
+    ax_bot  = fig.add_subplot(gs[1, 1])   # Right-bottom
     # --- MOTION PANEL ---
-    ax_m = axes[0]
-    rod1, = ax_m.plot([], [], "k-", lw=2)
-    rod2, = ax_m.plot([], [], "k-", lw=2)
-    m1, = ax_m.plot([], [], "o", color=colors["mass1"], markersize=10)
-    m2, = ax_m.plot([], [], "o", color=colors["mass2"], markersize=10)
-    ax_m.set_title("Double pendulum motion")
-    ax_m.set_xlim(min(x2)-1, max(x2)+1)
-    ax_m.set_ylim(min(y2)-1, 1)
-    ax_m.set_xlabel("x [m]")
-    ax_m.set_ylabel("y [m]")
-    ax_m.axhline(0, color="black", lw=0.5)
 
-    # --- ENERGY PANEL ---
-    ax_e = axes[1]
-    lineT, = ax_e.plot([], [], color=colors["T"], lw=2, label="T")
-    lineU, = ax_e.plot([], [], color=colors["U"], lw=2, label="U")
-    lineEt, = ax_e.plot([], [], color=colors["Et"], lw=2, label="Et")
-    ax_e.set_title("Energies")
-    ax_e.set_xlim(times[0], times[-1])
-    ax_e.set_ylim(min(U)-1, max(T)+1)
-    ax_e.set_xlabel(r"t [s]")
-    ax_e.set_ylabel(r"E [J]")
-    ax_e.legend()
+    rod1, = ax_anim.plot([], [], "k-", lw=2)
+    rod2, = ax_anim.plot([], [], "k-", lw=2)
+    m1, = ax_anim.plot([], [], "o", color=colors["mass1"], markersize=10)
+    m2, = ax_anim.plot([], [], "o", color=colors["mass2"], markersize=10)
+    ax_anim.set_title("Double pendulum motion")
+    ax_anim.set_xlim(min(x2)-1, max(x2)+1)
+    ax_anim.set_ylim(min(y2)-1, 1)
+    ax_anim.set_xlabel("x [m]")
+    ax_anim.set_ylabel("y [m]")
+    ax_anim.axhline(0, color="black", lw=0.5)
 
     # --- PHASE SPACE PANEL ---
-    ax_p = axes[2]
-    ps1, = ax_p.plot([], [], "--", color=colors["mass1"], lw=2)
-    ps2, = ax_p.plot([], [], "--", color=colors["mass2"], lw=2)
-    dot1, = ax_p.plot([], [], "o", color=colors["mass1"])
-    dot2, = ax_p.plot([], [], "o", color=colors["mass2"])
+    ps1, = ax_top.plot([], [], "--", color=colors["mass1"], lw=2)
+    ps2, = ax_top.plot([], [], "--", color=colors["mass2"], lw=2)
+    dot1, = ax_top.plot([], [], "o", color=colors["mass1"])
+    dot2, = ax_top.plot([], [], "o", color=colors["mass2"])
 
-    combine_theta = theta1 + theta2
     combine_omega = omega1 + omega2
-    max_x = max(combine_theta)
     max_y = max(combine_omega)
-    min_x = min(combine_theta)
     min_y = min(combine_omega)
-    ax_p.set_title(r"Phase space $\theta$ vs $\omega$")
-    ax_p.set_xlim(min_x, max_x)
-    ax_p.set_ylim(min_y, max_y)
-    ax_p.set_xlabel(r"$\theta$ [rad]")
-    ax_p.set_ylabel(r"$\omega$ [rad/s]")
+
+    ax_top.set_title(r"Phase space $\theta$ vs $\omega$")
+    ax_top.set_xlim([-np.pi, np.pi])
+    ax_top.set_ylim([min_y, max_y])
+    ax_top.set_xlabel(r"$\theta$ [rad]")
+    ax_top.set_ylabel(r"$\omega$ [rad/s]")
+
+
+    line1, = ax_bot.plot([], [], "--", color = colors["mass1"], lw =2)
+    point1, = ax_bot.plot([], [], "o", color = colors["mass1"], lw =2)
+    ax_bot.set_xlabel(r"$\theta_1 [rad]$")
+    ax_bot.set_ylabel(r"$\theta_2 [rad]$")
+    ax_bot.set_xlim([-np.pi, np.pi])
+    ax_bot.set_ylim([-np.pi, np.pi])
+
 
     # --- UPDATE FUNCTION ---
     def update(i):
@@ -204,20 +211,20 @@ def double_pendulum_animation(sol:Sequence[float], energy:Sequence[float], posit
         m1.set_data([x1[i]], [y1[i]])
         m2.set_data([x2[i]], [y2[i]])
 
-        # Energies
-        lineT.set_data([times[:i]], [T[:i]])
-        lineU.set_data([times[:i]], [U[:i]])
-        lineEt.set_data([times[:i]], [Et[:i]])
-
         # Phase space
         ps1.set_data([theta1[:i]], [omega1[:i]])
         ps2.set_data([theta2[:i]], [omega2[:i]])
         dot1.set_data([theta1[i]], [omega1[i]])
         dot2.set_data([theta2[i]], [omega2[i]])
 
-        return rod1, rod2, m1, m2, lineT, lineU, lineEt, ps1, ps2, dot1, dot2
+        #Phase space (thetas)
+        line1.set_data([theta1[:i]], [theta2[:i]])
+        point1.set_data([theta1[i]], [theta2[i]])
 
-    frame_step = 5
+        return rod1, rod2, m1, m2, ps1, ps2, dot1, dot2, line1, point1
+    
+    plt.tight_layout()
+    frame_step = 50
     anim = FuncAnimation(fig, update, frames = np.arange(0, len(times), frame_step), interval = 50, blit = False, repeat = False)
     return anim
 
@@ -283,7 +290,7 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
 
     
 P = Params()
-double = DoublePendulum(params= P, small_angle=True, method="Rk45")
+double = DoublePendulum(params= P, small_angle=True, method="DOP853")
 sol = double.run()
 position = double.transform()
 energy = double.energies()
@@ -298,7 +305,7 @@ colors = {
     "Et": "#2ca02c",
 }
 
-#regime_summary(sol = sol, energy=energy, position=postion, colors = colors, name = "Verlet")
+#regime_summary(sol = sol, energy=energy, position=position, colors = colors, name = "DOP853")
 fig = double_pendulum_animation(sol = sol, energy=energy, position=position, colors= colors, name = "Rk45")
 plt.show()
 
