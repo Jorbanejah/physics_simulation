@@ -1,12 +1,11 @@
 """
 MAIN GRPAHICS: double pendulum
 
-Small angles
+Linearized equation
 - Drift energy (E(t) - E(0)) vs intial angle (theta1) vs intial angle (theta2) (heatmap - after a long time)
 - Regime summary (position, energies, phase space) ---Done
-- Verlet vs rk45 vs DOP853 methods
 
-Motion
+Normal equation
 - Drift energy vs large time
 - Regime summary -------- Done
 - Fractal motion
@@ -20,10 +19,10 @@ Another performance:
 - Trajectory + Poincaré section side-by-side: Shows how the chaotic cloud emerges from the trajectory.
 
 """
-
 from dataclasses import dataclass
 from typing import Sequence, Dict, Any
-from double_pendulum import DoublePendulum
+from double_pendulum import DoublePendulumSimulator
+from enum import Enum, auto     
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -39,24 +38,13 @@ sns.set_theme(context="notebook", style="whitegrid", palette="viridis", font_sca
 ##
 #---------------- Parameters and control function -------------------
 ##
-def _as_pair(values: Sequence[float], name: str) -> tuple[float, float]:
-    if len(values) != 2:
-        raise ValueError(f"{name} must ocntain exactly two values.")
-    return float(values[0]), float(values[1])
 
-def _time_grid(duration: float, dt: float) -> np.ndarray:
-
-    if duration <= 0.0:
-        raise ValueError("Simulation time must be positive. ")
-    if dt <= 0.0:
-        raise ValueError("Simulation step must be positive. ")
-    
-    times = np.arange(0.0, duration, dt, dtype=float)
-
-    #Force exact final time
-
-    times[-1] = duration
-    return times
+class IntegrationMethod(Enum):
+    """Supported integration methods with their properties."""
+    RK45 = auto()           # 4th order explicit - not symplectic, energy drifts
+    DOP853 = auto()        # 8th order explicit - better than RK45
+    RADAU = auto()         # Implicit Radau - BEST for energy conservation
+    BDF = auto()           # Backward Differentiation - good for stiff systems
 
 @dataclass
 class Params:
@@ -82,10 +70,6 @@ class Params:
             raise ValueError("Masses must be positive.")
         if self.L1 <= 0.0 or self.L2 <= 0.0:
             raise ValueError("Lengths must be positive.")
-
-        self.q0 = _as_pair(self.q0, "q0")
-        self.dq0 = _as_pair(self.dq0, "dq0")
-        self.times = _time_grid(duration= self.t, dt = self.dt)
 
 ###
 # --------------------- Main graphics --------------------------
