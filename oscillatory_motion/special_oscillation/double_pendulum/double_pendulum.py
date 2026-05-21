@@ -7,6 +7,7 @@ Author: Jorge Orbaneja Huerta
 
 from __future__ import annotations
 import numpy as np
+import time
 from dataclasses import dataclass, field
 from typing import Callable, NamedTuple
 from enum import Enum, auto
@@ -31,6 +32,7 @@ class Result(NamedTuple):
     kinetic: np.ndarray
     potential: np.ndarray
     total: np.ndarray
+    total_time: float
 
 
 @dataclass(slots=True)
@@ -334,9 +336,11 @@ class DoublePendulumSimulator:
             solver_class = "RK45"
         
         # Run integration
+        star = time.perf_counter()
         sol = solve_ivp(fun=lambda t, y: dynamics(t, y), t_span=t_span, y0=y0, method=solver_class, t_eval=t_eval,
             rtol=self.params.rtol, atol=self.params.atol, max_step=self.params.dt, first_step=self.params.dt)
-        
+        total_time = time.perf_counter() - star
+
         if not sol.success:
             raise RuntimeError(f"Integration failed: {sol.message}")
         
@@ -352,7 +356,7 @@ class DoublePendulumSimulator:
         
         total = kinetic + potential
         
-        self._result = Result(t=sol.t, y=sol.y, kinetic=kinetic, potential=potential, total=total)
+        self._result = Result(t=sol.t, y=sol.y, kinetic=kinetic, potential=potential, total=total, total_time=total_time)
         
         return self._result
     
@@ -385,107 +389,5 @@ class DoublePendulumSimulator:
             'max_kinetic': np.max(result.kinetic),
             'min_kinetic': np.min(result.kinetic),
             'max_potential': np.max(result.potential),
-            'min_potential': np.min(result.potential),}
-    
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    
-    print("=" * 60)
-    print("DOUBLE PENDULUM - ENERGY CONSERVATION TEST")
-    print("=" * 60)
-    
-    # Create parameters - high amplitude to test nonlinear behavior
-    params = Parameters(
-        g=9.81,
-        m1=1.5,
-        m2=1.0,
-        L1=1.0,
-        L2=2.0,
-        theta1_0=np.deg2rad(90.0),  # 120 degrees from vertical
-        theta2_0=np.deg2rad(60.0),
-        omega1_0=0.0,
-        omega2_0=0.0,
-        t_max=100.0,
-        dt=0.001,
-        rtol=1e-10,
-        atol=1e-12
-    )
-    
-    # Create simulator
-    sim = DoublePendulumSimulator(params)
-    
-    # Test with DIFFERENT methods to show the difference
-    methods_to_test = [
-        ("RK45 (adaptive explicit)", "RK45", False),
-        ("DOP853 (8th order)", IntegrationMethod.DOP853, False),
-        ("Radau (implicit)", IntegrationMethod.RADAU, False),
-        ("BDF (backward diff)", IntegrationMethod.BDF, False),
-    ]
-    
-    results_dict = {}
-    
-    for name, method, _ in methods_to_test:
-        print(f"\nRunning with {name}...")
-        result = sim.run(method=method, linearized=False)
-        analysis = sim.energy_analysis(result)
-        results_dict[name] = (result, analysis)
-        
-        print(f"  Initial Energy: {analysis['initial_energy']:.6f} J")
-        print(f"  Final Energy:  {analysis['final_energy']:.6f} J")
-        print(f"  Energy Drift: {analysis['energy_drift']:.6e} J")
-        print(f"  Relative Error: {analysis['relative_error_ppm']:.2f} ppm")
-    
-    # Plot results
-    fig, axes = plt.subplots(3, 1, figsize=(12, 10))
-    
-    # Plot 1: Energy comparisons
-    ax1 = axes[0]
-    colors = ['blue', 'green', 'red', 'orange']
-    
-    for i, (name, (result, _)) in enumerate(results_dict.items()):
-        ax1.plot(result.t, result.total - result.total[0], 
-                 label=name, color=colors[i], linewidth=1.5)
-    
-    ax1.set_xlabel('Time (s)')
-    ax1.set_ylabel('Energy Drift (J)')
-    ax1.set_title('Total Energy Drift Over Time')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
-    ax1.set_yscale('symlog')  # Symmetric log to show small drifts
-    
-    # Plot 2: Angular positions (using best method: Radau)
-    best_name = "Radau (implicit)"
-    best_result, _ = results_dict[best_name]
-    
-    ax2 = axes[1]
-    ax2.plot(best_result.t, np.rad2deg(best_result.y[0]), label='θ₁ (deg)')
-    ax2.plot(best_result.t, np.rad2deg(best_result.y[1]), label='θ₂ (deg)')
-    ax2.set_xlabel('Time (s)')
-    ax2.set_ylabel('Angle (degrees)')
-    ax2.set_title('Angular Positions (Radau Method)')
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
-    
-    # Plot 3: Energy components (Radau)
-    ax3 = axes[2]
-    ax3.plot(best_result.t, best_result.kinetic, label='Kinetic T')
-    ax3.plot(best_result.t, best_result.potential, label='Potential V')
-    ax3.plot(best_result.t, best_result.total, label='Total E', linewidth=2)
-    ax3.set_xlabel('Time (s)')
-    ax3.set_ylabel('Energy (J)')
-    ax3.set_title('Energy Components (Radau Method)')
-    ax3.legend()
-    ax3.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig('double_pendulum_energy_analysis.png', dpi=150)
-    plt.show()
-    
-    print("\n" + "=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-    print("\nBest method for energy conservation: RADAU (implicit)")
-    print(f"Energy drift with Radau: {results_dict['Radau (implicit)'][1]['energy_drift']:.2e} J")
-    print("\nComparison:")
-    for name, (_, analysis) in results_dict.items():
-        print(f"  {name}: {analysis['relative_error_ppm']:.2f} ppm")
+            'min_potential': np.min(result.potential),
+            "total time": result.total_time,}

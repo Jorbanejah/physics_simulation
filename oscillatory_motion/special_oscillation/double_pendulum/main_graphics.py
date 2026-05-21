@@ -2,19 +2,18 @@
 MAIN GRPAHICS: double pendulum
 
 Linearized equation
-- Drift energy (E(t) - E(0)) vs intial angle (theta1) vs intial angle (theta2) (heatmap - after a long time)
+
 - Regime summary (position, energies, phase space) ---Done
+- Fractal motion
 
 Normal equation
-- Drift energy vs large time
+
 - Regime summary -------- Done
 - Fractal motion
 - Lyapunov coefficient
 - Poincare sections
 
 Another performance:
-- Convergence 
-- Stability
 - Normal modes animation (small angles): Symmetric mode and Antisymmetric mode
 - Trajectory + Poincaré section side-by-side: Shows how the chaotic cloud emerges from the trajectory.
 
@@ -33,7 +32,6 @@ from matplotlib.gridspec import GridSpec
 #Stablish automatically: font sizes, grid visibility, color harmony, spacing
 plt.style.use("seaborn-v0_8-paper")
 sns.set_theme(context="notebook", style="whitegrid", palette="viridis", font_scale=1.2)
-
 
 ##
 #---------------- Parameters and control function -------------------
@@ -57,11 +55,17 @@ class Params:
     L1: float = 1.0  # m
     L2: float = 2.0  # m
 
-    q0: tuple[float, float] = (np.deg2rad(20.0), np.deg2rad(10.0))  # rad
-    dq0: tuple[float, float] = (0.0, 0.0)  # rad/s
+    theta1_0: float = np.deg2rad(145)
+    theta2_0: float = np.deg2rad(45)
 
-    t: float = 15.0  # s
+    omega1_0: float = 0.0
+    omega2_0: float = 0.0
+
+    t_max: float = 15.0  # s
     dt: float = 1e-3  # s
+
+    rtol = 1e-10
+    atol = 1e-12
 
     def __post_init__(self) -> None: #Validate parameters. Default function after dataclass function
         if self.g <= 0.0:
@@ -72,20 +76,20 @@ class Params:
             raise ValueError("Lengths must be positive.")
 
 ###
-# --------------------- Main graphics --------------------------
+# --------------------- Main functions graphics --------------------------
 ###
 
-def regime_summary(sol:Sequence[float], energy: Sequence[float], position: Sequence[float], colors: Sequence[float], name: str)-> plt.figure:
+def regime_summary(sol:Sequence[float], times: Sequence[float], energy: Sequence[float], position: Sequence[float], colors: Sequence[float], name: str)-> plt.figure:
     """
     Regime summary -- Position, energies and phase space
     """
     if sol is None:
         raise ValueError("Run the simulation first.")
 
-    theta1, theta2, omega1, omega2 = sol["y"]
-    time = sol["t"]
+    theta1, theta2, omega1, omega2 = sol
+    time = times
     T, U, Et = energy
-    x1, y1, x2, y2 = position
+    x1, x2, y1, y2 = position
 
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14, 7))
 
@@ -125,10 +129,9 @@ def regime_summary(sol:Sequence[float], energy: Sequence[float], position: Seque
     plt.tight_layout()
     return fig
 
+def double_pendulum_animation(sol:Sequence[float], times:Sequence[float], energy:Sequence[float], position:Sequence[float], colors:Sequence[float], name: str)-> plt.figure:
 
-def double_pendulum_animation(sol:Sequence[float], energy:Sequence[float], position:Sequence[float], colors:Sequence[float], name: str)-> plt.figure:
-
-    theta1, theta2, omega1, omega2 = sol["y"]
+    theta1, theta2, omega1, omega2 = sol
     
     def wrapped_theta(theta:Sequence[float])->np.ndarray:
         return (theta + np.pi) % (2*np.pi) - np.pi
@@ -136,19 +139,20 @@ def double_pendulum_animation(sol:Sequence[float], energy:Sequence[float], posit
     theta1 = wrapped_theta(theta1)
     theta2 = wrapped_theta(theta2)
 
-    times = sol["t"]
-    x1, y1, x2, y2 = position
+    time = times
+    x1, x2, y1, y2 = position
     T, U, Et = energy
 
-    if len(times) != len(x1) or len(x1) != len(T):
+    if len(time) != len(x1) or len(x1) != len(T):
         raise TypeError("Something goes wrong. The length between energy, position and sol don't fix it.")
     
     fig = plt.figure(figsize= (12, 6))
     gs = GridSpec(2, 2, width_ratios=[2, 1], height_ratios=[1, 1], figure=fig)
     
     ax_anim = fig.add_subplot(gs[:, 0])   # Left: animation (takes both rows)
-    ax_top  = fig.add_subplot(gs[0, 1])   # Right-top
-    ax_bot  = fig.add_subplot(gs[1, 1])   # Right-bottom
+    ax_top  = fig.add_subplot(gs[0, 1])   # Right-top: PHASE SPACE
+    ax_bot  = fig.add_subplot(gs[1, 1])   # Right-bottom: ANGULAR SPACE
+
     # --- MOTION PANEL ---
 
     rod1, = ax_anim.plot([], [], "k-", lw=2)
@@ -178,7 +182,7 @@ def double_pendulum_animation(sol:Sequence[float], energy:Sequence[float], posit
     ax_top.set_xlabel(r"$\theta$ [rad]")
     ax_top.set_ylabel(r"$\omega$ [rad/s]")
 
-
+    # --- Angular plane ---
     line1, = ax_bot.plot([], [], "--", color = colors["mass1"], lw =2)
     point1, = ax_bot.plot([], [], "o", color = colors["mass1"], lw =2)
     ax_bot.set_xlabel(r"$\theta_1 [rad]$")
@@ -209,7 +213,7 @@ def double_pendulum_animation(sol:Sequence[float], energy:Sequence[float], posit
     
     plt.tight_layout()
     frame_step = 50
-    anim = FuncAnimation(fig, update, frames = np.arange(0, len(times), frame_step), interval = 50, blit = False, repeat = False)
+    anim = FuncAnimation(fig, update, frames = np.arange(0, len(time), frame_step), interval = 50, blit = False, repeat = False)
     return anim
 
 def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], filename: str = (
@@ -237,7 +241,7 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
     
     def _compute_energy_drift(q0):
         params.q0 = q0
-        double = DoublePendulum(params=params, small_angle=True, method="Verlet")
+        double = DoublePendulumSimulator(params=params, small_angle=True, method="Verlet")
         double.run()
         _, _, Et = double.energies()
         return float(abs(Et[-1] - Et[0]))
@@ -272,12 +276,39 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
 
     return {"theta1_scan": theta1_scan, "theta2_scan": theta2_scan, "grid": grid}
 
-    
-P = Params()
-double = DoublePendulum(params= P, small_angle=True, method="DOP853")
-sol = double.run()
-position = double.transform()
-energy = double.energies()
+def fractal():
+    return 
+def lyapunov():
+    return 
+def poincare():
+    return 
+
+##
+# ---------------------- Position ----------------
+##
+def position(sol: Sequence[float],) -> np.ndarray:
+    theta1 , theta2, _, _ = sol
+    x1 = params.L1 * np.sin(theta1)
+    x2 = x1 + params.L2 * np.sin(theta2)
+    y1 = - params.L1 * np.cos(theta1)
+    y2 = y1 - params.L2 * np.cos(theta2)
+
+    return x1, x2, y1, y2
+##
+# ---------------------- Settle the parameters -----------------------------
+##
+params = Params()
+sim = DoublePendulumSimulator(params = params)
+
+# --- Graphics ---
+results = sim.run()
+best_method  = "Radau (implicit)"
+
+sol = results.y
+energy = results.kinetic, results.potential, results.total
+times = results.t
+
+positions = position(sol = sol)
 
 cmap = plt.colormaps["viridis"]
 color = cmap(np.linspace(0, 1, 3))
@@ -289,19 +320,6 @@ colors = {
     "Et": "#2ca02c",
 }
 
-#regime_summary(sol = sol, energy=energy, position=position, colors = colors, name = "DOP853")
-fig = double_pendulum_animation(sol = sol, energy=energy, position=position, colors= colors, name = "Rk45")
+#fig1 =regime_summary(sol = sol, times = times, energy=energy, position=positions, colors = colors, name = "Radau (implicit)")
+#fig2 = double_pendulum_animation(sol = sol, times = times, energy=energy, position=positions, colors= colors, name = "Radau (implicit)")
 plt.show()
-
-"""
-class SmallAngles:
-    def __init__(self, Params: Sequence[float], Instance: float):
-
-        self.Params = Params
-        self.Instance = Instance
-    def run():
-
-    def phase_space():
-    def drift_energy_surface():
-    def method_error():
-"""
