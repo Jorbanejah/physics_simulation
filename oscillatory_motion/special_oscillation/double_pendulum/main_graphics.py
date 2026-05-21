@@ -4,16 +4,17 @@ MAIN GRPAHICS: double pendulum
 Linearized equation
 
 - Regime summary (position, energies, phase space) ---Done
-- Fractal motion
+- Fractal 
 
 Normal equation
 
 - Regime summary -------- Done
-- Fractal motion
-- Lyapunov coefficient
+- Fractal 
+- Lyapunov coefficient ----- Done
 - Poincare sections
 
 Another performance:
+- Times
 - Normal modes animation (small angles): Symmetric mode and Antisymmetric mode
 - Trajectory + Poincaré section side-by-side: Shows how the chaotic cloud emerges from the trajectory.
 
@@ -239,16 +240,17 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
     grid = {th1: {th2: None for th2 in theta2} for th1 in theta1}
 
     
-    def _compute_energy_drift(q0):
-        params.q0 = q0
-        double = DoublePendulumSimulator(params=params, small_angle=True, method="Verlet")
-        double.run()
-        _, _, Et = double.energies()
-        return float(abs(Et[-1] - Et[0]))
+    def _compute_energy_drift(q0: Sequence[float])->dict:
+        params.theta1_0, params.theta2_0 = q0
+        sim = DoublePendulumSimulator(params=params)
+        results = sim.run()
+        T, U, Et = results.kinetic, results.potential, results.total
+        theta1, theta2, omega1, omega2 = results.y
+        return {"theta1":theta1, "theta2": theta2, "omega1": omega1, "omega2": omega2, "Et": Et, "T": T, "U":U}
 
     # Scan theta1 (theta2 = 0)
     for th in theta1:
-        theta1_scan[th] = _compute_energy_drift((th, 0.0))
+        theta1_scan[th] = _compute_energy_drift((th, 0))
 
     #Scan theta2 (theta1 = 0)
     for th in theta2:
@@ -278,8 +280,80 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
 
 def fractal():
     return 
-def lyapunov():
-    return 
+def lyapunov(params:Sequence[float], steps: int= 8000, dt:float = 0.01, delta:float = 1e-8)->float:
+
+    import copy
+    # Two independent parameter sets
+    p1 = copy.deepcopy(params)
+    p2 = copy.deepcopy(params)
+
+    sol_1 = DoublePendulumSimulator(params= p1)
+
+    x1 = np.array([p1.theta1_0, p1.theta2_0, p1.omega1_0, p1.omega2_0])
+
+    np.random.seed(42)
+    v = np.random.normal(size=4)
+    v /= np.linalg.norm(v)
+    x2 = x1 + v * delta
+    sol_2 = DoublePendulumSimulator(params = p2)
+
+    #Both instances are started
+    S = 0.0
+    t = 0.0
+
+    from scipy.integrate import solve_ivp
+    for _ in range(steps):
+    
+        sol1 = solve_ivp(sol_1.equations_of_motion, [t, t +dt], x1, max_step = dt)
+        sol2 = solve_ivp(sol_2.equations_of_motion, [t, t +dt], x2, max_step = dt)
+
+        x1 = sol1.y[:,-1]
+        x2 = sol2.y[:,-1]
+
+        diff = x2 -x1
+
+        dist = np.linalg.norm(diff)
+
+        S += np.log(dist/delta)
+
+        #Renormalize perturbation
+        diff = diff * (delta / dist)
+        x2 = x1 + diff
+
+        t += dt
+
+    return S /(steps * dt)
+
+def lyapunov_graphics(params:Sequence[float], theta1:Sequence[float])->plt.figure:
+    print("Starting the Lyapunov graphics")
+    Lyapunov = []
+
+    for i, theta in enumerate(theta1):
+        bar_len = 20
+        progress = (i + 1) / len(theta1)
+        filled = int(progress * bar_len)
+        bar = "█" * filled + "-" * (bar_len - filled)
+        print(rf"[{bar}]  {progress*100:5.1f}%   θ₁ = {theta:.4f}", end="\r", flush=True)
+        
+        params.theta1_0 = theta
+        lya = lyapunov(params = params)
+
+        Lyapunov.append(lya)
+
+    print("="*60)
+    print("Staring the plotting")
+    print("="*60)
+
+    fig = plt.figure(figsize=(10,6))
+    plt.plot(theta1, Lyapunov, "b-", lw = 2)
+    plt.axhline(0, "--", lw = 0.5)
+    plt.xlabel(r"$\theta_1$")
+    plt.ylabel("Lyapunov coefficient")
+    plt.title(r"Lyapunov coeffcient varying $\theta_1$")
+    plt.xlim([0, theta1[-1]])
+    plt.ylim([min(Lyapunov), max(Lyapunov)])
+    
+    return fig
 def poincare():
     return 
 
@@ -322,4 +396,7 @@ colors = {
 
 #fig1 =regime_summary(sol = sol, times = times, energy=energy, position=positions, colors = colors, name = "Radau (implicit)")
 #fig2 = double_pendulum_animation(sol = sol, times = times, energy=energy, position=positions, colors= colors, name = "Radau (implicit)")
+
+lypunov = lyapunov_graphics(params = params, theta1= np.arange(0, 10, 0.5))
+
 plt.show()
