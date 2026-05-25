@@ -4,6 +4,7 @@ MAIN GRPAHICS: double pendulum
 Linearized equation
 
 - Regime summary (position, energies, phase space) ---Done
+- Animation ---- done
 - Fractal 
 
 Normal equation
@@ -22,9 +23,11 @@ Another performance:
 from dataclasses import dataclass
 from typing import Sequence, Dict, Any
 from double_pendulum import DoublePendulumSimulator
-from enum import Enum, auto     
-
+from enum import Enum, auto 
+from scipy.integrate import solve_ivp
+import os
 import numpy as np
+import copy
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.animation import FuncAnimation
@@ -217,10 +220,7 @@ def double_pendulum_animation(sol:Sequence[float], times:Sequence[float], energy
     anim = FuncAnimation(fig, update, frames = np.arange(0, len(time), frame_step), interval = 50, blit = False, repeat = False)
     return anim
 
-def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], filename: str = (
-        r"C:\Users\JORGE\Desktop\Programas\Python\physics_simulation" 
-        r"\oscillatory_motion\special_oscillation\double_pendulum\initial_small_angle.npz")
-    ) -> Dict[str, Any]:
+def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], directory: str = os.getcwd(), filename: str = "compute_intial_angles.npz") -> Dict[str, Any]:
     """
     Compute energy drift for:
     - varying theta1 with theta2 = 0
@@ -228,33 +228,48 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
     - full grid (theta1, theta2)
 
     Returns a dictionary with three entries:
-        "theta1_scan", "theta2_scan", "grid"
+        "theta1_scan" - "theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
+        "theta2_scan" - "theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
+        "grid" - "theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
+    Uses:
+    - Fractal
+    - Errors calculus (main_error.py)
+
     """
     #Validation
     if len(theta1) == 0 or len(theta2) == 0:
         raise ValueError("theta1 and theta2 must each contain at least one angle")
 
     #Define dictionaries
-    theta1_scan = {th: None for th in theta1}
-    theta2_scan = {th: None for th in theta2}
-    grid = {th1: {th2: None for th2 in theta2} for th1 in theta1}
+    theta1_scan = {th: {"theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th in theta1}
+    theta2_scan = {th: {"theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th in theta2}
+    grid = {th1: {th2: {"theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th2 in theta2} for th1 in theta1}
 
-    
-    def _compute_energy_drift(q0: Sequence[float])->dict:
+    def _compute(q0: Sequence[float])->dict:
         params.theta1_0, params.theta2_0 = q0
         sim = DoublePendulumSimulator(params=params)
         results = sim.run()
         T, U, Et = results.kinetic, results.potential, results.total
         theta1, theta2, omega1, omega2 = results.y
-        return {"theta1":theta1, "theta2": theta2, "omega1": omega1, "omega2": omega2, "Et": Et, "T": T, "U":U}
+
+        drift = _compute_energy_drift(Et)
+        return {"theta1":theta1, "theta2": theta2, "omega1": omega1, "omega2": omega2, "kinetic": T, "potencial":U, "drift": drift}
+
+    def _compute_energy_drift(Et: Sequence[float])->float:
+
+        energy_drift = max(Et) - min(Et)
+
+        return energy_drift
 
     # Scan theta1 (theta2 = 0)
+    print("Starting with theta1_0")
     for th in theta1:
-        theta1_scan[th] = _compute_energy_drift((th, 0))
+        theta1_scan[th] = _compute((th, 0))
 
     #Scan theta2 (theta1 = 0)
+    print("Starting with theta2_0")
     for th in theta2:
-        theta2_scan[th] = _compute_energy_drift((0.0, th))
+        theta2_scan[th] = _compute((0.0, th))
 
     # Full grid (theta1, theta2)
     total = len(theta1)
@@ -267,66 +282,86 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
         print(f"[{bar}]  {progress*100:5.1f}%   θ₁ = {th1:.4f}", end="\r", flush=True)
 
         for th2 in theta2:
-            grid[th1][th2] = _compute_energy_drift((th1, th2))
+            grid[th1][th2] = _compute((th1, th2))
 
     print()  # newline after progress bar
 
     # -----------------------------
     # 6. Save results
     # -----------------------------
-    np.savez(filename, theta1_scan=theta1_scan, theta2_scan=theta2_scan, grid=grid)
+    route = os.path.join(directory, filename)
+    np.savez(route, theta1_scan=theta1_scan, theta2_scan=theta2_scan, grid=grid)
 
     return {"theta1_scan": theta1_scan, "theta2_scan": theta2_scan, "grid": grid}
 
 def fractal():
     return 
-def lyapunov(params:Sequence[float], steps: int= 8000, dt:float = 0.01, delta:float = 1e-8)->float:
+def numerical_jacobian(f, x, eps=1e-5):
+    """Compute Jacobian numerically."""
+    n = len(x)
+    J = np.zeros((n, n))
+    fx = f(0, x)
+    for i in range(n):
+        dx = np.zeros(n)
+        dx[i] = eps
+        J[:, i] = (f(0, x + dx) - fx) / eps
+    return J
 
-    import copy
-    # Two independent parameter sets
-    p1 = copy.deepcopy(params)
-    p2 = copy.deepcopy(params)
+def lyapunov_spectrum(params, T=200, dt=0.01, renorm_steps=10):
+    """
+    Compute all 4 Lyapunov exponents of the double pendulum
+    using the Benettin–Wolf algorithm.
+    """
 
-    sol_1 = DoublePendulumSimulator(params= p1)
+    # Independent parameter copy
+    p = copy.deepcopy(params)
+    sim = DoublePendulumSimulator(params=p)
 
-    x1 = np.array([p1.theta1_0, p1.theta2_0, p1.omega1_0, p1.omega2_0])
+    # Initial state
+    x = np.array([p.theta1_0, p.theta2_0, p.omega1_0, p.omega2_0], dtype=float)
 
-    np.random.seed(42)
-    v = np.random.normal(size=4)
-    v /= np.linalg.norm(v)
-    x2 = x1 + v * delta
-    sol_2 = DoublePendulumSimulator(params = p2)
+    # Initial perturbation matrix (identity)
+    Q = np.eye(4)
 
-    #Both instances are started
-    S = 0.0
-    t = 0.0
+    # Accumulated log norms
+    lyap_sum = np.zeros(4)
 
-    from scipy.integrate import solve_ivp
-    for _ in range(steps):
-    
-        sol1 = solve_ivp(sol_1.equations_of_motion, [t, t +dt], x1, max_step = dt)
-        sol2 = solve_ivp(sol_2.equations_of_motion, [t, t +dt], x2, max_step = dt)
+    steps = int(T / dt)
 
-        x1 = sol1.y[:,-1]
-        x2 = sol2.y[:,-1]
+    for step in range(steps):
 
-        diff = x2 -x1
+        # Integrate main system
+        sol = solve_ivp(sim.equations_of_motion, [0, dt], x, max_step=dt)
+        x = sol.y[:, -1]
 
-        dist = np.linalg.norm(diff)
+        # Compute Jacobian at new point
+        J = numerical_jacobian(sim.equations_of_motion, x)
 
-        S += np.log(dist/delta)
+        # Evolve perturbation matrix
+        Q = solve_ivp(lambda t, y: (J @ y.reshape(4,4)).flatten(),
+              [0, dt], Q.flatten(),
+              max_step=dt).y[:, -1].reshape(4,4)
 
-        #Renormalize perturbation
-        diff = diff * (delta / dist)
-        x2 = x1 + diff
+        # Every few steps: QR decomposition
+        if (step + 1) % renorm_steps == 0:
+            Q, R = np.linalg.qr(Q)
 
-        t += dt
+            # Accumulate logs of diagonal of R
+            lyap_sum += np.log(np.abs(np.diag(R)))
 
-    return S /(steps * dt)
+    # Convert sums to exponents
+    total_time = steps * dt
+    lyap = lyap_sum / (total_time)
+
+    # Sort from largest to smallest
+    lyap_sorted = np.sort(lyap)[::-1]
+
+    return lyap_sorted
 
 def lyapunov_graphics(params:Sequence[float], theta1:Sequence[float])->plt.figure:
     print("Starting the Lyapunov graphics")
-    Lyapunov = []
+
+    L1, L2, L3, L4 = [], [], [], []
 
     for i, theta in enumerate(theta1):
         bar_len = 20
@@ -334,26 +369,38 @@ def lyapunov_graphics(params:Sequence[float], theta1:Sequence[float])->plt.figur
         filled = int(progress * bar_len)
         bar = "█" * filled + "-" * (bar_len - filled)
         print(rf"[{bar}]  {progress*100:5.1f}%   θ₁ = {theta:.4f}", end="\r", flush=True)
-        
+
         params.theta1_0 = theta
-        lya = lyapunov(params = params)
+        params.theta2_0 = 0.0
+        params.omega1_0 = 0.0
+        params.omega2_0 = 0.0
 
-        Lyapunov.append(lya)
+        lya = lyapunov_spectrum(params=params)
 
-    print("="*60)
-    print("Staring the plotting")
+        L1.append(lya[0])
+        L2.append(lya[1])
+        L3.append(lya[2])
+        L4.append(lya[3])
+
+    print("\n" + "="*60)
+    print("Starting the plotting")
     print("="*60)
 
     fig = plt.figure(figsize=(10,6))
-    plt.plot(theta1, Lyapunov, "b-", lw = 2)
-    plt.axhline(0, "--", lw = 0.5)
+    plt.plot(theta1, L1, label=r"$\lambda_1$ ", lw=2)
+    plt.plot(theta1, L2, label=r"$\lambda_2$", lw=2)
+    plt.plot(theta1, L3, label=r"$\lambda_3$", lw=2)
+    plt.plot(theta1, L4, label=r"$\lambda_2$", lw=2)
+
+    plt.axhline(0, lw=0.5, linestyle="--")
     plt.xlabel(r"$\theta_1$")
-    plt.ylabel("Lyapunov coefficient")
-    plt.title(r"Lyapunov coeffcient varying $\theta_1$")
+    plt.ylabel("Lyapunov exponents")
+    plt.title(r"Full Lyapunov spectrum vs $\theta_1$")
+    plt.legend()
     plt.xlim([0, theta1[-1]])
-    plt.ylim([min(Lyapunov), max(Lyapunov)])
-    
+
     return fig
+
 def poincare():
     return 
 
@@ -397,6 +444,6 @@ colors = {
 #fig1 =regime_summary(sol = sol, times = times, energy=energy, position=positions, colors = colors, name = "Radau (implicit)")
 #fig2 = double_pendulum_animation(sol = sol, times = times, energy=energy, position=positions, colors= colors, name = "Radau (implicit)")
 
-lypunov = lyapunov_graphics(params = params, theta1= np.arange(0, 10, 0.5))
-
+theta1 = np.linspace(np.deg2rad(0), np.deg2rad(45), 45)
+fig = lyapunov_graphics(params=params, theta1=theta1)
 plt.show()
