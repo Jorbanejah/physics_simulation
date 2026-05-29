@@ -294,8 +294,62 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
 
     return {"theta1_scan": theta1_scan, "theta2_scan": theta2_scan, "grid": grid}
 
-def fractal():
-    return 
+def fractal(filename: str)->plt.Figure:
+    """
+    Description:
+    ----------
+    Compute double-pendulum fractal with regard to pendulum flip, i.e, either θ₁ = 0 or $\theta_2 = 0$
+    over a grid of intial condition. The different regime are printed according to cmap tab10.
+
+    Parameters: 
+    ----------
+    filename: str 
+    the filename must be in the same directory storing the initial angle data
+
+    Notes:
+    ---------
+
+    """   
+
+    # Load data
+    file = np.load(filename, allow_pickle=True).item()
+
+    full_theta1 = file["grid"]["theta_1"]
+    full_theta2 = file["grid"]["theta_2"]
+
+    # Determine flip regime
+    regime = np.zeros_like(full_theta1, dtype=int)
+    regime[full_theta1 > np.pi] = 1
+    regime[full_theta2 > np.pi] = 2
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    sc = ax.scatter(full_theta1, full_theta2, c=regime, cmap="tab10", s=3, alpha=0.9)
+
+    ax.set_xlabel(r"$\theta_1$ [rad]")
+    ax.set_ylabel(r"$\theta_2$ [rad]")
+    ax.set_title("Double-pendulum fractal (flip basins)")
+
+    # Optional: add colorbar with labels
+    cbar = plt.colorbar(sc, ax=ax)
+    cbar.set_ticks([0, 1, 2])
+    cbar.set_ticklabels(["No flip", "θ₁ flip", "θ₂ flip"])
+
+    theta1 = np.linspace(-2*np.pi, 2*np.pi, 1000)
+    theta2 = np.linspace(-2*np.pi, 2*np.pi, 1000)
+
+    T1, T2 = np.meshgrid(theta1, theta2)
+    Z = 3*np.cos(T1) + np.cos(T2) - 2
+
+    ax.contour(T1, T2, Z, levels=[0], colors="black", linewidths=2)
+
+    return fig
+
+
+##
+# --------------------- Lyapunov coefficient --------------------------
+##
 def numerical_jacobian(f, x, eps=1e-5):
     """Compute Jacobian numerically."""
     n = len(x)
@@ -444,6 +498,8 @@ colors = {
 #fig1 =regime_summary(sol = sol, times = times, energy=energy, position=positions, colors = colors, name = "Radau (implicit)")
 #fig2 = double_pendulum_animation(sol = sol, times = times, energy=energy, position=positions, colors= colors, name = "Radau (implicit)")
 
-theta1 = np.linspace(np.deg2rad(0), np.deg2rad(45), 45)
-fig = lyapunov_graphics(params=params, theta1=theta1)
-plt.show()
+#theta1 = np.linspace(np.deg2rad(0), np.deg2rad(45), 45)
+#fig3 = lyapunov_graphics(params=params, theta1=theta1)
+#plt.show()
+
+compute_initial_angles(params= params, theta1 = np.linspace(-2*np.pi, 2*np.pi, 100), theta2 = np.linspace(-2*np.pi, 2*np.pi, 100))
