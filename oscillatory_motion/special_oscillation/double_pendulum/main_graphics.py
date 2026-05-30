@@ -65,8 +65,8 @@ class Params:
     omega1_0: float = 0.0
     omega2_0: float = 0.0
 
-    t_max: float = 15.0  # s
-    dt: float = 1e-3  # s
+    t_max: float = 150.0  # s
+    dt: float = 0.01  # s
 
     rtol = 1e-10
     atol = 1e-12
@@ -83,7 +83,7 @@ class Params:
 # --------------------- Main functions graphics --------------------------
 ###
 
-def regime_summary(sol:Sequence[float], times: Sequence[float], energy: Sequence[float], position: Sequence[float], colors: Sequence[float], name: str)-> plt.figure:
+def regime_summary(sol:Sequence[float], times: Sequence[float], energy: Sequence[float], position: Sequence[float], colors: Sequence[float], name: str)-> plt.Figure:
     """
     Regime summary -- Position, energies and phase space
     """
@@ -133,7 +133,7 @@ def regime_summary(sol:Sequence[float], times: Sequence[float], energy: Sequence
     plt.tight_layout()
     return fig
 
-def double_pendulum_animation(sol:Sequence[float], times:Sequence[float], energy:Sequence[float], position:Sequence[float], colors:Sequence[float], name: str)-> plt.figure:
+def double_pendulum_animation(sol:Sequence[float], times:Sequence[float], energy:Sequence[float], position:Sequence[float], colors:Sequence[float], name: str)-> plt.Figure:
 
     theta1, theta2, omega1, omega2 = sol
     
@@ -189,7 +189,7 @@ def double_pendulum_animation(sol:Sequence[float], times:Sequence[float], energy
     # --- Angular plane ---
     line1, = ax_bot.plot([], [], "--", color = colors["mass1"], lw =2)
     point1, = ax_bot.plot([], [], "o", color = colors["mass1"], lw =2)
-    ax_bot.set_xlabel(r"$\theta_1 [rad]$")
+    ax_bot.set_xlabel(r"$\theta1 [rad]$")
     ax_bot.set_ylabel(r"$\theta_2 [rad]$")
     ax_bot.set_xlim([-np.pi, np.pi])
     ax_bot.set_ylim([-np.pi, np.pi])
@@ -228,9 +228,9 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
     - full grid (theta1, theta2)
 
     Returns a dictionary with three entries:
-        "theta1_scan" - "theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
-        "theta2_scan" - "theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
-        "grid" - "theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
+        "theta1_scan" - "theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
+        "theta2_scan" - "theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
+        "grid" - "theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
     Uses:
     - Fractal
     - Errors calculus (main_error.py)
@@ -241,9 +241,9 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
         raise ValueError("theta1 and theta2 must each contain at least one angle")
 
     #Define dictionaries
-    theta1_scan = {th: {"theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th in theta1}
-    theta2_scan = {th: {"theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th in theta2}
-    grid = {th1: {th2: {"theta_1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th2 in theta2} for th1 in theta1}
+    theta1_scan = {th: {"theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th in theta1}
+    theta2_scan = {th: {"theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th in theta2}
+    grid = {th1: {th2: {"theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th2 in theta2} for th1 in theta1}
 
     def _compute(q0: Sequence[float])->dict:
         params.theta1_0, params.theta2_0 = q0
@@ -261,20 +261,35 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
 
         return energy_drift
 
-    # Scan theta1 (theta2 = 0)
-    print("Starting with theta1_0")
-    for th in theta1:
-        theta1_scan[th] = _compute((th, 0))
-
-    #Scan theta2 (theta1 = 0)
-    print("Starting with theta2_0")
-    for th in theta2:
-        theta2_scan[th] = _compute((0.0, th))
-
-    # Full grid (theta1, theta2)
     total = len(theta1)
     bar_len = 20
 
+    # Scan theta1 (theta2 = 0)
+    print("=" * 60)
+    print("Starting with theta1_0")
+    print("=" * 60)
+    for i, th in enumerate(theta1):
+        progress = (i+1)/len(theta1)
+        filled = int(progress * 20)
+        bar = "█" * filled + "-" * (bar_len - filled)
+        print(f"[{bar}]  {progress*100:5.1f}%   θ₁ = {th:.4f}", end="\r", flush=True)
+        theta1_scan[th] = _compute((th, 0.0))
+
+    #Scan theta2 (theta1 = 0)
+    print("=" * 60)
+    print("Starting with theta2_0")
+    print("=" * 60)
+    for i, th in enumerate(theta2):
+        progress = (i+1)/len(theta1)
+        filled = int(progress * 20)
+        bar = "█" * filled + "-" * (bar_len - filled)
+        print(f"[{bar}]  {progress*100:5.1f}%   θ₁ = {th:.4f}", end="\r", flush=True)
+        theta2_scan[th] = _compute((0.0, th))
+
+    # Full grid (theta1, theta2)
+    print("=" * 60)
+    print("Starting full grid")
+    print("=" * 60)
     for i, th1 in enumerate(theta1):
         progress = (i + 1) / total
         filled = int(progress * bar_len)
@@ -294,12 +309,12 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
 
     return {"theta1_scan": theta1_scan, "theta2_scan": theta2_scan, "grid": grid}
 
-def fractal(filename: str)->plt.Figure:
+def fractal(theta1: Sequence[float], theta2: Sequence[float], filename: str = "compute_intial_angles.npz")->plt.Figure:
     """
     Description:
     ----------
-    Compute double-pendulum fractal with regard to pendulum flip, i.e, either θ₁ = 0 or $\theta_2 = 0$
-    over a grid of intial condition. The different regime are printed according to cmap tab10.
+    Compute double-pendulum fractal with regard to pendulum flip, i.e, either θ₁ = pi or $\theta_2 = pi$
+    over a grid of intial condition. The different regime are printed according to viridis cmap.
 
     Parameters: 
     ----------
@@ -310,39 +325,43 @@ def fractal(filename: str)->plt.Figure:
     ---------
 
     """   
+    def detect_flip(theta_series, threshold=np.pi):
+        theta_series = np.unwrap(theta_series)  # avoid discontinuities
+        idx = np.where(theta_series >= threshold)[0]
+        return idx[0] if len(idx) > 0 else None
 
     # Load data
-    file = np.load(filename, allow_pickle=True).item()
+    data_full = np.load(filename, allow_pickle=True)
+    grid = data_full["grid"].item()
 
-    full_theta1 = file["grid"]["theta_1"]
-    full_theta2 = file["grid"]["theta_2"]
+    fractal = np.zeros((len(theta1), len(theta2)))
 
-    # Determine flip regime
-    regime = np.zeros_like(full_theta1, dtype=int)
-    regime[full_theta1 > np.pi] = 1
-    regime[full_theta2 > np.pi] = 2
+    for i, th1 in enumerate(theta1):
+        for j, th2 in enumerate(theta2):
 
-    # Plot
-    fig, ax = plt.subplots(figsize=(12, 8))
+            data = grid[th1][th2]
 
-    sc = ax.scatter(full_theta1, full_theta2, c=regime, cmap="tab10", s=3, alpha=0.9)
+            th1_series = np.array(data["theta1"])
+            th2_series = np.array(data["theta2"])
 
-    ax.set_xlabel(r"$\theta_1$ [rad]")
-    ax.set_ylabel(r"$\theta_2$ [rad]")
-    ax.set_title("Double-pendulum fractal (flip basins)")
+            flip1 = detect_flip(th1_series)
+            flip2 = detect_flip(th2_series)
 
-    # Optional: add colorbar with labels
-    cbar = plt.colorbar(sc, ax=ax)
-    cbar.set_ticks([0, 1, 2])
-    cbar.set_ticklabels(["No flip", "θ₁ flip", "θ₂ flip"])
+            if flip1 is None and flip2 is None:
+                fractal[i, j] = 0
+            elif flip2 is None or (flip1 is not None and flip1 < flip2):
+                fractal[i, j] = 1
+            else:
+                fractal[i, j] = 2
 
-    theta1 = np.linspace(-2*np.pi, 2*np.pi, 1000)
-    theta2 = np.linspace(-2*np.pi, 2*np.pi, 1000)
-
-    T1, T2 = np.meshgrid(theta1, theta2)
-    Z = 3*np.cos(T1) + np.cos(T2) - 2
-
-    ax.contour(T1, T2, Z, levels=[0], colors="black", linewidths=2)
+    fig = plt.figure(figsize=(10, 8))
+    plt.imshow(fractal.T, origin="lower", cmap="viridis",
+           extent=[theta1.min(), theta1.max(), theta2.min(), theta2.max()])
+    plt.xlabel(r"$\theta1 [rad]$")
+    plt.ylabel(r"$\theta_2 [rad]$")
+    plt.title("Double Pendulum Flip Fractal")
+    plt.colorbar(label="Flip type (0=no flip, 1=θ₁ flips, 2=θ₂ flips)")
+    plt.show()
 
     return fig
 
@@ -447,9 +466,9 @@ def lyapunov_graphics(params:Sequence[float], theta1:Sequence[float])->plt.figur
     plt.plot(theta1, L4, label=r"$\lambda_2$", lw=2)
 
     plt.axhline(0, lw=0.5, linestyle="--")
-    plt.xlabel(r"$\theta_1$")
+    plt.xlabel(r"$\theta1$")
     plt.ylabel("Lyapunov exponents")
-    plt.title(r"Full Lyapunov spectrum vs $\theta_1$")
+    plt.title(r"Full Lyapunov spectrum vs $\theta1$")
     plt.legend()
     plt.xlim([0, theta1[-1]])
 
@@ -502,4 +521,7 @@ colors = {
 #fig3 = lyapunov_graphics(params=params, theta1=theta1)
 #plt.show()
 
-compute_initial_angles(params= params, theta1 = np.linspace(-2*np.pi, 2*np.pi, 100), theta2 = np.linspace(-2*np.pi, 2*np.pi, 100))
+#compute_initial_angles(params= params, theta1 = np.linspace(-2*np.pi, 2*np.pi, 20), theta2 = np.linspace(-2*np.pi, 2*np.pi, 20))
+fig4 = fractal(theta1 = np.linspace(-2*np.pi, 2*np.pi, 20), theta2 =np.linspace(-2*np.pi, 2*np.pi, 20))
+
+
