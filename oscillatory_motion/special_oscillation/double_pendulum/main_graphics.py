@@ -21,21 +21,22 @@ Another performance:
 
 """
 from dataclasses import dataclass
-from typing import Sequence, Dict, Any
+from typing import Sequence, Callable
 from double_pendulum import DoublePendulumSimulator
 from enum import Enum, auto 
 from scipy.integrate import solve_ivp
+from matplotlib.animation import FuncAnimation, PillowWriter
+from matplotlib.gridspec import GridSpec
+
 import os
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
-import seaborn as sns
-from matplotlib.animation import FuncAnimation
-from matplotlib.gridspec import GridSpec
+
+
 
 #Stablish automatically: font sizes, grid visibility, color harmony, spacing
 plt.style.use("seaborn-v0_8-paper")
-sns.set_theme(context="notebook", style="whitegrid", palette="viridis", font_scale=1.2)
 
 ##
 #---------------- Parameters and control function -------------------
@@ -59,13 +60,13 @@ class Params:
     L1: float = 1.0  # m
     L2: float = 2.0  # m
 
-    theta1_0: float = np.deg2rad(145)
-    theta2_0: float = np.deg2rad(45)
+    theta1_0: float = np.deg2rad(45)
+    theta2_0: float = np.deg2rad(0)
 
     omega1_0: float = 0.0
     omega2_0: float = 0.0
 
-    t_max: float = 150.0  # s
+    t_max: float = 15.0  # s
     dt: float = 0.01  # s
 
     rtol = 1e-10
@@ -82,7 +83,9 @@ class Params:
 ###
 # --------------------- Main functions graphics --------------------------
 ###
-
+def wrapped_theta(theta:Sequence[float])->np.ndarray:
+        return (theta + np.pi) % (2*np.pi) - np.pi
+    
 def regime_summary(sol:Sequence[float], times: Sequence[float], energy: Sequence[float], position: Sequence[float], colors: Sequence[float], name: str)-> plt.Figure:
     """
     Regime summary -- Position, energies and phase space
@@ -121,6 +124,9 @@ def regime_summary(sol:Sequence[float], times: Sequence[float], energy: Sequence
     ax2.annotate(f"Drift = {(Et[-1] - Et[0])/Et[0]:.2e}", xy=(0.05, 0.1), xycoords="axes fraction", fontsize=10, bbox=dict(boxstyle="round", fc="white", alpha=0.7))
 
     # Phase space
+    theta1 = wrapped_theta(theta1)
+    theta2 = wrapped_theta(theta2)
+
     ax3.plot(theta1, omega1, color=colors["mass1"], label="Mass 1")
     ax3.plot(theta2, omega2, color=colors["mass2"], label="Mass 2")
     ax3.set_title("Phase Space")
@@ -136,9 +142,6 @@ def regime_summary(sol:Sequence[float], times: Sequence[float], energy: Sequence
 def double_pendulum_animation(sol:Sequence[float], times:Sequence[float], energy:Sequence[float], position:Sequence[float], colors:Sequence[float], name: str)-> plt.Figure:
 
     theta1, theta2, omega1, omega2 = sol
-    
-    def wrapped_theta(theta:Sequence[float])->np.ndarray:
-        return (theta + np.pi) % (2*np.pi) - np.pi
     
     theta1 = wrapped_theta(theta1)
     theta2 = wrapped_theta(theta2)
@@ -220,152 +223,6 @@ def double_pendulum_animation(sol:Sequence[float], times:Sequence[float], energy
     anim = FuncAnimation(fig, update, frames = np.arange(0, len(time), frame_step), interval = 50, blit = False, repeat = False)
     return anim
 
-def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], directory: str = os.getcwd(), filename: str = "compute_intial_angles.npz") -> Dict[str, Any]:
-    """
-    Compute energy drift for:
-    - varying theta1 with theta2 = 0
-    - varying theta2 with theta1 = 0
-    - full grid (theta1, theta2)
-
-    Returns a dictionary with three entries:
-        "theta1_scan" - "theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
-        "theta2_scan" - "theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
-        "grid" - "theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
-    Uses:
-    - Fractal
-    - Errors calculus (main_error.py)
-
-    """
-    #Validation
-    if len(theta1) == 0 or len(theta2) == 0:
-        raise ValueError("theta1 and theta2 must each contain at least one angle")
-
-    #Define dictionaries
-    theta1_scan = {th: {"theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th in theta1}
-    theta2_scan = {th: {"theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th in theta2}
-    grid = {th1: {th2: {"theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th2 in theta2} for th1 in theta1}
-
-    def _compute(q0: Sequence[float])->dict:
-        params.theta1_0, params.theta2_0 = q0
-        sim = DoublePendulumSimulator(params=params)
-        results = sim.run()
-        T, U, Et = results.kinetic, results.potential, results.total
-        theta1, theta2, omega1, omega2 = results.y
-
-        drift = _compute_energy_drift(Et)
-        return {"theta1":theta1, "theta2": theta2, "omega1": omega1, "omega2": omega2, "kinetic": T, "potencial":U, "drift": drift}
-
-    def _compute_energy_drift(Et: Sequence[float])->float:
-
-        energy_drift = max(Et) - min(Et)
-
-        return energy_drift
-
-    total = len(theta1)
-    bar_len = 20
-
-    # Scan theta1 (theta2 = 0)
-    print("=" * 60)
-    print("Starting with theta1_0")
-    print("=" * 60)
-    for i, th in enumerate(theta1):
-        progress = (i+1)/len(theta1)
-        filled = int(progress * 20)
-        bar = "█" * filled + "-" * (bar_len - filled)
-        print(f"[{bar}]  {progress*100:5.1f}%   θ₁ = {th:.4f}", end="\r", flush=True)
-        theta1_scan[th] = _compute((th, 0.0))
-
-    #Scan theta2 (theta1 = 0)
-    print("=" * 60)
-    print("Starting with theta2_0")
-    print("=" * 60)
-    for i, th in enumerate(theta2):
-        progress = (i+1)/len(theta1)
-        filled = int(progress * 20)
-        bar = "█" * filled + "-" * (bar_len - filled)
-        print(f"[{bar}]  {progress*100:5.1f}%   θ₁ = {th:.4f}", end="\r", flush=True)
-        theta2_scan[th] = _compute((0.0, th))
-
-    # Full grid (theta1, theta2)
-    print("=" * 60)
-    print("Starting full grid")
-    print("=" * 60)
-    for i, th1 in enumerate(theta1):
-        progress = (i + 1) / total
-        filled = int(progress * bar_len)
-        bar = "█" * filled + "-" * (bar_len - filled)
-        print(f"[{bar}]  {progress*100:5.1f}%   θ₁ = {th1:.4f}", end="\r", flush=True)
-
-        for th2 in theta2:
-            grid[th1][th2] = _compute((th1, th2))
-
-    print()  # newline after progress bar
-
-    # -----------------------------
-    # 6. Save results
-    # -----------------------------
-    route = os.path.join(directory, filename)
-    np.savez(route, theta1_scan=theta1_scan, theta2_scan=theta2_scan, grid=grid)
-
-    return {"theta1_scan": theta1_scan, "theta2_scan": theta2_scan, "grid": grid}
-
-def fractal(theta1: Sequence[float], theta2: Sequence[float], filename: str = "compute_intial_angles.npz")->plt.Figure:
-    """
-    Description:
-    ----------
-    Compute double-pendulum fractal with regard to pendulum flip, i.e, either θ₁ = pi or $\theta_2 = pi$
-    over a grid of intial condition. The different regime are printed according to viridis cmap.
-
-    Parameters: 
-    ----------
-    filename: str 
-    the filename must be in the same directory storing the initial angle data
-
-    Notes:
-    ---------
-
-    """   
-    def detect_flip(theta_series, threshold=np.pi):
-        theta_series = np.unwrap(theta_series)  # avoid discontinuities
-        idx = np.where(theta_series >= threshold)[0]
-        return idx[0] if len(idx) > 0 else None
-
-    # Load data
-    data_full = np.load(filename, allow_pickle=True)
-    grid = data_full["grid"].item()
-
-    fractal = np.zeros((len(theta1), len(theta2)))
-
-    for i, th1 in enumerate(theta1):
-        for j, th2 in enumerate(theta2):
-
-            data = grid[th1][th2]
-
-            th1_series = np.array(data["theta1"])
-            th2_series = np.array(data["theta2"])
-
-            flip1 = detect_flip(th1_series)
-            flip2 = detect_flip(th2_series)
-
-            if flip1 is None and flip2 is None:
-                fractal[i, j] = 0
-            elif flip2 is None or (flip1 is not None and flip1 < flip2):
-                fractal[i, j] = 1
-            else:
-                fractal[i, j] = 2
-
-    fig = plt.figure(figsize=(10, 8))
-    plt.imshow(fractal.T, origin="lower", cmap="viridis",
-           extent=[theta1.min(), theta1.max(), theta2.min(), theta2.max()])
-    plt.xlabel(r"$\theta1 [rad]$")
-    plt.ylabel(r"$\theta_2 [rad]$")
-    plt.title("Double Pendulum Flip Fractal")
-    plt.colorbar(label="Flip type (0=no flip, 1=θ₁ flips, 2=θ₂ flips)")
-    plt.show()
-
-    return fig
-
-
 ##
 # --------------------- Lyapunov coefficient --------------------------
 ##
@@ -431,12 +288,19 @@ def lyapunov_spectrum(params, T=200, dt=0.01, renorm_steps=10):
 
     return lyap_sorted
 
-def lyapunov_graphics(params:Sequence[float], theta1:Sequence[float])->plt.figure:
+def lyapunov_graphics(params:Sequence[float], theta1:Sequence[float], color:Sequence[float], store_data: bool = False)->plt.figure:
     print("Starting the Lyapunov graphics")
 
     L1, L2, L3, L4 = [], [], [], []
 
+    route = os.path.join(os.getcwd(), "Lyapunov_coeffcient.npz")
+    flag = True
+
     for i, theta in enumerate(theta1):
+        if os.path.exists(route):
+            print(f"File already exists: {route}. Stopping loop.")
+            break
+        flag = False
         bar_len = 20
         progress = (i + 1) / len(theta1)
         filled = int(progress * bar_len)
@@ -455,32 +319,39 @@ def lyapunov_graphics(params:Sequence[float], theta1:Sequence[float])->plt.figur
         L3.append(lya[2])
         L4.append(lya[3])
 
+    if store_data:
+        np.savez(route, L1 = L1, L2 = L2, L3 = L3, L4 =L4)
+    
+    if flag:
+        data = np.load(route, allow_pickle= True)
+        L1 = data["L1"] 
+        L2 = data["L2"] 
+        L3 = data["L3"] 
+        L4 = data["L4"] 
+
     print("\n" + "="*60)
     print("Starting the plotting")
     print("="*60)
 
     fig = plt.figure(figsize=(10,6))
-    plt.plot(theta1, L1, label=r"$\lambda_1$ ", lw=2)
-    plt.plot(theta1, L2, label=r"$\lambda_2$", lw=2)
-    plt.plot(theta1, L3, label=r"$\lambda_3$", lw=2)
-    plt.plot(theta1, L4, label=r"$\lambda_2$", lw=2)
+    plt.plot(theta1, L1, label=r"$\lambda_1$ ", color = color["Ly1"], lw=2)
+    plt.plot(theta1, L2, label=r"$\lambda_2$", color = color["Ly2"], lw=2)
+    plt.plot(theta1, L3, label=r"$\lambda_3$", color = color["Ly3"], lw=2)
+    plt.plot(theta1, L4, label=r"$\lambda_2$", color = color["Ly4"], lw=2)
 
     plt.axhline(0, lw=0.5, linestyle="--")
     plt.xlabel(r"$\theta1$")
     plt.ylabel("Lyapunov exponents")
     plt.title(r"Full Lyapunov spectrum vs $\theta1$")
     plt.legend()
-    plt.xlim([0, theta1[-1]])
+    plt.xlim([theta1[0], theta1[-1]])
 
     return fig
-
-def poincare():
-    return 
 
 ##
 # ---------------------- Position ----------------
 ##
-def position(sol: Sequence[float],) -> np.ndarray:
+def position(sol: Sequence[float], params: Sequence[float],) -> np.ndarray:
     theta1 , theta2, _, _ = sol
     x1 = params.L1 * np.sin(theta1)
     x2 = x1 + params.L2 * np.sin(theta2)
@@ -491,37 +362,62 @@ def position(sol: Sequence[float],) -> np.ndarray:
 ##
 # ---------------------- Settle the parameters -----------------------------
 ##
-params = Params()
-sim = DoublePendulumSimulator(params = params)
 
-# --- Graphics ---
-results = sim.run()
-best_method  = "Radau (implicit)"
+def compute(store: bool = False):
+    params = Params()
+    sim = DoublePendulumSimulator(params = params)
 
-sol = results.y
-energy = results.kinetic, results.potential, results.total
-times = results.t
+    # --- Graphics ---
+    results = sim.run()
 
-positions = position(sol = sol)
+    sol = results.y
+    energy = results.kinetic, results.potential, results.total
+    times = results.t
 
-cmap = plt.colormaps["viridis"]
-color = cmap(np.linspace(0, 1, 3))
-colors = {
-    "mass1": cmap(0.2),
-    "mass2": cmap(0.8),
-    "T": "#1f77b4",
-    "U": "#ff7f0e",
-    "Et": "#2ca02c",
-}
+    positions = position(sol = sol, params= params)
 
-#fig1 =regime_summary(sol = sol, times = times, energy=energy, position=positions, colors = colors, name = "Radau (implicit)")
-#fig2 = double_pendulum_animation(sol = sol, times = times, energy=energy, position=positions, colors= colors, name = "Radau (implicit)")
+    cmap = plt.colormaps["viridis"]
+    colors = {
+        "mass1": cmap(0.2),
+        "mass2": cmap(0.8),
+        "T": "#1f77b4",
+        "U": "#ff7f0e",
+        "Et": "#2ca02c",
+        "Ly1": cmap(0.3),
+        "Ly2": cmap(0.4),
+        "Ly3": cmap(0.5),
+        "Ly4": cmap(0.6)
+    }
+    # Compute regme summary
+    print("Starting: regime summary")
+    fig1 =regime_summary(sol = sol, times = times, energy=energy, position=positions, colors = colors, name = "Radau (implicit)")
+    # Animation
+    print("Starting: double-pendulum animation")
+    anim1 = double_pendulum_animation(sol = sol, times = times, energy=energy, position=positions, colors= colors, name = "Radau (implicit)")
+    #Lyapunov coefficient
+    print("Starting: Lyapunov coeffcients")
+    theta1 = np.linspace(np.deg2rad(-90), np.deg2rad(90), 180)
+    fig3 = lyapunov_graphics(params=params, theta1=theta1, color = colors)
 
-#theta1 = np.linspace(np.deg2rad(0), np.deg2rad(45), 45)
-#fig3 = lyapunov_graphics(params=params, theta1=theta1)
-#plt.show()
+    if store:
+        directory = os.getcwd()
 
-#compute_initial_angles(params= params, theta1 = np.linspace(-2*np.pi, 2*np.pi, 20), theta2 = np.linspace(-2*np.pi, 2*np.pi, 20))
-fig4 = fractal(theta1 = np.linspace(-2*np.pi, 2*np.pi, 20), theta2 =np.linspace(-2*np.pi, 2*np.pi, 20))
+        # Ensure folder exists
+        fig_dir = os.path.join(directory, "figures")
+        os.makedirs(fig_dir, exist_ok=True)
+
+        # --- Save static figures ---
+        fig1.savefig(os.path.join(fig_dir, "Regime_summary.png"), dpi=300, bbox_inches='tight')
+
+        fig3.savefig(os.path.join(fig_dir, "Lyapunov_coefficients.png"), dpi=300, bbox_inches='tight')
+
+        # --- Save animation ---
+        writer = PillowWriter(fps=30)
+        anim1.save(os.path.join(fig_dir, "double_pendulum_anim.gif"), writer=writer)
+    return fig1, fig3, anim1
+
+compute(store = True)
+plt.show()
+
 
 
