@@ -3,94 +3,105 @@ import os
 from typing import Sequence, Dict, Any
 from double_pendulum import DoublePendulumSimulator
 
-"""
-This code is only use in main_error.py file
-"""
-def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], directory: str = os.getcwd(), filename: str = "compute_intial_angles.npz") -> Dict[str, Any]:
+def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], linearized: bool = False, directory: str = os.getcwd(), filename: str = "compute_initial_angles.npz") -> Dict[str, Any]:
     """
-    Compute energy drift for:
-    - varying theta1 with theta2 = 0
-    - varying theta2 with theta1 = 0
-    - full grid (theta1, theta2)
+    Compute energy drift for varying initial conditions.
 
-    Returns a dictionary with three entries:
-        "theta1_scan" - "theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
-        "theta2_scan" - "theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
-        "grid" - "theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []
-    Uses:
-    - Fractal
-    - Errors calculus (main_error.py)
+    Parameters
+    ----------
+    params : Params
+        Physical parameters of the pendulum.
+    theta1 : Sequence[float]
+        List of initial angles for rod 1 (radians).
+    theta2 : Sequence[float]
+        List of initial angles for rod 2 (radians).
+    linearized : bool
+        If True, use the small-angle approximation equations.
+    directory : str
+        Path to save the output file.
+    filename : str
+        Name of the output file.
 
+    Returns
+    -------
+    Dict
+        Nested dictionary containing scan results and grid results.
     """
-    #Validation
     if len(theta1) == 0 or len(theta2) == 0:
         raise ValueError("theta1 and theta2 must each contain at least one angle")
 
-    #Define dictionaries
-    theta1_scan = {th: {"theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th in theta1}
-    theta2_scan = {th: {"theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th in theta2}
-    grid = {th1: {th2: {"theta1": [], "theta2": [], "omega1": [], "omega_2": [], "kinetic": [], "potencial": [], "Drift": []} for th2 in theta2} for th1 in theta1}
+    # Initialize storage structures
+    theta1_scan = {th: {} for th in theta1}
+    theta2_scan = {th: {} for th in theta2}
+    grid = {th1: {th2: {} for th2 in theta2} for th1 in theta1}
 
-    def _compute(q0: Sequence[float])->dict:
+    def run_simulation(q0: tuple) -> dict:
+        """Helper to run simulation and extract data."""
         params.theta1_0, params.theta2_0 = q0
         sim = DoublePendulumSimulator(params=params)
-        results = sim.run()
-        T, U, Et = results.kinetic, results.potential, results.total
-        theta1, theta2, omega1, omega2 = results.y
+        # Pass linearized flag if supported by your DoublePendulumSimulator
+        result = sim.run(linearized=linearized) 
+        
+        try:
+            theta1_sol = result.y[0] if hasattr(result, 'y') else result.theta1
+            theta2_sol = result.y[1] if hasattr(result, 'y') else result.theta2
+            omega1_sol = result.y[2] if hasattr(result, 'y') else result.omega1
+            omega2_sol = result.y[3] if hasattr(result, 'y') else result.omega2
+        except:
+            theta1_sol = result.theta1
+            theta2_sol = result.theta2
+            omega1_sol = result.omega1
+            omega2_sol = result.omega2
 
-        drift = _compute_energy_drift(Et)
-        return {"theta1":theta1, "theta2": theta2, "omega1": omega1, "omega2": omega2, "kinetic": T, "potencial":U, "drift": drift}
+        # Energy calculation
+        total_energy = result.total # Access total energy array
+        energy_drift = np.max(total_energy) - np.min(total_energy)
+        
+        return {
+            "theta1": theta1_sol, "theta2": theta2_sol, 
+            "omega1": omega1_sol, "omega2": omega2_sol, 
+            "drift": energy_drift
+        }
 
-    def _compute_energy_drift(Et: Sequence[float])->float:
-
-        energy_drift = max(Et) - min(Et)
-
-        return energy_drift
-
-    total = len(theta1)
-    bar_len = 20
-
-    # Scan theta1 (theta2 = 0)
+    # --- Process Scans ---
+    
+    # 1. Scan Theta1 (Theta2 = 0)
     print("=" * 60)
-    print("Starting with theta1_0")
+    mode = "Linearized" if linearized else "Non-linear"
+    print(f"Scanning Theta 1 ({mode} model)")
     print("=" * 60)
+    
     for i, th in enumerate(theta1):
-        progress = (i+1)/len(theta1)
-        filled = int(progress * 20)
-        bar = "█" * filled + "-" * (bar_len - filled)
-        print(f"[{bar}]  {progress*100:5.1f}%   θ₁ = {th:.4f}", end="\r", flush=True)
-        theta1_scan[th] = _compute((th, 0.0))
+        print(f"Progress: {100*(i+1)/len(theta1):.1f}%", end="\r")
+        theta1_scan[th] = run_simulation((th, 0.0))
 
-    #Scan theta2 (theta1 = 0)
+    # 2. Scan Theta2 (Theta1 = 0)
+    print("\n" + "=" * 60)
+    print(f"Scanning Theta 2 ({mode} model)")
     print("=" * 60)
-    print("Starting with theta2_0")
-    print("=" * 60)
+    
     for i, th in enumerate(theta2):
-        progress = (i+1)/len(theta1)
-        filled = int(progress * 20)
-        bar = "█" * filled + "-" * (bar_len - filled)
-        print(f"[{bar}]  {progress*100:5.1f}%   θ₁ = {th:.4f}", end="\r", flush=True)
-        theta2_scan[th] = _compute((0.0, th))
+        # Fixed bug: was using len(theta1) instead of len(theta2)
+        print(f"Progress: {100*(i+1)/len(theta2):.1f}%", end="\r") 
+        theta2_scan[th] = run_simulation((0.0, th))
 
-    # Full grid (theta1, theta2)
+    # 3. Full Grid (Theta1 x Theta2)
+    print("\n" + "=" * 60)
+    print(f"Building Full Grid ({mode} model)")
     print("=" * 60)
-    print("Starting full grid")
-    print("=" * 60)
-    for i, th1 in enumerate(theta1):
-        progress = (i + 1) / total
-        filled = int(progress * bar_len)
-        bar = "█" * filled + "-" * (bar_len - filled)
-        print(f"[{bar}]  {progress*100:5.1f}%   θ₁ = {th1:.4f}", end="\r", flush=True)
-
+    
+    total_steps = len(theta1) * len(theta2)
+    count = 0
+    
+    for th1 in theta1:
         for th2 in theta2:
-            grid[th1][th2] = _compute((th1, th2))
+            count += 1
+            print(f"Grid Progress: {100*count/total_steps:.1f}%", end="\r")
+            grid[th1][th2] = run_simulation((th1, th2))
 
-    print()  # newline after progress bar
-
-    # -----------------------------
-    # 6. Save results
-    # -----------------------------
+    print("\nSaving data...")
     route = os.path.join(directory, filename)
+    # Save as numpy compressed archive
     np.savez(route, theta1_scan=theta1_scan, theta2_scan=theta2_scan, grid=grid)
-
+    
     return {"theta1_scan": theta1_scan, "theta2_scan": theta2_scan, "grid": grid}

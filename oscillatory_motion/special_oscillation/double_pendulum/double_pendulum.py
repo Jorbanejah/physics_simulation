@@ -1,5 +1,5 @@
 """
-Double Pendulum Simulation - Implementation with Python numerical methods
+Double Pendulum Simulation - Implementation with numerical Pyhton methods
 ================================================
 
 Author: Jorge Orbaneja Huerta
