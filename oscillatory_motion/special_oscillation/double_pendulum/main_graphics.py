@@ -5,18 +5,16 @@ Linearized equation
 
 - Regime summary (position, energies, phase space) ---Done
 - Animation ---- done
-- Fractal 
 
 Normal equation
 
 - Regime summary -------- Done
-- Fractal 
+- Animation ------- Done
 - Lyapunov coefficient ----- Done
-- Poincare sections
+
 
 Another performance:
-- Times
-- Normal modes animation (small angles): Symmetric mode and Antisymmetric mode
+- Poincare sections
 - Trajectory + Poincaré section side-by-side: Shows how the chaotic cloud emerges from the trajectory.
 
 """
@@ -360,10 +358,18 @@ def position(sol: Sequence[float], params: Sequence[float],) -> np.ndarray:
 
     return x1, x2, y1, y2
 ##
-# ---------------------- Settle the parameters -----------------------------
+# ---------------------- Store the graphics -----------------------------
 ##
 
-def compute(store: bool = False):
+def compute(store: bool = False)-> plt.Figure:
+    """
+    Compute all functions in this code
+
+    Paramters
+    ---------
+    store: bool
+    Control whether the figures are stored or not in the currents dictionary
+    """
     params = Params()
     sim = DoublePendulumSimulator(params = params)
 
@@ -418,6 +424,3 @@ def compute(store: bool = False):
 
 compute(store = True)
 plt.show()
-
-
-
