@@ -177,13 +177,9 @@ def double_pendulum_animation(sol:Sequence[float], times:Sequence[float], energy
     dot1, = ax_top.plot([], [], "o", color=colors["mass1"])
     dot2, = ax_top.plot([], [], "o", color=colors["mass2"])
 
-    combine_omega = omega1 + omega2
-    max_y = max(combine_omega)
-    min_y = min(combine_omega)
-
     ax_top.set_title(r"Phase space $\theta$ vs $\omega$")
     ax_top.set_xlim([-np.pi, np.pi])
-    ax_top.set_ylim([min_y, max_y])
+    ax_top.set_ylim(min(omega1.min(), omega2.min()), max(omega1.max(), omega2.max()))
     ax_top.set_xlabel(r"$\theta$ [rad]")
     ax_top.set_ylabel(r"$\omega$ [rad/s]")
 
@@ -218,7 +214,7 @@ def double_pendulum_animation(sol:Sequence[float], times:Sequence[float], energy
     
     plt.tight_layout()
     frame_step = 50
-    anim = FuncAnimation(fig, update, frames = np.arange(0, len(time), frame_step), interval = 50, blit = False, repeat = False)
+    anim = FuncAnimation(fig, update, frames = np.arange(0, len(time), frame_step), interval = 200, blit = False, repeat = False)
     return anim
 
 ##
@@ -335,7 +331,7 @@ def lyapunov_graphics(params:Sequence[float], theta1:Sequence[float], color:Sequ
     plt.plot(theta1, L1, label=r"$\lambda_1$ ", color = color["Ly1"], lw=2)
     plt.plot(theta1, L2, label=r"$\lambda_2$", color = color["Ly2"], lw=2)
     plt.plot(theta1, L3, label=r"$\lambda_3$", color = color["Ly3"], lw=2)
-    plt.plot(theta1, L4, label=r"$\lambda_2$", color = color["Ly4"], lw=2)
+    plt.plot(theta1, L4, label=r"$\lambda_4$", color = color["Ly4"], lw=2)
 
     plt.axhline(0, lw=0.5, linestyle="--")
     plt.xlabel(r"$\theta1$")
@@ -418,7 +414,7 @@ def compute(store: bool = False)-> plt.Figure:
         fig3.savefig(os.path.join(fig_dir, "Lyapunov_coefficients.png"), dpi=300, bbox_inches='tight')
 
         # --- Save animation ---
-        writer = PillowWriter(fps=30)
+        writer = PillowWriter(fps=50)
         anim1.save(os.path.join(fig_dir, "double_pendulum_anim.gif"), writer=writer)
     return fig1, fig3, anim1
 

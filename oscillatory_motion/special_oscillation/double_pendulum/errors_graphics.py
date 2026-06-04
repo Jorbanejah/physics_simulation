@@ -1,20 +1,20 @@
 """
-MAIN ERRORS GRAPHICS: double pendulum
+MAIN ERRORS GRAPHICS: double_pendulum.py 
 
-Linearized equation:
-- Drift energy (E(t) - E(0)) vs intial angle (theta1) vs intial angle (theta2) (heatmap - after a long time)
+This code generate the following graphics such as linearizad equation as normal equation
+
+- Drift energy (E(t) - E(0)) vs intial angle (theta1)
+- Drift energy (E(t) - E(0)) vs intial angle (theta2)
+- Heatmap 
 - Drift energy vs large time
 - Time
-
-Normal equation:
-- Drift energy (E(t) - E(0)) vs intial angle (theta1) vs intial angle (theta2) (heatmap - after a long time)
-- Drift energy vs large time 
-- Time 
 
 Numerical methods:
 - Convergence 
 - Stability
 - Phase space densitiy
+
+I fervently recommend you run the code with different parameters
 """
 import numpy as np
 import seaborn as sns
@@ -281,7 +281,7 @@ def convergence(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
 
             rows.append({
                 "dt": time_step,
-                "error": error,
+                "error": np.abs(error),
                 "method": method_name
             })
 
@@ -291,9 +291,9 @@ def convergence(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
     sns.lineplot(data=df, x="dt", y="error", hue="method", marker="o", linewidth=2)
     plt.xscale("log")
     plt.yscale("log")
-    plt.xlabel("Time Step $dt$")
+    plt.xlabel(r"Time Step $dt$")
     plt.ylabel("Energy Drift (Error)")
-    plt.title("Convergence Study: Error vs Time Step")
+    plt.title("Convergence Study: |Error| vs Time Step")
     plt.grid(True, alpha=0.3, which="both")
 
     return fig
@@ -368,7 +368,7 @@ def kde_phase_space_subplots(results_dict: Dict, var1: str="theta1", var2: str="
             x = getattr(sol, var1)
             y = getattr(sol, var2)
         elif hasattr(sol, '__getitem__'):
-            # Assuming indexed access: y[0] is theta1, y[1] is theta2 etc.
+           
             # Map indices to variable names
             idx_map = {"theta1": 0, "theta2": 1, "omega1": 2, "omega2": 3}
             x = sol[idx_map[var1]]
@@ -458,8 +458,9 @@ def compute(dt: Sequence[float], time: int = 150, flag: bool = False,) -> Dict:
 
 if __name__ == "__main__":
     
+    stored = True
     # 1. Run Convergence & Energy Drift Analysis
-    dt_values = [0.5, 0.1, 0.05, 0.01]
+    dt_values = [1, 0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
     
     print("Running simulations...")
     results = compute(dt=dt_values, time=50, flag=False)
@@ -468,22 +469,30 @@ if __name__ == "__main__":
     print("Plotting Convergence")
     fig_conv = convergence(dt=dt_values, results_dict=results)
     plt.show()
-    print("Plotting Drift energy comparison")
-    fig_drift = drift_energy_comparison(dt=dt_values, results_dict=results)
+    
+    print("Plotting stability")
+    fig_stab = stability(dt= dt_values, results_dict= results) # mirar
     plt.show()
+    
+    print("Plotting Drift energy comparison")
+    fig_drift = drift_energy_comparison(dt=dt_values, results_dict=results) # mirar
+    plt.show()
+    
     print("Plotting time compute")
     fig_time = time_compute(dt=dt_values, results_dict=results)
     plt.show()
-    print("Plotting phase spacev theta1 vs omega1")
-    fig_phase = kde_phase_space_subplots(results_dict=results, var1="theta1", var2="omega1")
+
+    print("Plotting phase space theta1 vs omega1")
+    fig_phase1 = kde_phase_space_subplots(results_dict=results, var1="theta1", var2="omega1")
     plt.show()
+
     print("Plotting phase spacev theta2 vs omega2")
-    fig_phase = kde_phase_space_subplots(results_dict=results, var1="theta2", var2="omega2")
+    fig_phase2 = kde_phase_space_subplots(results_dict=results, var1="theta2", var2="omega2")
     plt.show()
     
     # 2. Load Initial Condition Data
     try:
-        theta1_s, theta2_s, grid_s = upload_data("compute_initial_angles.npz")
+        theta1_s, theta2_s, grid_s = upload_data("compute_intial_angles.npz")
         
         # Initial Angle Drift Plots
         fig_init = initial_angle_drift_energy(theta1_s, theta2_s)
@@ -496,3 +505,18 @@ if __name__ == "__main__":
     except FileNotFoundError as e:
         print(e)
         print("Skipping heatmaps. Run compute_data.py to generate data.")
+    
+    if stored:
+        directory = os.getcwd()
+        route = os.path.join(directory, "figures")
+        os.makedirs(route, exist_ok=True)
+
+        fig_conv.savefig(os.path.join(route, "convergence.png"), dpi = 300, bbox_inches = "tight")
+        fig_drift.savefig(os.path.join(route, "drift_energy.png"), dpi = 300, bbox_inches = "tight")
+        fig_phase1.savefig(os.path.join(route, "phase_density1.png"), dpi = 300, bbox_inches = "tight")
+        fig_phase2.savefig(os.path.join(route, "phase_density2.png"), dpi = 300, bbox_inches = "tight")
+        fig_time.savefig(os.path.join(route, "runtime.png"), dpi = 300, bbox_inches = "tight")
+        fig_stab.savefig(os.path.join(route, "stability.png"), dpi = 300, bbox_inches = "tight")
+        fig_init.savefig(os.path.join(route, "initial_condition.png"), dpi = 300, bbox_inches = "tight")
+        fig_heat.savefig(os.path.join(route, "heatmap.png"), dpi = 300, bbox_inches = "tight")
+    
