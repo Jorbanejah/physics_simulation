@@ -1,19 +1,14 @@
 """
 MAIN GRPAHICS: double pendulum
 
-Linearized equation
+This code generate the following graphics such as linearizad equation as normal equation
 
-- Regime summary (position, energies, phase space) ---Done
-- Animation ---- done
-
-Normal equation
-
-- Regime summary -------- Done
-- Animation ------- Done
+- Regime summary (position, energies, phase space) 
+- Animation
 - Lyapunov coefficient ----- Done
 
 
-Another performance:
+Another performance (in process):
 - Poincare sections
 - Trajectory + Poincaré section side-by-side: Shows how the chaotic cloud emerges from the trajectory.
 
@@ -58,8 +53,8 @@ class Params:
     L1: float = 1.0  # m
     L2: float = 2.0  # m
 
-    theta1_0: float = np.deg2rad(45)
-    theta2_0: float = np.deg2rad(0)
+    theta1_0: float = np.deg2rad(90)
+    theta2_0: float = np.deg2rad(00)
 
     omega1_0: float = 0.0
     omega2_0: float = 0.0
@@ -213,8 +208,8 @@ def double_pendulum_animation(sol:Sequence[float], times:Sequence[float], energy
         return rod1, rod2, m1, m2, ps1, ps2, dot1, dot2, line1, point1
     
     plt.tight_layout()
-    frame_step = 50
-    anim = FuncAnimation(fig, update, frames = np.arange(0, len(time), frame_step), interval = 200, blit = False, repeat = False)
+    frame_step = 5
+    anim = FuncAnimation(fig, update, frames = np.arange(0, len(time), frame_step), interval = 50, blit = False, repeat = False)
     return anim
 
 ##
@@ -397,8 +392,8 @@ def compute(store: bool = False)-> plt.Figure:
     print("Starting: double-pendulum animation")
     anim1 = double_pendulum_animation(sol = sol, times = times, energy=energy, position=positions, colors= colors, name = "Radau (implicit)")
     #Lyapunov coefficient
-    print("Starting: Lyapunov coeffcients")
-    theta1 = np.linspace(np.deg2rad(-90), np.deg2rad(90), 180)
+    print("Starting: Lyapunov coefficients")
+    theta1 = np.linspace(np.deg2rad(-90), np.deg2rad(90), 10)
     fig3 = lyapunov_graphics(params=params, theta1=theta1, color = colors)
 
     if store:
@@ -414,9 +409,10 @@ def compute(store: bool = False)-> plt.Figure:
         fig3.savefig(os.path.join(fig_dir, "Lyapunov_coefficients.png"), dpi=300, bbox_inches='tight')
 
         # --- Save animation ---
-        writer = PillowWriter(fps=50)
+        writer = PillowWriter(fps=30)
         anim1.save(os.path.join(fig_dir, "double_pendulum_anim.gif"), writer=writer)
-    return fig1, fig3, anim1
+
+    return anim1, fig1, fig3
 
 compute(store = True)
 plt.show()
