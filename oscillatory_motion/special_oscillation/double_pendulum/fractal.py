@@ -1,7 +1,4 @@
 """
-Double Pendulum Fractal / Phase Space Diagram
-==============================================
-
 This computes the "flip time" for each initial condition (θ₁, θ₂)
 with both pendulums starting from rest (ω₁ = ω₂ = 0).
 
@@ -9,20 +6,24 @@ Reference: FIG. 2 shows the outcome regions for the double pendulum
 where angles range from -π to π.
 
 Color scheme:
-- Green: flips within 10 units
-- Red: 10-100 units  
-- Purple: 100-1000 units
-- Blue: 1000-10000 units
-- White: doesn't flip within 10000 units
-- Black curve: energetically impossible (3cos(θ₁) + cos(θ₂) = 2)
-"""
 
+Green: flips within 10 units
+
+Red: 10-100 units
+
+Purple: 100-1000 units
+
+Blue: 1000-10000 units
+
+White: doesn't flip within 10000 units
+
+Black curve: energetically impossible (3cos(θ₁) + cos(θ₂) = 2)
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from scipy.integrate import solve_ivp
 from dataclasses import dataclass
-from typing import Callable
 import time as time_module
 
 State = np.ndarray
@@ -54,40 +55,12 @@ class FractalParams:
     atol: float = 1e-10
 
 
-class FlipDetector:
-    """
-    Event detection for pendulum flip.
-    
-    A flip occurs when θ crosses ±π (goes over the top).
-    We use scipy's event detection for efficiency.
-    """
-    
-    def __init__(self, threshold: float = np.pi):
-        self.threshold = threshold
-    
-    def check_flip(self, state: State) -> bool:
-        """Check if any pendulum has flipped."""
-        theta1, theta2 = state[0], state[1]
-        return abs(theta1) > self.threshold or abs(theta2) > self.threshold
-    
-    def get_flip_time(self, theta1: float, theta2: float) -> float:
-        """Get the actual flip time (when crossing first occurred)."""
-        # When theta = pi, that's the flip point
-        return None  # Will be computed during integration
-
-
 def compute_energy(state: State, params: FractalParams) -> float:
     """
     Compute total mechanical energy.
     
     Starting from rest (ω₁ = ω₂ = 0), the initial energy is all potential:
     E = -(m₁+m₂)gL₁cos(θ₁) - m₂gL₂cos(θ₂)
-    
-    To flip: need at least enough energy for one mass to reach the top.
-    For θ₁ to flip: E ≥ (m₁+m₂)gL₁
-    For θ₂ to flip: E ≥ m₂gL₂ (measured from θ₁ position)
-    
-    The condition for any flip is derived from energy conservation.
     """
     theta1, theta2 = state[0], state[1]
     m1, m2 = params.m1, params.m2
@@ -106,14 +79,7 @@ def can_flip(theta1: float, theta2: float, params: FractalParams) -> bool:
     
     From energy conservation, the condition is:
     3cos(θ₁) + cos(θ₂) ≥ 2
-    
-    (This comes from: E ≥ (m₁+m₂)gL₁ for θ₁ flipping, with m₁=m₂=L₁=L₂)
     """
-    # Critical energy for θ₁ to flip (from downward vertical)
-    E_threshold = (params.m1 + params.m2) * params.g * params.L1
-    
-    # The blank zone equation: 3cos(θ₁) + cos(θ₂) = 2
-    # Inside this curve (where 3cos(θ₁) + cos(θ₂) > 2), flipping is possible
     value = 3 * np.cos(theta1) + np.cos(theta2)
     
     return value >= 2.0
@@ -169,6 +135,31 @@ class DoublePendulumFlipSimulator:
         # Time span
         t_span = (0.0, params.t_max_flip)
         
+        # Create events for flip detection
+        threshold = params.flip_threshold
+        
+        def event_theta1_pos(t, y):
+            return y[0] - threshold
+        event_theta1_pos.terminal = True
+        event_theta1_pos.direction = 1  # Crossing from below
+        
+        def event_theta1_neg(t, y):
+            return y[0] + threshold
+        event_theta1_neg.terminal = True
+        event_theta1_neg.direction = -1  # Crossing from above
+        
+        def event_theta2_pos(t, y):
+            return y[1] - threshold
+        event_theta2_pos.terminal = True
+        event_theta2_pos.direction = 1
+        
+        def event_theta2_neg(t, y):
+            return y[1] + threshold
+        event_theta2_neg.terminal = True
+        event_theta2_neg.direction = -1
+        
+        events = [event_theta1_pos, event_theta1_neg, event_theta2_pos, event_theta2_neg]
+        
         # Use Radau for best accuracy
         sol = solve_ivp(
             fun=self.equations,
@@ -178,32 +169,20 @@ class DoublePendulumFlipSimulator:
             max_step=params.dt_intermediate,
             rtol=params.rtol,
             atol=params.atol,
-            # Event: detect when theta > pi
-            events=self._create_flip_event()
+            events=events
         )
         
-        if sol.t_events:
-            # Flip detected
-            return sol.t_events[0][0]
+        # Find the earliest flip time
+        flip_times = []
+        for t_event in sol.t_events:
+            if len(t_event) > 0:
+                flip_times.extend(t_event.tolist())
+        
+        if flip_times:
+            return min(flip_times)
         else:
             # No flip
             return -1.0
-    
-    def _create_flip_event(self):
-        """Create event functions for flip detection."""
-        threshold = self.params.flip_threshold
-        
-        def event_theta1(t, y):
-            return abs(y[0]) - threshold
-        event_theta1.terminal = True
-        event_theta1.direction = 0  # Both directions
-        
-        def event_theta2(t, y):
-            return abs(y[1]) - threshold
-        event_theta2.terminal = True
-        event_theta2.direction = 0
-        
-        return [event_theta1, event_theta2]
 
 
 def compute_fractal(params: FractalParams = None) -> tuple:
@@ -251,11 +230,6 @@ def compute_fractal(params: FractalParams = None) -> tuple:
                 print(f"Progress: {percent}% ({count}/{total})")
                 last_percent = percent
             
-            # Check energetics first
-            if not can_flip(theta1, theta2, params):
-                flip_times[i, j] = -2.0  # Energetically forbidden
-                continue
-            
             # Run simulation
             flip_time = simulator.run_simulation(theta1, theta2)
             flip_times[i, j] = flip_time
@@ -274,37 +248,65 @@ def create_fractal_plot(theta1: np.ndarray, theta2: np.ndarray,
     
     fig, ax = plt.subplots(figsize=(12, 10))
     
-    # Define special colormap
+    # Create a copy for visualization to avoid modifying original
+    vis_data = flip_times.copy()
+    
+    # Handle special values: -2.0 (energetically forbidden) should show as white
+    # but we need to make them distinct for the colormap
+    is_forbidden = (flip_times < -1.5)
+    is_no_flip = ((flip_times < 0) & (flip_times > -1.5))
+    
+    # For visualization: set forbidden to NaN (will show as background color)
+    vis_data[is_forbidden] = np.nan
+    
+    # Define proper colormap with correct tuple format (position, r, g, b)
+    # Position must be in ascending order
     colors = [
-        (0.0, 'white'),      # No flip (white)
         (0.0, '#00FF00'),     # Green - fast flip (<10)
-        (0.3, '#00CC00'),    # Darker green
-        (0.3, '#FF0000'),    # Red - medium flip (10-100)
-        (0.6, '#CC0000'),    # Darker red  
-        (0.6, '#800080'),     # Purple - slow flip (100-1000)
-        (0.9, '#400040'),     # Darker purple
-        (0.9, '#0000FF'),     # Blue - very slow (1000-10000)
-        (1.0, '#0000CC'),     # Darker blue
+        (0.2, '#00CC00'),    # Darker green
+        (0.2, '#FF0000'),    # Red - medium flip (10-100)
+        (0.4, '#CC0000'),   # Darker red  
+        (0.4, '#800080'),    # Purple - slow flip (100-1000)
+        (0.6, '#400040'),    # Darker purple
+        (0.6, '#0000FF'),   # Blue - very slow (1000-10000)
+        (0.8, '#0000CC'),   # Darker blue
+        (0.8, '#FFAA00'),   # Orange - didn't flip
+        (1.0, '#FF8800'),   # Darker orange
     ]
     
-    # Create custom colormap
-    n_bins = 256
-    cmap = LinearSegmentedColormap.from_list('flip_cmap', colors, N=n_bins)
+    # Convert to proper format for LinearSegmentedColormap
+    color_list = [c[1] for c in colors]
+    position_list = [c[0] for c in colors]
     
-    # Log scale for visualization
-    log_times = np.log10(np.clip(flip_times, 1, 1e10))
+    cmap = LinearSegmentedColormap.from_list('flip_cmap', list(zip(position_list, color_list)), N=256)
+    
+    # Log scale for visualization (only for positive flip times)
+    vis_positive = vis_data.copy()
+    vis_positive[vis_positive <= 0] = np.nan  # Treat non-flips as NaN
+    
+    # Log10 of flip times
+    log_times = np.log10(np.clip(vis_positive, 1, 1e10))
     
     # Plot
     im = ax.imshow(log_times, origin='lower', 
                     extent=[-np.pi, np.pi, -np.pi, np.pi],
-                    cmap=cmap, vmin=-1, vmax=4, aspect='equal')
+                    cmap=cmap, vmin=0, vmax=4, aspect='equal')
+    
+    # For energetically forbidden regions, we'll overlay them
+    # Create a mask for forbidden regions
+    if np.any(is_forbidden):
+        forbidden_mask = np.zeros_like(flip_times, dtype=float)
+        forbidden_mask[is_forbidden] = 1.0
+        ax.imshow(forbidden_mask, origin='lower', 
+                 extent=[-np.pi, np.pi, -np.pi, np.pi],
+                 cmap='Greys', vmin=0, vmax=1, alpha=0.3, aspect='equal')
     
     # Add colorbar
     cbar = plt.colorbar(im, ax=ax, shrink=0.8)
     
     # Custom tick labels
-    tick_positions = [-1, 1, 2, 3, 4]
-    tick_labels = ['<1', '10', '100', '1000', '>10000']
+    tick_positions = [0, 1, 2, 3, 4]
+    tick_labels = ['1', '10', '100', '1000', '10000']
     cbar.set_ticks(tick_positions)
     cbar.set_ticklabels(tick_labels)
     cbar.set_label('Flip Time (units of √(L/g))', fontsize=12)
@@ -314,18 +316,19 @@ def create_fractal_plot(theta1: np.ndarray, theta2: np.ndarray,
     
     # For the curve 3cos(θ₁) + cos(θ₂) = 2, solve for θ₂:
     # cos(θ₂) = 2 - 3cos(θ₁)
-    # θ₂ = ±arccos(2 - 3cos(θ₁)) (within valid range)
-    
     cos_theta2 = 2 - 3 * np.cos(theta1_dense)
     
-    # Only valid where |cos(θ₂)| ≤ 1
+    # Handle multiple branches properly
+    # Valid range: -1 <= cos_theta2 <= 1
     valid = np.abs(cos_theta2) <= 1
-    theta2_curve = np.arccos(cos_theta2[valid])
-    theta1_valid = theta1_dense[valid]
     
-    # Plot both branches
-    ax.plot(theta1_valid, theta2_curve, 'k-', linewidth=2, label='Energy limit')
-    ax.plot(theta1_valid, -theta2_curve, 'k-', linewidth=2)
+    # Plot both branches using proper handling
+    theta1_valid = theta1_dense[valid]
+    theta2_upper = np.arccos(cos_theta2[valid])
+    theta2_lower = -np.arccos(cos_theta2[valid])
+    
+    ax.plot(theta1_valid, theta2_upper, 'k-', linewidth=2, label='Energy limit')
+    ax.plot(theta1_valid, theta2_lower, 'k-', linewidth=2)
     
     ax.set_xlabel('θ₁ (radians)', fontsize=14)
     ax.set_ylabel('θ₂ (radians)', fontsize=14)
@@ -355,7 +358,7 @@ def create_fractal_plot(theta1: np.ndarray, theta2: np.ndarray,
 if __name__ == "__main__":
     # Use moderate resolution for reasonable computation time
     params = FractalParams(
-        resolution=300,      # 300x300 = 90,000 simulations
+        resolution=100,      # 100x100 = 10,000 simulations
         t_max_flip=10000.0,
         g=9.81,
         m1=1.0,
@@ -387,12 +390,4 @@ if __name__ == "__main__":
     total = flip_times.size
     
     print(f"Energetically forbidden: {n_forbidden} ({100*n_forbidden/total:.1f}%)")
-    print(f"No flip in 10000 units: {n_no_flip} ({100*n_no_flip/total:.1f}%)")
-    print(f"Fast flip (<10): {n_fast} ({100*n_fast/total:.1f}%)")
-    print(f"Medium flip (10-100): {n_medium} ({100*n_medium/total:.1f}%)")
-    print(f"Slow flip (100-1000): {n_slow} ({100*n_slow/total:.1f}%)")
-    print(f"Very slow flip (1000-10000): {n_very_slow} ({100*n_very_slow/total:.1f}%)")
-
-
-# Run the fractal computation
-params = FractalParams(resolution=200)  # Start with 200x200 for reasonable time
+    print(f"No flip in 10000 units: {n_no_flip} ({100*n_no_flip/ total :.1f}%")

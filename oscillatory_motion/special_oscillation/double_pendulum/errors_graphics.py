@@ -149,70 +149,101 @@ def heatmaps(grid: Dict) -> plt.Figure:
     
     # Create meshgrid matrices
     Theta1, Theta2 = np.meshgrid(theta1_vals, theta2_vals)
-    Drift_matrix = np.zeros_like(Theta1, dtype=float)
+    Drift_matrix = np.zeros((len(theta1_vals), len(theta2_vals)))
     
     # Populate matrix
     for i, t1 in enumerate(theta1_vals):
         for j, t2 in enumerate(theta2_vals):
-            Drift_matrix[j, i] = grid[t1][t2]['drift']
+            Drift_matrix[i, j] = grid[t1][t2]['drift']
 
-    fig, ax = plt.subplots(figsize=(8, 7))
-    
-    # Use log scale if drifts vary by orders of magnitude
-    # Clamp small values to avoid log(0)
-    data_to_plot = np.maximum(Drift_matrix, 1e-15)
-    
-    sns.heatmap(data_to_plot, 
-                xticklabels=np.round(theta1_vals, 2), 
-                yticklabels=np.round(theta2_vals, 2),
-                cmap="viridis", ax=ax, 
-                cbar_kws={'label': 'Energy Drift [J]'},
-                norm=plt.matplotlib.colors.LogNorm())
-    
-    ax.set_title("Energy Drift Heatmap (log scale)")
-    ax.set_xlabel(r"Initial $\theta_1$ [rad]")
-    ax.set_ylabel(r"Initial $\theta_2$ [rad]")
-    
-    # Rotate labels for better readability
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-    plt.setp(ax.get_yticklabels(), rotation=0)
-    
+    fig = plt.figure(figsize=(12, 6)
+                     )
+    ax = fig.add_subplot(121, projection = "3d") 
+    # ------- 3D plot --------
+    surf = ax.plot_surface(Theta1, Theta2, Drift_matrix, cmap = "viridis", edgecolor = "none")
+    ax.set_xlabel(r'$\theta_{0_1}$')
+    ax.set_ylabel(r'$\theta_{0_2}$')
+    ax.set_title(f'Energy Drift Surface')
+
+    # ---- 2D HEATMAP ----
+    ax2 = fig.add_subplot(122)
+    im = ax2.imshow(Drift_matrix, extent=[theta2_vals[0], theta2_vals[-1], theta1_vals[0], theta1_vals[-1]] ,origin='lower', aspect='auto', cmap='viridis')
+    ax2.set_xlabel(r'$\theta_{0_1}$')
+    ax2.set_ylabel(r'$\theta_{0_2}$')
+    ax2.set_title(f'Energy Drift Map')
+    fig.colorbar(im, ax=ax2)
+
     plt.tight_layout()
     return fig
 
 
-def drift_energy_comparison(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
+def drift_energy_comparison(dt: Sequence[float], results_dict: Dict, method_name: str = "Radau (implicit)") -> Tuple[plt.Figure, plt.Figure]:
     """
-    Plot the drift in total energy over time for different methods.
+    Plot the drift in total energy over time.
+
+    fig1:
+        Same method, different time steps.
+    fig2:
+        Same time step (min dt) across different methods.
     """
-    fig = plt.figure(figsize=(10, 6))
-    colors = ['#1f77b4', '#2ca02c', '#d62728', '#ff7f0e'] # Standard matplotlib colors
-    
-    for i, (method_name, dt_dict) in enumerate(results_dict.items()):
-        color = colors[i % len(colors)]
 
-        for time_step in dt:
-            if time_step not in dt_dict:
-                continue
+    colors = ['#1f77b4', '#2ca02c', '#d62728', "#ff0edf"]
 
-            result, analysis = dt_dict[time_step]
-            
-            # Access trajectory: assume result is an object with .t and .total attributes
-            # Adjust based on your specific DoublePendulumSimulator output
-            t = result.t
-            E = result.total
-            drift = np.abs(E - E[0])
+    # ============================================================
+    # FIGURE 1 — SAME METHOD, DIFFERENT dt
+    # ============================================================
+    fig1, ax1 = plt.subplots(figsize=(10, 6))
 
-            plt.plot(t, drift, label=f"{method_name} (dt={time_step})", color=color, linewidth=1.5, alpha=0.8)
-    
-    plt.xlabel('Time (s)')
-    plt.ylabel('Energy Drift |E(t) - E(0)| [J]')
-    plt.title('Total Energy Drift Over Time')
-    plt.legend(loc='best')
-    plt.grid(True, alpha=0.3)
-    plt.yscale('symlog') # Symmetric log to show small drifts
+    for i, dt_value in enumerate(dt):
 
-    return fig
+        if dt_value not in results_dict[method_name]:
+            continue
+
+        result, analysis = results_dict[method_name][dt_value]
+
+        t = result.t
+        E = result.total
+        drift = np.abs(E - E[0])
+
+        ax1.plot(t, drift, label=f"dt={dt_value}", color=colors[i % len(colors)], linewidth=1.5,alpha=0.8)
+
+    ax1.set_title(f"Total Energy Drift Over Time — {method_name}")
+    ax1.set_xlabel("Time (s)")
+    ax1.set_ylabel(r"Energy Drift $|E(t) - E(0)|$ [J]")
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    ax1.set_yscale("symlog")
+
+    # ============================================================
+    # FIGURE 2 — SAME dt, DIFFERENT METHODS
+    # ============================================================
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
+
+    # choose the smallest dt available for the reference method
+    min_step = min(results_dict[method_name].keys())
+
+    for i, (method, dt_dict) in enumerate(results_dict.items()):
+
+        if min_step not in dt_dict:
+            continue
+
+        result, analysis = dt_dict[min_step]
+
+        t = result.t
+        E = result.total
+        drift = np.abs(E - E[0])
+
+        ax2.plot(t, drift, label=f"{method}", color=colors[i % len(colors)], linewidth=1.5, alpha=0.8)
+
+    ax2.set_title(f"Total Energy Drift Across Methods — dt={min_step}")
+    ax2.set_xlabel("Time (s)")
+    ax2.set_ylabel(r"Energy Drift $|E(t) - E(0)|$ [J]")
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    ax2.set_yscale("symlog")
+
+    return fig1, fig2
+
 
 
 def time_compute(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
@@ -228,6 +259,7 @@ def time_compute(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
         dts = []
 
         for time_step in sorted(dt_dict.keys()):
+            
             if time_step not in dt:
                 continue
             
@@ -249,7 +281,7 @@ def time_compute(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
         dts_sorted = [x for x, _ in sorted_pairs]
         times_sorted = [y for _, y in sorted_pairs]
 
-        plt.plot(dts_sorted, times_sorted, 'o-', label=method_name, color=color, linewidth=2, markersize=6)
+        plt.plot(dts_sorted, times_sorted, 'o-', label=method_name, color = color, linewidth=2, markersize=6)
     
     plt.xlabel('Time Step ($dt$)')
     plt.ylabel('Run Time (s)')
@@ -257,7 +289,6 @@ def time_compute(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.xscale('log')
-    plt.yscale('log')
     
     return fig
 
@@ -347,51 +378,60 @@ def stability(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
     
     return fig
 
+def kde_phase_space_subplots(results_dict: Dict) -> plt.Figure:
+    """
+    Phase-space density KDE plots for a single integration method.
+    Expects: results_dict[dt] = (result, analysis)
+    """
 
-def kde_phase_space_subplots(results_dict: Dict, var1: str="theta1", var2: str="omega1") -> plt.Figure:
-    """
-    Phase-space density plots (KDE) for each integration method.
-    """
-    n_methods = len(results_dict)
+    # ---- Choose smallest dt ----
+    time_step = min(results_dict["Radau (implicit)"].keys())
+    result, analysis = results_dict["Radau (implicit)"][time_step]
+
+    # ---- Extract solution arrays ----
+    # Case 1: Your custom result object with attributes
+    if hasattr(result, "theta1"):
+        sol = {
+            "theta1": result.theta1,
+            "theta2": result.theta2,
+            "omega1": result.omega1,
+            "omega2": result.omega2,
+        }
+
+    # Case 2: SciPy OdeResult (result.y is array)
+    elif hasattr(result, "y"):
+        idx_map = {"theta1": 0, "theta2": 1, "omega1": 2, "omega2": 3}
+        sol = {name: result.y[idx] for name, idx in idx_map.items()}
+
+    else:
+        raise ValueError("Result object has no recognizable structure.")
+
+    # ---- Variables to plot ----
+    var_pairs = [
+        ("theta1", "omega1"),
+        ("theta1", "omega2"),
+        ("theta2", "omega1"),
+        ("theta2", "omega2"),
+    ]
+
+    # ---- Create figure ----
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     axes = axes.flatten()
 
-    for ax, (method_name, dt_dict) in zip(axes, results_dict.items()):
-        # Choose the smallest dt (best resolution) for the cleanest phase plot
-        time_step = min(dt_dict.keys())
-        
-        result, analysis = dt_dict[time_step]
-        
-        sol = result.y
-        
-        if hasattr(sol, var1):
-            x = getattr(sol, var1)
-            y = getattr(sol, var2)
-        elif hasattr(sol, '__getitem__'):
-           
-            # Map indices to variable names
-            idx_map = {"theta1": 0, "theta2": 1, "omega1": 2, "omega2": 3}
-            x = sol[idx_map[var1]]
-            y = sol[idx_map[var2]]
-        else:
-            print(f"Cannot extract data for {var1}, {var2} from result object.")
-            continue
+    for ax, (v1, v2) in zip(axes, var_pairs):
 
-        # Create DataFrame for Seaborn KDE
         df = pd.DataFrame({
-            var1: x,
-            var2: y
+            v1: sol[v1],
+            v2: sol[v2]
         })
 
-        # Plot KDE
-        sns.kdeplot(data=df, x=var1, y=var2, fill=True, cmap="viridis", levels=40, thresh=0.05, ax=ax)
-        
-        ax.set_title(f"Phase Space: {method_name} (dt={time_step})")
-        ax.set_xlabel(var1)
-        ax.set_ylabel(var2)
+        sns.kdeplot(data=df, x=v1, y=v2, fill=True, cmap="viridis", levels=40, thresh=0.05, ax=ax)
+
+        ax.set_xlabel(v1)
+        ax.set_ylabel(v2)
         ax.grid(True, alpha=0.3)
 
-    fig.suptitle(f"Phase-Space Density: {var1} vs {var2}", fontsize=16)
+    fig.suptitle(f"Phase-Space Density KDE - {time_step}", fontsize=14)
     fig.tight_layout()
 
     return fig
@@ -468,27 +508,18 @@ if __name__ == "__main__":
     # Plotting Numerical Methods Results
     print("Plotting Convergence")
     fig_conv = convergence(dt=dt_values, results_dict=results)
-    plt.show()
     
     print("Plotting stability")
     fig_stab = stability(dt= dt_values, results_dict= results) # mirar
-    plt.show()
-    
+        
     print("Plotting Drift energy comparison")
-    fig_drift = drift_energy_comparison(dt=dt_values, results_dict=results) # mirar
-    plt.show()
+    fig_drift_dt, fig_drift_method = drift_energy_comparison(dt=[1, 0.1, 0.01, 0.001], results_dict=results)
     
     print("Plotting time compute")
     fig_time = time_compute(dt=dt_values, results_dict=results)
-    plt.show()
 
-    print("Plotting phase space theta1 vs omega1")
-    fig_phase1 = kde_phase_space_subplots(results_dict=results, var1="theta1", var2="omega1")
-    plt.show()
-
-    print("Plotting phase spacev theta2 vs omega2")
-    fig_phase2 = kde_phase_space_subplots(results_dict=results, var1="theta2", var2="omega2")
-    plt.show()
+    print("Plotting phase space")
+    fig_phase1 = kde_phase_space_subplots(results_dict=results)
     
     # 2. Load Initial Condition Data
     try:
@@ -496,11 +527,9 @@ if __name__ == "__main__":
         
         # Initial Angle Drift Plots
         fig_init = initial_angle_drift_energy(theta1_s, theta2_s)
-        plt.show()
         
         # Heatmaps
         fig_heat = heatmaps(grid_s)
-        plt.show()
         
     except FileNotFoundError as e:
         print(e)
@@ -512,11 +541,10 @@ if __name__ == "__main__":
         os.makedirs(route, exist_ok=True)
 
         fig_conv.savefig(os.path.join(route, "convergence.png"), dpi = 300, bbox_inches = "tight")
-        fig_drift.savefig(os.path.join(route, "drift_energy.png"), dpi = 300, bbox_inches = "tight")
+        fig_drift_method.savefig(os.path.join(route, "drift_energy_method.png"), dpi = 300, bbox_inches = "tight")
+        fig_drift_dt.savefig(os.path.join(route, "drift_energy_dt.png"), dpi = 300, bbox_inches = "tight")
         fig_phase1.savefig(os.path.join(route, "phase_density1.png"), dpi = 300, bbox_inches = "tight")
-        fig_phase2.savefig(os.path.join(route, "phase_density2.png"), dpi = 300, bbox_inches = "tight")
         fig_time.savefig(os.path.join(route, "runtime.png"), dpi = 300, bbox_inches = "tight")
         fig_stab.savefig(os.path.join(route, "stability.png"), dpi = 300, bbox_inches = "tight")
         fig_init.savefig(os.path.join(route, "initial_condition.png"), dpi = 300, bbox_inches = "tight")
         fig_heat.savefig(os.path.join(route, "heatmap.png"), dpi = 300, bbox_inches = "tight")
-    

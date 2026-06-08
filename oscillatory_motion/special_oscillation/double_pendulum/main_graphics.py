@@ -5,7 +5,7 @@ This code generate the following graphics such as linearizad equation as normal 
 
 - Regime summary (position, energies, phase space) 
 - Animation
-- Lyapunov coefficient ----- Done
+- Lyapunov coefficient
 
 
 Another performance (in process):
@@ -53,13 +53,13 @@ class Params:
     L1: float = 1.0  # m
     L2: float = 2.0  # m
 
-    theta1_0: float = np.deg2rad(90)
-    theta2_0: float = np.deg2rad(00)
+    theta1_0: float = np.deg2rad(120)
+    theta2_0: float = np.deg2rad(55)
 
     omega1_0: float = 0.0
     omega2_0: float = 0.0
 
-    t_max: float = 15.0  # s
+    t_max: float = 100.0  # s
     dt: float = 0.01  # s
 
     rtol = 1e-10
@@ -414,5 +414,34 @@ def compute(store: bool = False)-> plt.Figure:
 
     return anim1, fig1, fig3
 
-compute(store = True)
+writer = PillowWriter(fps=50)
+
+params = Params()
+sim = DoublePendulumSimulator(params = params)
+results = sim.run()
+
+sol = results.y
+energy = results.kinetic, results.potential, results.total
+times = results.t
+
+positions = position(sol = sol, params= params)
+
+cmap = plt.colormaps["viridis"]
+colors = {
+        "mass1": cmap(0.2),
+        "mass2": cmap(0.8),
+        "T": "#1f77b4",
+        "U": "#ff7f0e",
+        "Et": "#2ca02c",
+        "Ly1": cmap(0.3),
+        "Ly2": cmap(0.4),
+        "Ly3": cmap(0.5),
+        "Ly4": cmap(0.6)
+    }
+
+directory = os.getcwd()
+fig_dir = os.path.join(directory, "figures")
+anim1 = double_pendulum_animation(sol = sol, times = times, energy=energy, position=positions, colors= colors, name = "Radau (implicit)")
+anim1.save(os.path.join(fig_dir, "double_pendulum_chaos_anim.gif"), writer=writer)
+
 plt.show()
