@@ -2,8 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from manim import *
-from double_pendulum import DoublePendulumSimulator
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Sequence
 
 def load_data(filename:str = "trajectories.py")-> Tuple[Dict, Dict, Dict]:
     """
@@ -22,6 +21,33 @@ def load_data(filename:str = "trajectories.py")-> Tuple[Dict, Dict, Dict]:
 
     return trajectory1, trajectory2, trajectory3
 
+def x_y_range(trajectory1:Sequence[float], trajectory2: Sequence[float], trajectory3: Sequence[float])-> Tuple[float, float]:
+            
+            min_x = 0
+            max_x = 0 
+            min_y = 0
+            max_y = 0
+            for traj in [trajectory1, trajectory2, trajectory3]:
+
+                menor_x = min(traj["x2"])
+                menor_y = min(traj["y2"])
+                mayor_x = max(traj["x2"])
+                mayor_y = max(traj["y2"])
+
+                if menor_x < min_x:
+                    min_x = menor_x
+
+                if menor_y < min_y:
+                    min_y = menor_y
+
+                if mayor_x < max_x:
+                    max_x = mayor_x
+
+                if mayor_y < max_y:
+                    max_y = mayor_y
+
+            return min_x, max_x, min_y, max_y
+
 class SimulateDoublePendulum(Scene):
     def contruct(self):
 
@@ -30,8 +56,10 @@ class SimulateDoublePendulum(Scene):
         self.show_equation()
 
         #2. Create axes, labels and grid
+        
+        range_axes = x_y_range(trajectory1= trajectory1 ,trajectory2=trajectory2, trajectory3=trajectory3)
 
-        axes = self.create_axes()
+        axes = self.create_axes(range_axes)
 
         #3. Create animation
 
@@ -79,11 +107,42 @@ class SimulateDoublePendulum(Scene):
 
         self.play(Transform(eq, eq2))
 
-        self.second_title = Tex("Animation of three double pendulum")
+        self.second_title = Tex("Animation of three double pendulums")
         self.play(Transform(title, self.second_title))
 
-    def create_axes(self):
-        pass
+    def create_axes(self, range_axes: Sequence[float]):
+        "Display the axes for double pendulum in 2d"
 
+        pad = 0.1
+        axes2d = Axes(
+            x_range = [range_axes[0] + pad, range_axes[1]+ pad, (range_axes[0] + range_axes[1]) / 6],
+            y_range = [range_axes[2]+ pad, range_axes[3] + pad, (range_axes[2] + range_axes[3]) / 6],
+            x_length=5.5,
+            y_length= 5.5,
+            axis_config={"index_tip": False, "font_size": 24},
+            tips = False
+        )
+
+        labels2d = axes2d.get_axis_labels(x_label="x", y_label= "y")
+
+        self.play(
+             FadeIn(axes2d),
+             FadeIn(labels2d),
+             run_time = 1.5
+        )
+    
+        return axes2d
+    
     def animation(self, axes, trajectories1, trajecories2, trajectories3):
-        pass
+        
+        #Precompute trajectories
+
+        for traj in (trajectories1, trajecories2, trajectories3):
+             
+            x1, y1, x2, y2 = traj["x1"], traj["y1"], traj["x2"], traj["y2"]
+
+            points = [axes.c2p(x1[i], y1[i], x2[i], y2[i]) for i in range(len(x2))]
+
+            curve = VMobject().set_points_smoothly(points=points)
+            
+
