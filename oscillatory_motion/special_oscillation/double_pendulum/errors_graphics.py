@@ -425,7 +425,7 @@ def kde_phase_space_subplots(results_dict: Dict) -> plt.Figure:
             v2: sol[v2]
         })
 
-        sns.kdeplot(data=df, x=v1, y=v2, fill=True, cmap="viridis", levels=40, thresh=0.05, ax=ax)
+        sns.kdeplot(data=df, x=v1, y=v2, fill=True, cmap="viridis", levels=40, thresh=0.05, ax=ax, cbar=True)
 
         ax.set_xlabel(v1)
         ax.set_ylabel(v2)

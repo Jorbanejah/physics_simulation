@@ -356,7 +356,7 @@ def compute(store: bool = False)-> plt.Figure:
     """
     Compute all functions in this code
 
-    Paramters
+    Parameters
     ---------
     store: bool
     Control whether the figures are stored or not in the currents dictionary
@@ -441,7 +441,7 @@ colors = {
 
 directory = os.getcwd()
 fig_dir = os.path.join(directory, "figures")
-anim1 = double_pendulum_animation(sol = sol, times = times, energy=energy, position=positions, colors= colors, name = "Radau (implicit)")
-anim1.save(os.path.join(fig_dir, "double_pendulum_chaos_anim.gif"), writer=writer)
-
-plt.show()
+#anim1 = double_pendulum_animation(sol = sol, times = times, energy=energy, position=positions, colors= colors, name = "Radau (implicit)")
+#anim1.save(os.path.join(fig_dir, "double_pendulum_chaos_anim.gif"), writer=writer)
+compute(True)
+#plt.show()
