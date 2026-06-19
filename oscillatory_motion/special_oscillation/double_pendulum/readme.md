@@ -4,7 +4,9 @@ The double pendulum is a classic example of nonlinear, chaotic system. Despite i
 
 - **Lagrangian formulation:**
   
- As always, identifying the system's degrees of freedom (the angular coordinates $\theta_1$ and $\theta_2$), we derive the equations of motion using the Euler-Lagrange equations.
+ As always, identifying the system's degrees of freedom (the angular coordinates $\theta_1$ and $\theta_2$), we derive the equations of motion using the Euler-Lagrangeequations.
+
+![Regime_summary](../figures/Regime_summary.png)
 
 The results is a set of coupled, nonlinear, second-order differential equations that cannot be solved analytically in general.
 
@@ -35,8 +37,10 @@ $$
 \ddot{\theta}_2 \approx \frac{2g}{l}\left(\theta_1 - \theta_2\right)
 $$
 
+<img src="./figures/spring.gif" width="500">
+
 ## How do we write it?
-Firstly, we have to calculate the kinetic energy to get the mass matrix
+Firstly, we have to calculate the kinetic energy to get the mass matrix - a matrix that captures the inertia of the system and mathematically describes how mass is distributed across the moving parts:
 
 $$
 T = \tfrac12\ \dot{\boldsymbol{\theta}}^{\mathsf{T}} \mathbf{M}(\theta_1,\theta_2)\ \dot{\boldsymbol{\theta}}
@@ -103,10 +107,10 @@ $$
 Note: do not worry if you do not get it at first. It took me a few weeks understand this nomenclature and why it works. As a comment, the standard manipulator equation is:
 
 $$
-Q(\theta) \ddot{\theta} + C(\theta, dot{\theta}) \dot{theta} + G(\theta)
+M(\theta) \ddot{\theta} + C(\theta, dot{\theta}) \dot{theta} + G(\theta) = F
 $$
 
-quite use in robotics and multibody dynamics.
+It is usually used in robotics and multibody dynamics.
 
 ## Numerical methods
 
@@ -119,18 +123,54 @@ With a great touch we will see how this methods performs:
 - DOP853
 - BDF
 - How to use it?
-# Errors and analysis
+## Errors and analysis
 Now we have introduced the numerical methods, we can talk about: which one is better than other one, or which one require the least runtime... We discover that and much more than this through the graphics.
 
-- Runtime
+*Note*: The graphics have been compute with this parameter: t_max = 150, ratol = 1e-10, atol = 1e-12, $m_1 = m_2 = 1.0$, $L_1 = 1.0$, $L_2 = 2.0$
+
+- **Runtime:**
+
+![Runtime](../figures/runtime.png)
+
 - Drift energy
-    - Through different dt
-    - Through different method
+
+    - Through different dt:
+
+    ![drift_energy_dt](../figures/drift_energy_dt.png)
+
+    - Through different method:
+
+    ![drift_energy_method](../figures/drift_energy_method.png)
+
+![drift_energy_colormap](../figures/heatmap.png)
 
 - Convergence and stability
 
+![convergence](../figures/convergence.png)
+
+![stability](../figures/stability.png)
+
 If you want to discover other concerns that we have not been discussed here, you can check the code and change a few lines.
 
-# The fractal revolution
+## When physics becomes art
+
+In the previous section, you have seen which numerical methods perform better than others: which ones are slower, which ones struggle to convergence. For this reason, I chose the Radau (implicit) method. It is not only robust and stable, but it also offers a good runtime. 
+
+This section may look a bit a magic treak. When I say that physics becomes art, I am talking about **Fractals**.
+A fractal? In the double-pendulum equations? Yes. Fractals appears in many extraordinary contexts: natural patterns (like flowers), chaotic motion, and many others places that you would not expect. By playing with some variables, and tweaking the inial conditions, you can obtain something like this:
+
+![Fractal](../figures/Fractal_pendulum.png) 
+
+This picture (it feels weird to call it graphics), represents the time the double-pendulum takes to perfomr a flip (i.e, when either, $\theta_1 = \pi$ or $\theta_2 = \pi$) as a function of different initial condition.
+
+Talking about fractals, we cannot skip the idea of **fractal dimensionality**. What does that mean? How can we calculate it? Well, this both question and much more, will be answered soon in a dedicated fractal repository. 
+In the meantime, I fervently recommend you some fractal galleries on the Internet - some are awesome, others less so, let us say, but all of them are fascinating in their own way.
+However, if you really enjoy mathematics and physics, take a look at the bibliography and let yourself be suprised how beautiful this world can be.
 
 # Bibliography
+
+https://dn760009.eu.archive.org/0/items/GOLDSTEINClassicalMechanics/GOLDSTEIN%20%28Classical%20Mechanics%29_text.pdf
+
+https://pythonnumericalmethods.studentorg.berkeley.edu/notebooks/chapter22.01-ODE-Initial-Value-Problem-Statement.html
+
+https://pythonnumericalmethods.studentorg.berkeley.edu/notebooks/chapter10.05-Debugging.html

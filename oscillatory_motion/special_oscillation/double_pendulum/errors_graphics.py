@@ -439,7 +439,7 @@ def kde_phase_space_subplots(results_dict: Dict) -> plt.Figure:
 ##
 # -------------------------- Compute each instance -----------------------
 ##
-def compute(dt: Sequence[float], time: int = 150, flag: bool = False,) -> Dict:
+def compute(dt: Sequence[float], time: int = 150, flag: bool = True,) -> Dict:
     """
     Compute energy drift and runtime for several integration methods.
 
@@ -522,6 +522,7 @@ if __name__ == "__main__":
     fig_phase1 = kde_phase_space_subplots(results_dict=results)
     
     # 2. Load Initial Condition Data
+    """
     try:
         theta1_s, theta2_s, grid_s = upload_data("compute_intial_angles.npz")
         
@@ -534,17 +535,17 @@ if __name__ == "__main__":
     except FileNotFoundError as e:
         print(e)
         print("Skipping heatmaps. Run compute_data.py to generate data.")
-    
+    """
     if stored:
         directory = os.getcwd()
         route = os.path.join(directory, "figures")
         os.makedirs(route, exist_ok=True)
 
-        fig_conv.savefig(os.path.join(route, "convergence.png"), dpi = 300, bbox_inches = "tight")
-        fig_drift_method.savefig(os.path.join(route, "drift_energy_method.png"), dpi = 300, bbox_inches = "tight")
-        fig_drift_dt.savefig(os.path.join(route, "drift_energy_dt.png"), dpi = 300, bbox_inches = "tight")
-        fig_phase1.savefig(os.path.join(route, "phase_density1.png"), dpi = 300, bbox_inches = "tight")
-        fig_time.savefig(os.path.join(route, "runtime.png"), dpi = 300, bbox_inches = "tight")
-        fig_stab.savefig(os.path.join(route, "stability.png"), dpi = 300, bbox_inches = "tight")
-        fig_init.savefig(os.path.join(route, "initial_condition.png"), dpi = 300, bbox_inches = "tight")
-        fig_heat.savefig(os.path.join(route, "heatmap.png"), dpi = 300, bbox_inches = "tight")
+        fig_conv.savefig(os.path.join(route, "convergence_linearized.png"), dpi = 300, bbox_inches = "tight")
+        fig_drift_method.savefig(os.path.join(route, "drift_energy_method_linearized.png"), dpi = 300, bbox_inches = "tight")
+        fig_drift_dt.savefig(os.path.join(route, "drift_energy_dt_linearized.png"), dpi = 300, bbox_inches = "tight")
+        fig_phase1.savefig(os.path.join(route, "phase_density1_linearized.png"), dpi = 300, bbox_inches = "tight")
+        fig_time.savefig(os.path.join(route, "runtime_linearized.png"), dpi = 300, bbox_inches = "tight")
+        fig_stab.savefig(os.path.join(route, "stability_linearized.png"), dpi = 300, bbox_inches = "tight")
+        #fig_init.savefig(os.path.join(route, "initial_condition.png"), dpi = 300, bbox_inches = "tight")
+        #fig_heat.savefig(os.path.join(route, "heatmap.png"), dpi = 300, bbox_inches = "tight")

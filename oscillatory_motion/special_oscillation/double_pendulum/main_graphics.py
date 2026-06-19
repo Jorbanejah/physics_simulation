@@ -53,13 +53,13 @@ class Params:
     L1: float = 1.0  # m
     L2: float = 2.0  # m
 
-    theta1_0: float = np.deg2rad(120)
+    theta1_0: float = np.deg2rad(-90)
     theta2_0: float = np.deg2rad(55)
 
     omega1_0: float = 0.0
     omega2_0: float = 0.0
 
-    t_max: float = 100.0  # s
+    t_max: float = 15.0  # s
     dt: float = 0.01  # s
 
     rtol = 1e-10
@@ -410,7 +410,7 @@ def compute(store: bool = False)-> plt.Figure:
 
         # --- Save animation ---
         writer = PillowWriter(fps=30)
-        anim1.save(os.path.join(fig_dir, "double_pendulum_anim.gif"), writer=writer)
+        anim1.save(os.path.join(fig_dir, "double_pendulum_anim_chaos.gif"), writer=writer)
 
     return anim1, fig1, fig3
 

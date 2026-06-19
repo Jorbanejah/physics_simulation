@@ -3,7 +3,7 @@ import os
 from typing import Sequence, Dict, Any
 from double_pendulum import DoublePendulumSimulator
 
-def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], linearized: bool = False, directory: str = os.getcwd(), filename: str = "compute_initial_angles.npz") -> Dict[str, Any]:
+def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[float], linearized: bool = False, directory: str = os.getcwd()) -> Dict[str, Any]:
     """
     Compute energy drift for varying initial conditions.
 
@@ -100,8 +100,52 @@ def compute_initial_angles(params, theta1: Sequence[float], theta2: Sequence[flo
             grid[th1][th2] = run_simulation((th1, th2))
 
     print("\nSaving data...")
-    route = os.path.join(directory, filename)
+    
     # Save as numpy compressed archive
-    np.savez(route, theta1_scan=theta1_scan, theta2_scan=theta2_scan, grid=grid)
+    if linearized:
+        filename = "compute_initial_angle_linearized.npz"
+        route = os.path.join(directory, filename)
+        np.savez(route, theta1_scan=theta1_scan, theta2_scan=theta2_scan, grid=grid)
+
+    else:
+        filename = "compute_initial_angle.npz"
+        route = os.path.join(directory, filename)
+        np.savez(route, theta1_scan=theta1_scan, theta2_scan=theta2_scan, grid=grid)
     
     return {"theta1_scan": theta1_scan, "theta2_scan": theta2_scan, "grid": grid}
+
+from dataclasses import dataclass
+
+@dataclass
+class Params:
+    """Physical parameters and initial conditions for the pendulum."""
+    g: float = 9.81  # m/s^2
+    m1: float = 1.0  # kg
+    m2: float = 1.0  # kg
+    L1: float = 1.0  # m
+    L2: float = 2.0  # m
+
+    theta1_0: float = np.deg2rad(0)
+    theta2_0: float = np.deg2rad(0)
+    omega1_0: float = 0.0
+    omega2_0: float = 0.0
+
+    t_max: float = 30.0  # s
+    dt: float = 1e-1  # s
+    rtol: float = 1e-10
+    atol: float = 1e-12
+
+    def __post_init__(self) -> None:
+        if self.g <= 0.0:
+            raise ValueError("Gravity must be positive.")
+        if self.m1 <= 0.0 or self.m2 <= 0.0:
+            raise ValueError("Masses must be positive.")
+        if self.L1 <= 0.0 or self.L2 <= 0.0:
+            raise ValueError("Lengths must be positive.")
+
+params = Params()
+theta1 = np.linspace(-np.pi, np.pi, 180)
+theta2 = np.linspace(-np.pi, np.pi, 180)
+
+linearized = compute_initial_angles(params= params, theta1=theta1, theta2=theta2, linearized=True)
+non_linearized = compute_initial_angles(params = params, theta1=theta1, theta2=theta2, linearized=False)
