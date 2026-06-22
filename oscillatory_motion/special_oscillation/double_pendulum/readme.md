@@ -112,24 +112,96 @@ $$
 Note: do not worry if you do not get it at first. It took me a few weeks understand this nomenclature and why it works. As a comment, the standard manipulator equation is:
 
 $$
-M(\theta) \ddot{\theta} + C(\theta, dot{\theta}) \dot{theta} + G(\theta) = F
+M(\theta) \ddot{\theta} + C(\theta, dot{\theta}) \dot{\theta} + G(\theta) = F
 $$
 
 It is usually used in robotics and multibody dynamics.
 
 ## Numerical methods
 
-In this chapter, I decide not to use others numerical methods (Remember that in this serie we see RK4, Verlet, Crank-Nicolson, Euler...), instead of doing that, we are going to see the numerical pythonic methods are.
-The methods are (from the scipy.integrate solve_ivp library): RK45, RADAU (implicit), DOP853, and BDF.
-With a great touch we will see how this methods performs:
+In this chapter, we will not use the classical numerical methods introduced earlier in this series
+(RK4, Verlet, Crank--Nicolson, Euler, \dots).  
+Instead, we focus on the \emph{pythonic} numerical integrators provided by the
+\texttt{scipy.integrate.solve\_ivp} library.
 
-- RK45
-- RADAU
-- DOP853
-- BDF
-- How to use it?
+The methods we will study are:
+
+- RK45 (explicit, adaptive).
+- RADAU (implicit, stiff).
+- DOP853 (explicit, high order).
+- BDF (implicit, stiff).
+
+Before comparing how these methods perform, we recall that all of them are based on the general
+Runge--Kutta (RK) framework.  
+So, what is a Runge--Kutta method, and why does it work?
+
+Runge--Kutta methods are a family of explicit and implicit iterative schemes for solving
+initial-value problems using a temporal discretization.  
+Within this family, the most widely known method is the classical fourth-order method (RK4),
+appreciated for its simplicity and robustness.
+
+Explicit RK methods compute the next value $y_{n+1}$ using a weighted average of several
+intermediate slopes $k_i$:
+
+$$
+    y_{n+1} = y_n + h \sum_{i=1}^{s} b_i k_i 
+$$
+
+where each slope is defined by
+
+$$
+    k_i = f\left(t_n + c_i h,\;
+    y_n + h \sum_{j=1}^{i-1} a_{ij} k_j \right).
+$$
+
+The coefficients $a_{ij}, b_i, c_i$ form the \emph{Butcher tableau}, which characterizes the method.
+
+Implicit RK methods are typically used for stiff problems.  
+Their structure is similar, but the slopes satisfy
+
+$$
+    k_i = f\left(t_n + c_i h,\;
+    y_n + h \sum_{j=1}^{s} a_{ij} k_j \right),
+$$
+
+which requires solving a system of algebraic equations at every step.  
+This increases the computational cost but greatly improves stability.
+
+With the basic RK ideas introduced, we now examine how the Pythonic solvers perform:
+
+- **RK45 (Runge--Kutta--Fehlberg 5(4))**: RK45 is an explicit adaptive Runge--Kutta method based on an embedded pair of orders $5$ and $4$.  
+The solver computes two approximations, and uses their difference to estimate the local truncation error. 
+
+$$
+y_{n+1}^{(5)}, \qquad \hat{y}_{n+1}^{(4)},
+$$
+
+  The accepted value is the fifth-order solution, while the fourth-order estimate controls the       step size. This method is efficient for non-stiff problems and is the default choice in
+  *solve_ivp*.
+
+- **RADAU (Implicit Runge-Kutta, Order 5)**: is an implicit Runge-Kutta method of Radau IIA type. It is A-stable and L-stable, making it particularly suitable for stiff systems. The method requires solving a nonlinear system at each step, but its strong stability properties allow much larger time steps than explicit methods.
+RADAU is recommended when the dynamics exhibit rapid decay, stiffness, or strongly dissipative behavior.
+
+- **DOP853 (Explicit Runge-Kutta, Order 8)**: is a high-order explicit Runge--Kutta method of order $8$ with embedded error estimators of orders $7$ and $5$.  
+It is designed for high-accuracy integration of smooth, non-stiff problems. Although it uses many stages, its adaptive step-size control makes it extremely efficient when high precision is required.   For chaotic systems such as *the double pendulum*, DOP853 often provides the best
+balance between accuracy and performance.
+
+- **BDF (Backward Differentiation Formula)**: The BDF method is a multistep implicit scheme of variable order (up to order 5). It is well suited for stiff problems and is widely used in chemical kinetics,
+reaction--diffusion systems, and dissipative mechanical models.  
+At each step, BDF solves an implicit equation of the form
+
+$$
+\alpha_0 y_{n+1} = \sum_{j=1}^{k} \alpha_j y_{n+1-j} + h\,\beta\, f(t_{n+1}, y_{n+1}),
+$$
+
+where the coefficients $\alpha_j$ and $\beta$ depend on the selected order $k$.
+Because it is multistep, BDF is very efficient for long-time integration of
+stiff systems.
+  
+To get some information: https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html#r179348322575-1
+
 ## Errors and analysis
-Now we have introduced the numerical methods, we can talk about: which one is better than other one, or which one require the least runtime... We discover that and much more than this through the graphics.
+Now we have introduced the numerical methods, we can talk about: which one is better than other one, or which one require the least runtime... We discover that and much more through the graphics.
 
 *Note*: The graphics have been compute with this parameter: t_max = 150, ratol = 1e-10, atol = 1e-12, $m_1 = m_2 = 1.0$, $L_1 = 1.0$, $L_2 = 2.0$
 
@@ -182,3 +254,5 @@ https://dn760009.eu.archive.org/0/items/GOLDSTEINClassicalMechanics/GOLDSTEIN%20
 https://pythonnumericalmethods.studentorg.berkeley.edu/notebooks/chapter22.01-ODE-Initial-Value-Problem-Statement.html
 
 https://pythonnumericalmethods.studentorg.berkeley.edu/notebooks/chapter10.05-Debugging.html
+
+https://maths.cnam.fr/IMG/pdf/RungeKuttaFehlbergProof.pdf
