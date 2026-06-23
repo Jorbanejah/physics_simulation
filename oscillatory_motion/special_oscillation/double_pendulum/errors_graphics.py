@@ -46,7 +46,7 @@ class Params:
     L2: float = 2.0  # m
 
     theta1_0: float = np.deg2rad(45)
-    theta2_0: float = np.deg2rad(0)
+    theta2_0: float = np.deg2rad(45)
     omega1_0: float = 0.0
     omega2_0: float = 0.0
 
@@ -177,7 +177,7 @@ def heatmaps(grid: Dict) -> plt.Figure:
     return fig
 
 
-def drift_energy_comparison(dt: Sequence[float], results_dict: Dict, method_name: str = "Radau (implicit)") -> Tuple[plt.Figure, plt.Figure]:
+def drift_energy_comparison(dt: Sequence[float], results_dict: Dict, method_name: str = "DOP853 (8th order)") -> Tuple[plt.Figure, plt.Figure]:
     """
     Plot the drift in total energy over time.
 
@@ -210,6 +210,7 @@ def drift_energy_comparison(dt: Sequence[float], results_dict: Dict, method_name
     ax1.set_title(f"Total Energy Drift Over Time — {method_name}")
     ax1.set_xlabel("Time (s)")
     ax1.set_ylabel(r"Energy Drift $|E(t) - E(0)|$ [J]")
+    ax1.set_xlim([0,15])
     ax1.legend()
     ax1.grid(True, alpha=0.3)
     ax1.set_yscale("symlog")
@@ -238,6 +239,7 @@ def drift_energy_comparison(dt: Sequence[float], results_dict: Dict, method_name
     ax2.set_title(f"Total Energy Drift Across Methods — dt={min_step}")
     ax2.set_xlabel("Time (s)")
     ax2.set_ylabel(r"Energy Drift $|E(t) - E(0)|$ [J]")
+    ax2.set_xlim([0,15])
     ax2.legend()
     ax2.grid(True, alpha=0.3)
     ax2.set_yscale("symlog")
@@ -385,8 +387,8 @@ def kde_phase_space_subplots(results_dict: Dict) -> plt.Figure:
     """
 
     # ---- Choose smallest dt ----
-    time_step = min(results_dict["Radau (implicit)"].keys())
-    result, analysis = results_dict["Radau (implicit)"][time_step]
+    time_step = min(results_dict["DOP853 (8th order)"].keys())
+    result, analysis = results_dict["DOP853 (8th order)"][time_step]
 
     # ---- Extract solution arrays ----
     # Case 1: Your custom result object with attributes
@@ -439,7 +441,7 @@ def kde_phase_space_subplots(results_dict: Dict) -> plt.Figure:
 ##
 # -------------------------- Compute each instance -----------------------
 ##
-def compute(dt: Sequence[float], time: int = 150, flag: bool = True,) -> Dict:
+def compute(dt: Sequence[float], time: int = 150, flag: bool = False,) -> Dict:
     """
     Compute energy drift and runtime for several integration methods.
 
@@ -460,8 +462,8 @@ def compute(dt: Sequence[float], time: int = 150, flag: bool = True,) -> Dict:
     params = Params()
 
     methods_to_test = [
-        ("RK45 (adaptive explicit)", IntegrationMethod.RK45, False),
         ("DOP853 (8th order)", IntegrationMethod.DOP853, False),
+        ("RK45 (adaptive explicit)", IntegrationMethod.RK45, False),
         ("Radau (implicit)", IntegrationMethod.RADAU, False),
         ("BDF (backward diff)", IntegrationMethod.BDF, False),
     ]
@@ -503,7 +505,7 @@ if __name__ == "__main__":
     dt_values = [1, 0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
     
     print("Running simulations...")
-    results = compute(dt=dt_values, time=50, flag=False)
+    results = compute(dt=dt_values, time=50, flag=True)# Change the flag to compute the non-linearized system
     
     # Plotting Numerical Methods Results
     print("Plotting Convergence")
@@ -544,7 +546,7 @@ if __name__ == "__main__":
         fig_conv.savefig(os.path.join(route, "convergence_linearized.png"), dpi = 300, bbox_inches = "tight")
         fig_drift_method.savefig(os.path.join(route, "drift_energy_method_linearized.png"), dpi = 300, bbox_inches = "tight")
         fig_drift_dt.savefig(os.path.join(route, "drift_energy_dt_linearized.png"), dpi = 300, bbox_inches = "tight")
-        fig_phase1.savefig(os.path.join(route, "phase_density1_linearized.png"), dpi = 300, bbox_inches = "tight")
+        fig_phase1.savefig(os.path.join(route, "phase_density_linearized.png"), dpi = 300, bbox_inches = "tight")
         fig_time.savefig(os.path.join(route, "runtime_linearized.png"), dpi = 300, bbox_inches = "tight")
         fig_stab.savefig(os.path.join(route, "stability_linearized.png"), dpi = 300, bbox_inches = "tight")
         #fig_init.savefig(os.path.join(route, "initial_condition.png"), dpi = 300, bbox_inches = "tight")
