@@ -101,7 +101,7 @@ class DoublePendulumFlipSimulator:
             fun=self.equations,
             t_span=(0.0, params.t_max_flip),
             y0=y0,
-            method="RK45",
+            method="DOP",
             max_step=params.dt_intermediate,
             rtol=params.rtol,
             atol=params.atol,
@@ -225,7 +225,7 @@ def create_fractal_plot(theta1, theta2, flip_times, save_file=None):
 
 if __name__ == "__main__":
     params = FractalParams(
-        resolution=400,
+        resolution=200,
         t_max_flip=300.0,
         rtol=1e-4,
         atol=1e-6

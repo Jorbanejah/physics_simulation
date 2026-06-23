@@ -120,9 +120,9 @@ It is usually used in robotics and multibody dynamics.
 ## Numerical methods
 
 In this chapter, we will not use the classical numerical methods introduced earlier in this series
-(RK4, Verlet, Crank--Nicolson, Euler, \dots).  
-Instead, we focus on the \emph{pythonic} numerical integrators provided by the
-\texttt{scipy.integrate.solve\_ivp} library.
+RK4, Verlet, Crank--Nicolson, Euler.  
+Instead, we focus on the *pythonic* numerical integrators provided by the
+*scipy.integrate.solve_ivp* library.
 
 The methods we will study are:
 
@@ -150,18 +150,22 @@ $$
 where each slope is defined by
 
 $$
-    k_i = f\left(t_n + c_i h,\;
-    y_n + h \sum_{j=1}^{i-1} a_{ij} k_j \right).
+  k_1 = f(t_n, y_n),
+  k_2 = f(t_n + c_2 h, y_n + (a_{21} k_1) h),
+  .
+  .
+  .
+  k_s = f(t_n + c_s h, y_n + (a_{s1} k_1 + a_{s2} k_2 + ... + a_{s, s-1} k_{s-1}) h)
 $$
 
-The coefficients $a_{ij}, b_i, c_i$ form the \emph{Butcher tableau}, which characterizes the method.
+The coefficients $a_{ij}, b_i, c_i$ form the Butcher tableau, which characterizes the method.
 
 Implicit RK methods are typically used for stiff problems.  
 Their structure is similar, but the slopes satisfy
 
 $$
-    k_i = f\left(t_n + c_i h,\;
-    y_n + h \sum_{j=1}^{s} a_{ij} k_j \right),
+  k_i = f\left(t_n + c_i h,\;
+  y_n + h \sum_{j=1}^{s} a_{ij} k_j \right),
 $$
 
 which requires solving a system of algebraic equations at every step.  
@@ -173,7 +177,7 @@ With the basic RK ideas introduced, we now examine how the Pythonic solvers perf
 The solver computes two approximations, and uses their difference to estimate the local truncation error. 
 
 $$
-y_{n+1}^{(5)}, \qquad \hat{y}_{n+1}^{(4)},
+    y_{n+1}^{(5)}, \qquad \hat{y}_{n+1}^{(4)},  
 $$
 
   The accepted value is the fifth-order solution, while the fourth-order estimate controls the       step size. This method is efficient for non-stiff problems and is the default choice in
@@ -201,9 +205,10 @@ stiff systems.
 To get some information: https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html#r179348322575-1
 
 ## Errors and analysis
-Now we have introduced the numerical methods, we can talk about: which one is better than other one, or which one require the least runtime... We discover that and much more through the graphics.
+Now we have introduced the numerical methods, we can talk about: which method is better than other, or which one require the least runtime... We discover that and much more through the graphics.
 
-*Note*: The graphics have been compute with this parameter: t_max = 150, ratol = 1e-10, atol = 1e-12, $m_1 = m_2 = 1.0$, $L_1 = 1.0$, $L_2 = 2.0$
+*Note*: The graphics have been compute with this parameter: $t_max = 150$, ratol = 1e-10, atol = 1e-12, $m_1 = m_2 = 1.0$, $L_1 = 1.0$, $L_2 = 2.0$. However, in some error graphics we have to short the axes due to clarity.
+For clarity in the right side we display the linearized equation, while in the left side displsy the normal equation.
 
 - **Runtime:**
 
