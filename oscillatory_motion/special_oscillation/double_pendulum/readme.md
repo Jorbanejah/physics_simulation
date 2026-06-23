@@ -132,10 +132,10 @@ The methods we will study are:
 - BDF (implicit, stiff).
 
 Before comparing how these methods perform, we recall that all of them are based on the general
-Runge--Kutta (RK) framework.  
-So, what is a Runge--Kutta method, and why does it work?
+Runge-Kutta (RK) framework.  
+So, what is a Runge-Kutta method, and why does it work?
 
-Runge--Kutta methods are a family of explicit and implicit iterative schemes for solving
+Runge-Kutta methods are a family of explicit and implicit iterative schemes for solving
 initial-value problems using a temporal discretization.  
 Within this family, the most widely known method is the classical fourth-order method (RK4),
 appreciated for its simplicity and robustness.
@@ -149,13 +149,15 @@ $$
 
 where each slope is defined by
 
-$$
-  k_1 = f(t_n, y_n),
-  k_2 = f(t_n + c_2 h, y_n + (a_{21} k_1) h),
-  .
-  .
-  .
+$$ 
+\begin{aligned}
+  k_1 = f(t_n, y_n),\\
+  k_2 = f(t_n + c_2 h, y_n + (a_{21} k_1) h),\\
+  .\\
+  .\\
+  .\\
   k_s = f(t_n + c_s h, y_n + (a_{s1} k_1 + a_{s2} k_2 + ... + a_{s, s-1} k_{s-1}) h)
+  \end{aligned}
 $$
 
 The coefficients $a_{ij}, b_i, c_i$ form the Butcher tableau, which characterizes the method.
@@ -205,38 +207,57 @@ stiff systems.
 To get some information: https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html#r179348322575-1
 
 ## Errors and analysis
-Now we have introduced the numerical methods, we can talk about: which method is better than other, or which one require the least runtime... We discover that and much more through the graphics.
+Now that we have introduced the numerical methods, we can discuss which method is better performs better, or which one requires the least runtime, and how stable each method is under different conditions.
 
-*Note*: The graphics have been compute with this parameter: $t_max = 150$, ratol = 1e-10, atol = 1e-12, $m_1 = m_2 = 1.0$, $L_1 = 1.0$, $L_2 = 2.0$. However, in some error graphics we have to short the axes due to clarity.
-For clarity in the right side we display the linearized equation, while in the left side displsy the normal equation.
+*Note*: all simulations were computed using the parameters: $t_{max} = 150$, $ratol = 1e-10$, $atol = 1e-12$, $m_1 = m_2 = 1.0$, $L_1 = 1.0$, $L_2 = 2.0$. However, in some error graphics we have to short the axes due to clarity.
+In some plots, the axes are shortened for clarity.
+For each comparison, the left figure corresponds to the linearized equation, and the right figure corresponds to the full nonlinear equation.
 
 - **Runtime:**
 
-![Runtime](figures/runtime.png)
+<p align="center">
+  <img src="figures/runtime.png" width="45%">
+  <img src="figures/runtime_linearized.png" width="45%">
+</p>
 
-- Drift energy
+- **Drift energy**
 
-    - Through different dt:
+    - Through different timestep:
 
-    ![drift_energy_dt](figures/drift_energy_dt.png)
+    <p align="center">
+      <img src="figures/drift_energy_dt.png" width="45%">
+      <img src="figures/drift_energy_dt_linearized.png" width="45%">
+    </p>
+
 
     - Through different method:
+      
+    <p align="center">
+      <img src="figures/drift_energy_method.png" width="45%">
+      <img src="figures/drift_energy_method_linearized.png" width="45%">
+    </p>
 
-    ![drift_energy_method](figures/drift_energy_method.png)
+    - Through different angle:
+  
+      ![drift_energy_colormap](figures/heatmap.png)
 
-![drift_energy_colormap](figures/heatmap.png)
+- **Convergence and stability**
 
-- Convergence and stability
+  <p align="center">
+      <img src="figures/convergence.png" width="45%">
+      <img src="figures/convergence_linearized.png" width="45%">
+    </p>
 
-![convergence](figures/convergence.png)
+  <p align="center">
+      <img src="figures/stability.png" width="45%">
+      <img src="figures/stability_linearized.png" width="45%">
+    </p>
 
-![stability](figures/stability.png)
-
-If you want to discover other concerns that we have not been discussed here, you can check the code and change a few lines.
+If you want to explore additional behaviour not shown here, feel free to inspect the code and change a few lines to discover your concerns.
 
 ## When physics becomes art
 
-In the previous section, you have seen which numerical methods perform better than others: which ones are slower, which ones struggle to convergence. For this reason, I chose the Radau (implicit) method. It is not only robust and stable, but it also offers a good runtime. 
+In the previous section, you have seen which numerical methods perform better than others: which ones are slower, which ones struggle to convergence. For this reason, I chose the DOP853 (Explicit) method. It is not only robust and stable, but it also offers a good runtime. 
 
 This section may look a bit a magic treak. When I say that physics becomes art, I am talking about **Fractals**.
 A fractal? In the double-pendulum equations? Yes. Fractals appears in many extraordinary contexts: natural patterns (like flowers), chaotic motion, and many others places that you would not expect. By playing with some variables, and tweaking the inial conditions, you can obtain something like this:
