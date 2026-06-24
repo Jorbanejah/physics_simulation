@@ -7,6 +7,15 @@ Description:
 Consider a compact mass (m) on the end of an inextansable rod of length L. This mass is free to move in any direction.
 We can define our coordinate system as the fixed point at the end of the rod. Then, through cartesian equation we can define the spherical 
 coordinates.
+
+The following code calculate the trajectory with four different numerical method: {RK4 , RK45, DOP, Verlet}. Such as the spherical pendulum equation or approximation the code output it will be:
+
+-> run() -> a sol solution with times and angular coodernate
+-> transform() -> a Tuple with cartesian coordenates
+-> energies() -> a Tuple with kinetic, potential and total energy.
+
+
+Code by: Jorge Orbaneja Huerta
 """
 
 from __future__ import annotations
@@ -37,7 +46,7 @@ def _as_pair(values: Sequence[float], name: str) -> tuple[float, float]:
     
     if len(values) != 2:
         raise ValueError(f"{name} must contain exactly two values")
-    return float(values[0], values[1])
+    return (float(values[0]), float(values[1]))
 
 
 def _time_grid(duration: float, dt: float) -> np.ndarray:
@@ -64,7 +73,7 @@ class Params:
     m: float = 1.0
     L:float = 2.0
 
-    q0: tuple[float, float]= (np.deg2rad(10.0), np.deg2rad)
+    q0: tuple[float, float]= (np.deg2rad(10.0), np.deg2rad(0.0))
     dq0: tuple[float, float] = (0.0, 0.0)
 
     t:float = 15
@@ -164,14 +173,26 @@ class Spherical_Pendulum:
     _SOLVE_IVP_METHODS = {"RK45", "DOP853"}
 
     def __init__(self, params: Params, small_angle: bool = False, method: str = "RK4",) -> None:
-        
+        '''
+        Parameters
+        -----------
+
+        Params: Dict
+            spherical initial conditions and characteristhic
+
+        Small_angle: bool  
+            default FALSE
+
+        Method: string
+            numerical solver. Default: RK4
+        '''
         self.params = params
         self.method =  method
         self.small_angle = small_angle
 
         self.sol = None
-        self.t = np.ndarray | None = None
-        self.y =  np.ndarray | None = None
+        self.t =  None
+        self.y =  None
 
     def _dynamics(self) -> Dynamics:
         return spherical_pendulum_approx if self.small_angle else spherical_pendulum_equation
