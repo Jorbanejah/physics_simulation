@@ -1,3 +1,10 @@
+
+"""
+En la animacion de las subplots, haz un vector unitario en la bola n(t) = r(t)/L
+
+"""
+
+
 import numpy as np
 import matplotlib.pyplot as plt
 from spherical_pendulum import Spherical_Pendulum
@@ -36,7 +43,7 @@ class Params:
         self.q0 = _as_pair(self.q0, "q0")
         self.dq0 = _as_pair(self.dq0, "dq0")
 
-def contour_animation(params, t, x, y, z):
+def contour_animation(params:Params,t:Sequence[float], x:Sequence[float], y: Sequence[float], z:Sequence[float], name:str = "Projections", Flag:bool = False,):
     """
     Animated spherical pendulum with projected trajectories on the walls.
     """
@@ -71,6 +78,16 @@ def contour_animation(params, t, x, y, z):
     ax.set_xlim([x_min -0.5, x_max + 0.5])
     ax.set_ylim([y_min -1, y_max + 0.5])
     ax.set_zlim([z_min -1, z_max + 1])
+    # ---- Horizontal and vertical lines ------
+
+    horizontal_x = np.linspace(x_min -0.5, x_max + 0.5, 100)
+    horizontal_y = np.linspace(y_min -1, y_max + 0.5, 100)
+    horizontal_z = np.linspace(z_min -1, 0, 100)
+
+    x_line = ax.plot([horizontal_x], [0], [z_min -1], "k--", lw =0.5) 
+    y_line = ax.plot([0], [horizontal_y], [z_min -1], "k--", lw =0.5) 
+    z_line = ax.plot([0], [0], [horizontal_z], "k--", lw =0.5) 
+
 
     ax.set_title("Spherical Pendulum with Wall Projections")
     ax.set_xlabel("x [m]")
@@ -88,7 +105,7 @@ def contour_animation(params, t, x, y, z):
         xz_line.set_3d_properties(z[:i])
 
         # YZ projection (x constant)
-        yz_line.set_data(np.full(i, x_min -1), y[:i])
+        yz_line.set_data(np.full(i, x_min -.5), y[:i])
         yz_line.set_3d_properties(z[:i])
 
         # Pendulum rod
@@ -103,19 +120,23 @@ def contour_animation(params, t, x, y, z):
 
     # ---- Animation ----
     frame_step = 5
-    anim = FuncAnimation(
-        fig,
-        update,
-        frames=np.arange(0, len(t), frame_step),
-        interval=50,
-        blit=False,
-        repeat=False
-    )
+    anim = FuncAnimation(fig, update, frames=np.arange(0, len(t), frame_step), interval=50, blit=False, repeat=False)
+    if Flag:
+        import os
+        directory = os.getcwd()
 
+        # Ensure folder exists
+        fig_dir = os.path.join(directory, "figures")
+        os.makedirs(fig_dir, exist_ok=True)
+
+        # --- Save animation ---
+        writer = PillowWriter(fps=30)
+        anim.save(os.path.join(fig_dir, f"{name}.gif"), writer=writer)
+    return anim
     return anim
 
 
-def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Sequence[float], position:Sequence[float], name: str)-> plt.Figure:
+def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Sequence[float], position:Sequence[float], name: str = "Subplots_animation", Flag:bool = False)-> plt.Figure:
 
     theta, dtheta, phi, dphi = sol
     def wrapped_theta(theta:Sequence[float])->np.ndarray:
@@ -125,8 +146,9 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
     colors = {
         "mass": cmap(0.2),
         "ps1": cmap(0.4),
-        "x_z": cmap(0.6),
-        "y_z": cmap(0.8)
+        "Kinetic": cmap(0.5),
+        "Potential": cmap(0.7),
+        "Total": cmap(0.9)
     }
 
     theta = wrapped_theta(theta)
@@ -157,32 +179,45 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
     m, = ax_anim.plot([], [], [], "o", color=colors["mass"], markersize=10)
 
     ax_anim.set_title("Spherical motion")
-    ax_anim.set_xlim(min(x)-1, max(x)+1)
-    ax_anim.set_ylim(min(y)-1, max(y)+1)
+    ax_anim.set_xlim(min(x)-0.5, max(x)+0.5)
+    ax_anim.set_ylim(min(y)-1, max(y)+0.5)
     ax_anim.set_zlim(min(z)-1, max(z)+1)
 
     ax_anim.set_xlabel("x [m]")
     ax_anim.set_ylabel("y [m]")
     ax_anim.set_zlabel("z [m]")
 
-    # --- PHASE SPACE PANEL ---
+    # Horizontal lines
+    horizontal_x = np.linspace(min(x) -0.5, max(x) + 0.5, 100)
+    horizontal_y = np.linspace(min(y) -1, max(y) + 0.5, 100)
+    horizontal_z = np.linspace(min(z) -1, 0, 100)
+
+    x_line = ax_anim.plot([horizontal_x], [0], [min(z) -1], "k--", lw =0.5) 
+    y_line = ax_anim.plot([0], [horizontal_y], [min(z) -1], "k--", lw =0.5) 
+    z_line = ax_anim.plot([0], [0], [horizontal_z], "k--", lw =0.5)
+
+    # --- Angular plane ---
     ps1, = ax_top.plot([], [], "--", color=colors["ps1"], lw=2)
     dot1, = ax_top.plot([], [], "o", color=colors["mass"])
 
-    ax_top.set_title(r"Phase space $\theta$ vs $\dot{\theta}$")
+    ax_top.set_title(r"Phase space $\theta$ vs $\phi$")
     ax_top.set_xlim([-np.pi, np.pi])
-    ax_top.set_ylim(min(dtheta.min(), theta.min()), max(dtheta.max(), theta.max()))
+    ax_top.set_ylim([-np.pi, np.pi])
     ax_top.set_xlabel(r"$\theta$ [rad]")
-    ax_top.set_ylabel(r"$\omega$ [rad/s]")
+    ax_top.set_ylabel(r"$\phi$ [rad]")
 
     # --- Angular plane ---
-    line1, = ax_bot.plot([], [], "--", color = colors["ps1"], lw =2)
-    point1, = ax_bot.plot([], [], "o", color = colors["mass"], lw =2)
-    ax_bot.set_title(r"Phase space $\phi$ vs $\dot{\theta}$")
-    ax_bot.set_xlabel(r"$\theta [rad]$")
-    ax_bot.set_ylabel(r"$\phi [rad]$")
-    ax_bot.set_xlim([-np.pi, np.pi])
-    ax_bot.set_ylim([-np.pi, np.pi])
+    x_values = np.arange(0, len(time))
+    line1, = ax_bot.plot([], [], "-", color = colors["Kinetic"], lw =2, label= "Kinetic")
+    line2, = ax_bot.plot([], [], "-", color = colors["Potential"], lw =2, label = "Potential")
+    line3, = ax_bot.plot([], [], "-", color = colors["Total"], lw =2, label = "Total")
+
+    ax_bot.set_title(r"Energies")
+    ax_bot.set_xlabel(r"Time $x$ Time step")
+    ax_bot.set_ylabel(r"Energy [E unit]")
+    ax_bot.set_xlim([0, len(time)])
+    ax_bot.set_ylim([min(U) -1, max(T) +1 ])
+    ax_bot.legend(loc = "center right")
 
 
     # --- UPDATE FUNCTION ---
@@ -194,19 +229,32 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
         m.set_data([x[i]], [y[i]])
         m.set_3d_properties([z[i]])
 
-        # Phase space
-        ps1.set_data([theta[:i]], [dtheta[:i]])
-        dot1.set_data([theta[i]], [dtheta[i]])
+        # Phase space (angular coordenates)
+        ps1.set_data([theta[:i]], [phi[:i]])
+        dot1.set_data([theta[i]], [phi[i]])
 
-        #Phase space (thetas)
-        line1.set_data([theta[:i]], [phi[:i]])
-        point1.set_data([theta[i]], [phi[i]])
+        #Energies
+        line1.set_data([x_values[:i]], [T[:i]])
+        line2.set_data([x_values[:i]], [U[:i]])
+        line3.set_data([x_values[:i]], [Et[:i]])
 
-        return rod1, m, ps1, dot1, line1, point1
+        return rod1, m, ps1, dot1, line1, line2, line3,
     
     plt.tight_layout()
     frame_step = 5
     anim = FuncAnimation(fig, update, frames = np.arange(0, len(time), frame_step), interval = 50, blit = False, repeat = False)
+    
+    if Flag:
+        import os
+        directory = os.getcwd()
+
+        # Ensure folder exists
+        fig_dir = os.path.join(directory, "figures")
+        os.makedirs(fig_dir, exist_ok=True)
+
+        # --- Save animation ---
+        writer = PillowWriter(fps=30)
+        anim.save(os.path.join(fig_dir, f"{name}.gif"), writer=writer)
     return anim
 
 
@@ -222,5 +270,5 @@ times = results["t"]
 x, y, z = sim.transform()
 energies = sim.energies()
 
-anim = contour_animation(params=Params, t = times, x= x, y= y, z =z)
-plt.show()
+#anim1 = contour_animation(params=Params, t = times, x= x, y= y, z =z, Flag=True)
+anim2 = subplots_animation(sol = solution, times = times, energy=energies, position=(x, y, z), Flag = True)
