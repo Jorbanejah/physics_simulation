@@ -176,6 +176,7 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
     # --- MOTION PANEL ---
 
     rod1, = ax_anim.plot([], [], [], "k-", lw=2)
+    unitary_vector = [ax_anim.quiver(0, 0, 0, 0, 0, 0, length=1)] # -----------> Initialization unitary vector
     m, = ax_anim.plot([], [], [], "o", color=colors["mass"], markersize=10)
 
     ax_anim.set_title("Spherical motion")
@@ -223,9 +224,36 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
     # --- UPDATE FUNCTION ---
     def update(i):
         # Motion
+
+            #Rod
         rod1.set_data([0, x[i]], [0, y[i]])
         rod1.set_3d_properties([0, z[i]])
 
+            #Update the vector
+        """
+        Friendly reminder:
+            The spherical unitary vector are three: Ur, U_theta, U_phi
+
+            U_r = ( sin(theta) cos(phi), cos(theta) cos(phi), cos(theta))
+
+            U_theta = (cos(theta) cos(phi), cos(theta) sin(theta), -sin(theta))
+
+            U_phi = (-sin(phi), cos(phi), 0)
+
+
+        """
+        unitary_vector[0].remove()
+
+        ux = np.sin(dtheta[i]) * np.cos(dphi[i])
+        uy = np.cos(dtheta[i]) * np.cos(dphi[i])
+        uz = np.cos(dtheta[i])
+
+        unitary_vector[0] = ax_anim.quiver(x[i], y[i], z[i], # origin
+                                        ux, uy, uz, # Components
+                                        length =0.5,
+                                        color = "red")
+        
+            #mass
         m.set_data([x[i]], [y[i]])
         m.set_3d_properties([z[i]])
 
@@ -238,7 +266,7 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
         line2.set_data([x_values[:i]], [U[:i]])
         line3.set_data([x_values[:i]], [Et[:i]])
 
-        return rod1, m, ps1, dot1, line1, line2, line3,
+        return rod1, unitary_vector,  m, ps1, dot1, line1, line2, line3,
     
     plt.tight_layout()
     frame_step = 5
