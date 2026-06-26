@@ -24,6 +24,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Callable
 
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import math
@@ -141,7 +142,14 @@ def spherical_pendulum_equation(t: float, y:State, p:Params) -> State:
 
     theta, phi, dtheta, dphi = np.asarray(y, dtype = float)
 
-    d2phi = -2 * dphi * dtheta / (math.tan(theta))
+    tan_theta = np.tan(theta)
+
+    # avoid singularity at theta = ±pi/2
+    if abs(tan_theta) < 1e-8:
+        tan_theta = np.sign(tan_theta) * 1e-8
+
+    d2phi = -2 * dtheta * dphi / tan_theta
+
     d2theta = (dphi**2 * np.sin(2 * theta))/ 2 - g/L * np.sin(theta)
 
 
@@ -172,7 +180,7 @@ class Spherical_Pendulum:
 
     _SOLVE_IVP_METHODS = {"RK45", "DOP853"}
 
-    def __init__(self, params: Params, small_angle: bool = False, method: str = "RK4",) -> None:
+    def __init__(self, small_angle: bool = False, method: str = "RK4",) -> None:
         '''
         Parameters
         -----------
@@ -186,7 +194,7 @@ class Spherical_Pendulum:
         Method: string
             numerical solver. Default: RK4
         '''
-        self.params = params
+        
         self.method =  method
         self.small_angle = small_angle
 
@@ -200,8 +208,11 @@ class Spherical_Pendulum:
     def _initial_state(self) -> State:
         return np.array([self.params.q0[0], self.params.q0[1], self.params.dq0[0], self.params.dq0[1],], dtype = float,)
     
-    def run(self):
+    def run(self, params:Params):
         """Run the simulation using the configured integration method"""
+
+        self.params = params
+
         self.sol = None
         self.y = None
         self.t = None
@@ -217,11 +228,14 @@ class Spherical_Pendulum:
             y_history[:, 0] = y0
             current_y = y0
 
+            start = time.perf_counter()
             for index, (t_start, t_end) in enumerate(zip(t_eval[:-1], t_eval[1:]), start=1):
 
                 current_y = rk4(dynamics, t_start, t_end - t_start, current_y, self.params,)
                 y_history[:, index] = current_y
-            
+
+            runtime =  time.perf_counter() - start
+
             self.sol = {"t": t_eval, "y": y_history, "method": method}
             self.t = t_eval
             self.y = y_history
@@ -236,17 +250,25 @@ class Spherical_Pendulum:
             y_history[:, 0] = y0
             current_y = y0
 
+            start =  time.perf_counter()
+
             for index, (t_start, t_end) in enumerate(zip(t_eval[:-1], t_eval[1:]), start=1):
 
                 current_y = velocity_verlet(dynamics, t_start, t_end - t_start, current_y, self.params,)
                 y_history[:, index] = current_y
-            
+                
+            runtime =  time.perf_counter() - start
+
             self.sol = {"t": t_eval, "y": y_history, "method": method}
             self.t = t_eval
             self.y = y_history
 
         elif method in self._SOLVE_IVP_METHODS:
+
+            start =  time.perf_counter()
             sol = solve_ivp(dynamics, (0.0, self.params.t), y0, args=(self.params,), t_eval=t_eval, method=method, rtol=1e-9, atol=1e-11,)
+
+            runtime =  time.perf_counter() - start
 
             if not sol.success:
                 raise RuntimeError(f"Integration failed: {sol.message}")
@@ -259,7 +281,7 @@ class Spherical_Pendulum:
             valid = ", ".join(sorted([*self._SOLVE_IVP_METHODS, "RK4", "Verlet"]))
             raise ValueError(f"Unknown integration method {self.method!r}. Use one of: {valid}.")
 
-        return self.sol
+        return self.sol,  runtime
 
     def transform(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Convert angular coordenates to Cartesian coordinates"""

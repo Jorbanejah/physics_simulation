@@ -1,7 +1,7 @@
 """
 Spherical pendulum - main graphics:
 
-Main graphics will be run by both: linearized and normal simulation.
+Main graphics can be run by both: linearized and normal simulation.
 
 - Time vs omega, Time vs phi - Done
 - Phase space (4x4) mix (theta, phi, dtheta, dphi) - Done
@@ -66,9 +66,9 @@ def compute(params:Params, method:str = "Rk4", small_angle: bool = False)-> Tupl
     "Compute the spherical pendulum simulation"
 
     params = Params()
-    sim = Spherical_Pendulum(params= Params, small_angle=small_angle, method= method)
+    sim = Spherical_Pendulum(small_angle=small_angle, method= method)
 
-    solution = sim.run()
+    solution, _ = sim.run(params= Params)
     energies = sim.energies()
     cartesian = sim.transform()
 
@@ -121,7 +121,7 @@ def phase_space(variable_list: list[str], **kwargs)->plt.Figure:
     Returns
     -------
     matplotlib.figure.Figure
-        A figure containing all pairwise phase‑space subplots.
+        A figure containing all pairwise phase-space subplots.
 
     Examples
     --------
@@ -143,7 +143,10 @@ def phase_space(variable_list: list[str], **kwargs)->plt.Figure:
     
     N = len(variable_list) # THe total subplots will be N x (N-1)
 
-    fig, axes = plt.subplots(nrows= N, ncols= N-1, figsize = (12, 8), tight_layout =True)
+    import math
+    fig, axes = plt.subplots(nrows= int(math.trunc((N * N - N)/4) -1), ncols= int(math.trunc((N * N - N)/4) + 1), figsize = (12, 8), tight_layout =True)
+
+
     ax = axes.ravel() #Faltten - 1D plots
 
     # Create a symbol map to transform each letter into a symbol-Greek letter:
@@ -155,11 +158,12 @@ def phase_space(variable_list: list[str], **kwargs)->plt.Figure:
         "dphi": r"$\dot{\phi}$"
     }
 
-
     k = 0
-
+    stored =[] #This varaible is defined to stored the var parameter 
     for var in variable_list:
 
+        #Store the parameter
+        stored.append(var)
         try: 
             variable_1 = params[var]
 
@@ -167,8 +171,8 @@ def phase_space(variable_list: list[str], **kwargs)->plt.Figure:
             raise ValueError(f"Missing parameter for variable {var}")
         
         for vari in variable_list:
-
-            if var == vari:
+            
+            if vari in stored:
                 continue
             
             try:
@@ -185,6 +189,7 @@ def phase_space(variable_list: list[str], **kwargs)->plt.Figure:
 
             except:
                 raise ValueError(f"Variable {var} or {vari} has no Greek symbol mapping")
+            
             k +=1
 
     return fig
