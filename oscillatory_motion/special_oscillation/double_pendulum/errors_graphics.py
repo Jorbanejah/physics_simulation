@@ -156,8 +156,7 @@ def heatmaps(grid: Dict) -> plt.Figure:
         for j, t2 in enumerate(theta2_vals):
             Drift_matrix[i, j] = grid[t1][t2]['drift']
 
-    fig = plt.figure(figsize=(12, 6)
-                     )
+    fig = plt.figure(figsize=(12, 6))
     ax = fig.add_subplot(121, projection = "3d") 
     # ------- 3D plot --------
     surf = ax.plot_surface(Theta1, Theta2, Drift_matrix, cmap = "viridis", edgecolor = "none")

@@ -26,8 +26,8 @@ class Params:
     m: float = 1.0
     L:float = 2.0
 
-    q0: tuple[float, float]= (np.deg2rad(45.0), np.deg2rad(10.0))
-    dq0: tuple[float, float] = (0.0, 1.0)
+    q0: tuple[float, float]= (np.deg2rad(45), np.deg2rad(45.0))
+    dq0: tuple[float, float] = (1.0, 2.0)
 
     t:float = 15
     dt: float = 0.01
@@ -244,9 +244,9 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
         """
         unitary_vector[0].remove()
 
-        ux = np.sin(dtheta[i]) * np.cos(dphi[i])
-        uy = np.cos(dtheta[i]) * np.cos(dphi[i])
-        uz = np.cos(dtheta[i])
+        ux = np.sin(theta[i]) * np.cos(phi[i])
+        uy = np.cos(theta[i]) * np.cos(phi[i])
+        uz = np.cos(theta[i])
 
         unitary_vector[0] = ax_anim.quiver(x[i], y[i], z[i], # origin
                                         ux, uy, uz, # Components
@@ -288,9 +288,9 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
 
 params = Params()
 
-sim = Spherical_Pendulum(Params, small_angle= False, method="Rk4")
+sim = Spherical_Pendulum(small_angle= False, method="Rk4")
 
-results = sim.run()
+results, _ = sim.run(params=Params)
 
 solution = results["y"]
 times = results["t"]
@@ -299,4 +299,5 @@ x, y, z = sim.transform()
 energies = sim.energies()
 
 #anim1 = contour_animation(params=Params, t = times, x= x, y= y, z =z, Flag=True)
-anim2 = subplots_animation(sol = solution, times = times, energy=energies, position=(x, y, z), Flag = True)
+anim2 = subplots_animation(sol = solution, times = times, energy=energies, position=(x, y, z), Flag = False)
+plt.show()

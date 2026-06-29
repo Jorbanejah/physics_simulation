@@ -3,11 +3,11 @@ Spherical pendulum - main graphics:
 
 Numerical graphics can be run by both: linearized and normal simulation.
 
-- Comparison method.
-- Energy drift colormap.
-- Runtime. ---> Done
-- Convergence/stability. --> Done
-- Density kde ---> done
+- Comparison method 
+- Energy drift colormap 
+- Runtime. 
+- Convergence/stability.
+- Density kde
 
 Special grahics:
 - Invariant-torus reconstruction. Use delay embedding or Fourier decomposition to visualize the torus in 3D.
@@ -23,10 +23,9 @@ import pandas as pd
 
 from spherical_pendulum import Spherical_Pendulum
 from dataclasses import dataclass
-from typing import Tuple, Sequence, Any, Dict
-from enum import Enum, auto
+from typing import Tuple, Sequence, Dict
 
-def _as_pair(values: Sequence[float], name: str) -> tuple[float, float]:
+def _as_pair(values: Sequence[float], name: str) -> Tuple[float, float]:
     if len(values) != 2:
         raise ValueError(f"{name} must contain exactly two values")
     return (float(values[0]), float(values[1]))
@@ -109,26 +108,24 @@ def compute(dt: Sequence[float], time: int = 150, flag: bool = False,) -> Dict:
     
     return results_dict
 
-def upload_data(name:str = "loaded_data.npz", directory: str = os.getcwd()) -> Tuple[Any, Any, Any]:
-
+def upload_data(name:str = "stored_data.npz", directory: str = os.getcwd()) -> Dict:
+    "Upload the grid variable"
     path = os.path.join(directory, name)
 
     if os.path.exists(path):
         
         data = np.load(path, allow_pickle= True)
 
-        theta = data["theta_scan"].item()
-        phi = data["phi_scan"].item()
-        grid =data["grid"].item()
+        grid = data["grid"].item()
 
-        return theta, phi, grid
+        return grid
 
     else:
-        raise FileNotFoundError("Compute first the load_data.py file")
+        raise FileNotFoundError("Compute first the store_data.py file")
     
 
 ##
-# ------------------ Main Errors Graphics ---------
+# ------------------------ NUMERICAL STUDY METHODS: time_compute, stability, convergence, kde_phase_space ---------
 ##
 
 def time_compute(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
@@ -168,8 +165,6 @@ def time_compute(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
     plt.xscale('log')
     
     return fig
-
-
 
 def convergence(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
     """
@@ -268,7 +263,7 @@ def kde_phase_space_subplots(results_dict: Dict) -> plt.Figure:
     result, _, analysis = results_dict["DOP853"][time_step]
 
     # ---- Extract solution arrays ----
-    # Case 1: Your custom result object with attributes
+    # Case 1: result object with attributes
     if hasattr(result, "theta"):
         sol = {
             "theta": result.theta1,
@@ -315,13 +310,132 @@ def kde_phase_space_subplots(results_dict: Dict) -> plt.Figure:
 
     return fig
 
+## 
+# ------------------------------ DRIFT ENERRGY GRAPHICS --------------------------
+##
+def drift_energy(energy:Sequence[float]) -> float:
+
+        return np.abs(energy[-1] - energy[0])
+
+def heatmaps(grid: Dict) -> plt.Figure:
+
+    """
+    Generate a heatmap of energy drift for the full (theta, phi) initial condition.
+
+    Paramters:
+    ------------
+    grid: Sequence
+        Nested dictionary grid[theta][phi] = result_dict
+    """
+
+    theta_vals = sorted(grid.keys())
+    phi_vals = sorted(grid[theta_vals[0]].keys())
+
+    theta, phi = np.meshgrid(phi_vals, theta_vals) # This produces an arrays of shape len(theta_vals) x len(phi_values)
+    drift_matrix = np.zeros((len(theta_vals), len(phi_vals)))
+
+   
+    for i, th in enumerate(theta_vals):
+        for j, ph in enumerate(phi_vals):
+
+            _, _, energy = grid[th][ph]
+
+            energy_drift = drift_energy(energy=energy)
+
+            drift_matrix[i,j] = energy_drift
+
+    fig = plt.figure(figsize = (12,6))
+
+    ax = fig.add_subplot(121, projection="3d")
+
+    # --- 3d plot ------
+
+    surf = ax.plot_surface(theta, phi, drift_matrix, cmap = "viridis", edgecolor = "none")
+    ax.set_xlabel(r"$\theta$")
+    ax.set_ylabel(r"$\phi$")
+    ax.set_zlabel(r"$\Delta E$")
+
+    # --- 2d plot ----
+
+    axes = fig.add_subplot(122)
+    im = axes.imshow(drift_matrix, extent=[theta_vals[0], theta_vals[-1], phi_vals[0], phi_vals[-1]], origin = "lower", aspect="auto", cmap = "viridis")
+    axes.set_xlabel(r"$\phi$")
+    axes.set_ylabel(r"$\theta$")
+    axes.set_title("Energy drift map")
+    fig.colorbar(im, ax = axes)
+
+    plt.tight_layout()
+
+    return fig
+
+def vertical_plane(grid: Dict) -> plt.Figure:
+    # --- Extract grid values ---
+    theta_vals = sorted(grid.keys())
+    phi_vals = sorted(grid[theta_vals[0]].keys())
+
+    # Meshgrid aligned with drift_matrix
+    phi, theta = np.meshgrid(phi_vals, theta_vals)
+    drift_matrix = np.zeros((len(theta_vals), len(phi_vals)))
+
+    # Compute drift matrix
+    for i, th in enumerate(theta_vals):
+        for j, ph in enumerate(phi_vals):
+            _, _, energy = grid[th][ph]
+            drift_matrix[i, j] = drift_energy(energy)
+
+    # --- Pick two random vertical planes ---
+    import random
+    theta_plane = random.choice(theta_vals)   # vertical plane parallel to phi-axis
+    phi_plane   = random.choice(phi_vals)     # vertical plane parallel to theta-axis
+
+    # Extract cross-sections
+    # theta = constant -> row in drift_matrix
+    drift_theta_cut = drift_matrix[theta_vals.index(theta_plane), :]
+
+    # phi = constant -> column in drift_matrix
+    drift_phi_cut = drift_matrix[:, phi_vals.index(phi_plane)]
+
+    # --- Figure layout ---
+    from matplotlib.gridspec import GridSpec
+    fig = plt.figure(figsize=(14, 7))
+    gs = GridSpec(2, 2, width_ratios=[2, 1], height_ratios=[1, 1], figure=fig)
+
+    # --- Main 3D plot ---
+    ax1 = fig.add_subplot(gs[:, 0], projection="3d")
+    surf = ax1.plot_surface(theta, phi, drift_matrix, cmap="viridis", edgecolor="none", alpha=0.9)
+
+    ax1.set_xlabel(r"$\theta$")
+    ax1.set_ylabel(r"$\phi$")
+    ax1.set_zlabel(r"$\Delta E$")
+    ax1.set_title("Energy Drift Surface with Two Vertical Planes")
+
+    # --- Subplot: θ = θ_plane cut ---
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax2.plot(phi_vals, drift_theta_cut, color="red")
+    ax2.set_xlabel(r"$\phi$")
+    ax2.set_ylabel(r"$\Delta E$")
+    ax2.set_title(fr"Cut at $\theta = {theta_plane:.3f}$")
+
+    # --- Subplot: φ = φ_plane cut ---
+    ax3 = fig.add_subplot(gs[1, 1])
+    ax3.plot(theta_vals, drift_phi_cut, color="blue")
+    ax3.set_xlabel(r"$\theta$")
+    ax3.set_ylabel(r"$\Delta E$")
+    ax3.set_title(fr"Cut at $\phi = {phi_plane:.3f}$")
+
+    plt.tight_layout()
+    return fig
 
 
+grid = upload_data()
 
-results = compute(dt = [1, 0.1, 0.01])
+#fig = heatmaps(grid = grid)
+fig = vertical_plane(grid=grid)
 
-fig = time_compute(dt = [1, 0.1, 0.01], results_dict=results)
-fig1 = convergence(dt = [1, 0.1, 0.01], results_dict=results)
-fig2 = stability(dt = [1, 0.1, 0.01], results_dict= results)
+#results = compute(dt = [1, 0.1, 0.01])
+
+#fig = time_compute(dt = [1, 0.1, 0.01], results_dict=results)
+#fig1 = convergence(dt = [1, 0.1, 0.01], results_dict=results)
+#fig2 = stability(dt = [1, 0.1, 0.01], results_dict= results)
 #fig3 = kde_phase_space_subplots(results_dict=results)
 plt.show()
