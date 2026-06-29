@@ -9,10 +9,6 @@ Numerical graphics can be run by both: linearized and normal simulation.
 - Convergence/stability.
 - Density kde
 
-Special grahics:
-- Invariant-torus reconstruction. Use delay embedding or Fourier decomposition to visualize the torus in 3D.
-- Frequency-map analysis (Laskar). Plot frequency drift to detect weak chaos. (MIRA EN FAVORITOS DE GOOGLE)
-- Action-angle coordinate plots. If you compute approximate actions, J_theta,J_phi, plot trajectories in action space.
 """
 
 import matplotlib.pyplot as plt
@@ -56,10 +52,10 @@ class Params:
         self.dq0 = _as_pair(self.dq0, "dq0")
            
 ##
-# ------------------------- Compute -------------------------------
+# ------------------------- RUN INSTANCE -------------------------------
 ##
 
-def compute(dt: Sequence[float], time: int = 150, flag: bool = False,) -> Dict:
+def run(dt: Sequence[float], time: int = 150, flag: bool = False,) -> Dict:
     """
     Compute energy drift and runtime for several integration methods.
 
@@ -194,6 +190,7 @@ def convergence(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
     plt.yscale("log")
     plt.xlabel(r"Time Step $dt$")
     plt.ylabel("Energy Drift (Error)")
+    plt.ylim(0, 1e-4)
     plt.title("Convergence Study: |Error| vs Time Step")
     plt.grid(True, alpha=0.3, which="both")
 
@@ -427,15 +424,78 @@ def vertical_plane(grid: Dict) -> plt.Figure:
     return fig
 
 
-grid = upload_data()
 
-#fig = heatmaps(grid = grid)
-fig = vertical_plane(grid=grid)
+##
+# -----------------------------COMPUTE --------------------------------
+##
 
-#results = compute(dt = [1, 0.1, 0.01])
+def compute(data: bool = False, flag:bool = False, stored: bool = False):
+    """
+    The function is desgined to run the whole error_graphics.py file. The current parameters are:
 
-#fig = time_compute(dt = [1, 0.1, 0.01], results_dict=results)
-#fig1 = convergence(dt = [1, 0.1, 0.01], results_dict=results)
-#fig2 = stability(dt = [1, 0.1, 0.01], results_dict= results)
-#fig3 = kde_phase_space_subplots(results_dict=results)
-plt.show()
+    Parameters
+    -------------
+    data: bool
+        the paremeter controls whether the store_data.npz file will be use or not. Default = False
+    flag: bool
+        the parameter controls whether the simulation will be linearized or nor. Default = False
+    stored: bool
+        the paremeter controls whether the current grpahics are stored or not. Default = False
+    
+    Friendly reminder
+    -----------------
+    You can change all parameters you want in manually way. Time, length, mass...
+    """
+
+    dt = [1, 0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
+    
+    results = run(dt=dt, time= 150, flag = flag)
+
+    print("Starting with figures:")
+    runtime = time_compute(dt = dt, results_dict=results)
+    conver = convergence(dt = dt, results_dict=results)
+    stab = stability(dt = dt, results_dict= results)
+    kde = kde_phase_space_subplots(results_dict=results)
+
+    if data:
+        print("Starting data files and stored the figures")
+
+        directory = os.getcwd()
+        route = os.path.join(directory, "figures")
+        os.makedirs(route, exist_ok=True)
+
+        if flag:
+            
+            grid = upload_data(name = "linearized_stored_data.npz")
+            
+            heat = heatmaps(grid = grid)
+            vertical = vertical_plane(grid=grid)
+
+            conver.savefig(fname= os.path.join(route, "convergence_linearized.png"), dpi = 300, bbox_inches = "tight")
+            stab.savefig(fname= os.path.join(route, "stability_linearized.png"), dpi = 300, bbox_inches = "tight")
+            kde.savefig(fname= os.path.join(route, "kde_phase_space_linearized.png"), dpi = 300, bbox_inches = "tight")
+            heat.savefig(fname= os.path.join(route, "heat_linearized.png"), dpi = 300, bbox_inches = "tight")
+            vertical.savefig(fname= os.path.join(route, "vertical_linearized.png"), dpi = 300, bbox_inches = "tight")
+            runtime.savefig(fname= os.path.join(route, "time_compute_linearized.png"), dpi = 300, bbox_inches = "tight")
+
+        else:
+
+            grid = upload_data(name = "stored_data.npz")
+
+            heat = heatmaps(grid = grid)
+            vertical = vertical_plane(grid = grid)
+            
+            conver.savefig(fname= os.path.join(route, "convergence.png"), dpi = 300, bbox_inches = "tight")
+            stab.savefig(fname= os.path.join(route, "stability.png"), dpi = 300, bbox_inches = "tight")
+            kde.savefig(fname= os.path.join(route, "kde_phase_space.png"), dpi = 300, bbox_inches = "tight")
+            heat.savefig(fname= os.path.join(route, "heat.png"), dpi = 300, bbox_inches = "tight")
+            vertical.savefig(fname= os.path.join(route, "vertical.png"), dpi = 300, bbox_inches = "tight")
+            runtime.savefig(fname= os.path.join(route, "time_compute.png"), dpi = 300, bbox_inches = "tight")
+
+    else:   
+        plt.plot()
+
+
+if __name__ == "__main__":
+
+    compute(data = True, stored = True)

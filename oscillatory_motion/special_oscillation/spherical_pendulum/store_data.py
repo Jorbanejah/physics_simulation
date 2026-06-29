@@ -122,4 +122,4 @@ theta_values = np.arange(-90, 91, 1)
 theta_values = np.where(theta_values == 0, eps, theta_values) # Avoid the theta == 0 and therefore singularity
 
 
-data_structure(params=Params, theta_values=theta_values, phi_values=phi_values,small_angle=False, method = "DOP853")
+data_structure(params=Params, theta_values=theta_values, phi_values=phi_values,small_angle=True, method = "DOP853", filename= "linearized_stored_data.npz")

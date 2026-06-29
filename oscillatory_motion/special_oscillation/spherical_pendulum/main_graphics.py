@@ -7,18 +7,7 @@ Main graphics can be run by both: linearized and normal simulation.
 - Phase space (4x4) mix (theta, phi, dtheta, dphi) - Done
 - Varying initial condition:
     - Phase portrait: nutation, precession
-    - Resonance ratio vs dtheta/dphi
 
-Numerical graphics:
-- Comparison method.
-- Energy drift colormap.
-- Runtime.
-- Convergence/stability.
-
-Special grahics:
-- Invariant-torus reconstruction. Use delay embedding or Fourier decomposition to visualize the torus in 3D.
-- Frequency-map analysis (Laskar). Plot frequency drift to detect weak chaos. (MIRA EN FAVORITOS DE GOOGLE)
-- Action-angle coordinate plots. If you compute approximate actions, J_theta,J_phi, plot trajectories in action space.
 """
 
 import matplotlib.pyplot as plt
@@ -74,7 +63,7 @@ def compute(params:Params, method:str = "Rk4", small_angle: bool = False)-> Tupl
 
     return solution, energies, cartesian
 
-def upload_data(name:str = "loaded_data.npz", directory: str = os.getcwd()) -> Tuple[Any, Any, Any]:
+def upload_data(name:str = "loaded_data.npz", directory: str = os.getcwd()) -> Dict:
 
     path = os.path.join(directory, name)
 
@@ -82,11 +71,9 @@ def upload_data(name:str = "loaded_data.npz", directory: str = os.getcwd()) -> T
         
         data = np.load(path, allow_pickle= True)
 
-        theta = data["theta_scan"].item()
-        phi = data["phi_scan"].item()
         grid =data["grid"].item()
 
-        return theta, phi, grid
+        return grid
 
     else:
         raise FileNotFoundError("Compute first the load_data.py file")
@@ -195,7 +182,7 @@ def phase_space(variable_list: list[str], **kwargs)->plt.Figure:
     return fig
             
             
-def nutation_precession(times:Sequence[float], dtheta:Sequence[float], dphi:Sequence[float]) -> plt.Figure:
+def angular_velocity_time(times:Sequence[float], dtheta:Sequence[float], dphi:Sequence[float]) -> plt.Figure:
 
     fig, (ax1, ax2) = plt.subplots(nrows=1, ncols =2, tight_layout = True, figsize = (10,6))
 
@@ -215,7 +202,20 @@ def nutation_precession(times:Sequence[float], dtheta:Sequence[float], dphi:Sequ
 
     return fig
 
+def nutation_precession():
 
+    """intentar ver como la nutacion y la precesion depende de la condiciones iniciales
+    Nutacion- > phi
+    precesion -> theta
+    
+    pintaremos varios espacio de fase con dtheta theta y dphi phi para ver como depende cada uno de la diferentes condiciones iniciales
+    podemos hacer una grafica enfrentando dtheta vs theta y despues como theta(t) y otra con phi y dphi
+    """
+
+def resonance():
+    """
+    Depende de lo quieras, la resonancia de los pendulos aparecen con las amortiguaciones. Para mi eso seria un estudio mas exhaustivo
+    """
 solution, energies, cartesian = compute(params=Params)
 
 theta, dtheta, phi, dphi = solution["y"]
