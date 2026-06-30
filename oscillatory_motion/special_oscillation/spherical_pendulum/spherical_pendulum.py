@@ -240,7 +240,7 @@ class Spherical_Pendulum:
             self.t = t_eval
             self.y = y_history
 
-        elif method =="Verlet":
+        elif method == "Verlet":
 
             if not self.small_angle:
                 raise ValueError("This method only will work properly with small angle." \

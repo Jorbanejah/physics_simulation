@@ -75,7 +75,7 @@ def run(dt: Sequence[float], time: int = 150, flag: bool = False,) -> Dict:
     """
     params = Params()
 
-    methods_to_test = ["Rk4", "RK45", "Verlet", "DOP853"]
+    methods_to_test = ["Rk4", "RK45", "DOP853"]
 
     #Large time
     params.t = time
@@ -104,7 +104,7 @@ def run(dt: Sequence[float], time: int = 150, flag: bool = False,) -> Dict:
     
     return results_dict
 
-def upload_data(name:str = "stored_data.npz", directory: str = os.getcwd()) -> Dict:
+def upload_data(name:str, directory: str = os.getcwd()) -> Dict:
     "Upload the grid variable"
     path = os.path.join(directory, name)
 
@@ -117,7 +117,7 @@ def upload_data(name:str = "stored_data.npz", directory: str = os.getcwd()) -> D
         return grid
 
     else:
-        raise FileNotFoundError("Compute first the store_data.py file")
+        raise FileNotFoundError(f"The file {name} cannot upload. Compute first the store_data.py file")
     
 
 ##
@@ -190,7 +190,6 @@ def convergence(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
     plt.yscale("log")
     plt.xlabel(r"Time Step $dt$")
     plt.ylabel("Energy Drift (Error)")
-    plt.ylim(0, 1e-4)
     plt.title("Convergence Study: |Error| vs Time Step")
     plt.grid(True, alpha=0.3, which="both")
 
@@ -248,7 +247,7 @@ def stability(dt: Sequence[float], results_dict: Dict) -> plt.Figure:
     
     return fig
 
-def kde_phase_space_subplots(results_dict: Dict) -> plt.Figure:
+def kde_phase_space_subplots(results_dict: Dict, method: str = "DOP853") -> plt.Figure:
 
     """
     Phase-space density KDE plots for a single integration method.
@@ -256,8 +255,8 @@ def kde_phase_space_subplots(results_dict: Dict) -> plt.Figure:
     """
 
     # ---- Choose smallest dt ----
-    time_step = min(results_dict["DOP853"].keys())
-    result, _, analysis = results_dict["DOP853"][time_step]
+    time_step = min(results_dict[method].keys())
+    result, _, analysis = results_dict[method][time_step]
 
     # ---- Extract solution arrays ----
     # Case 1: result object with attributes
@@ -307,6 +306,7 @@ def kde_phase_space_subplots(results_dict: Dict) -> plt.Figure:
 
     return fig
 
+## KDE: es una metodo de visualizacion para ver la distribucion de distintas observaciones, en nuestro caso, estamos viendo por que puntos suele pasar mas nuestro pendulo, es analogo a un histograma. KDE representan los datao usando una curva densidad de probabilidad continua.
 ## 
 # ------------------------------ DRIFT ENERRGY GRAPHICS --------------------------
 ##
@@ -423,10 +423,8 @@ def vertical_plane(grid: Dict) -> plt.Figure:
     plt.tight_layout()
     return fig
 
-
-
 ##
-# -----------------------------COMPUTE --------------------------------
+# -----------------------------COMPUTE GRAPHICS --------------------------------
 ##
 
 def compute(data: bool = False, flag:bool = False, stored: bool = False):
@@ -466,17 +464,20 @@ def compute(data: bool = False, flag:bool = False, stored: bool = False):
 
         if flag:
             
-            grid = upload_data(name = "linearized_stored_data.npz")
+            grid = upload_data(name = "store_data_linearized.npz")
             
             heat = heatmaps(grid = grid)
             vertical = vertical_plane(grid=grid)
 
-            conver.savefig(fname= os.path.join(route, "convergence_linearized.png"), dpi = 300, bbox_inches = "tight")
-            stab.savefig(fname= os.path.join(route, "stability_linearized.png"), dpi = 300, bbox_inches = "tight")
-            kde.savefig(fname= os.path.join(route, "kde_phase_space_linearized.png"), dpi = 300, bbox_inches = "tight")
-            heat.savefig(fname= os.path.join(route, "heat_linearized.png"), dpi = 300, bbox_inches = "tight")
-            vertical.savefig(fname= os.path.join(route, "vertical_linearized.png"), dpi = 300, bbox_inches = "tight")
-            runtime.savefig(fname= os.path.join(route, "time_compute_linearized.png"), dpi = 300, bbox_inches = "tight")
+            if stored:
+                conver.savefig(fname= os.path.join(route, "convergence_linearized.png"), dpi = 300, bbox_inches = "tight")
+                stab.savefig(fname= os.path.join(route, "stability_linearized.png"), dpi = 300, bbox_inches = "tight")
+                kde.savefig(fname= os.path.join(route, "kde_phase_space_linearized.png"), dpi = 300, bbox_inches = "tight")
+                heat.savefig(fname= os.path.join(route, "heat_linearized.png"), dpi = 300, bbox_inches = "tight")
+                vertical.savefig(fname= os.path.join(route, "vertical_linearized.png"), dpi = 300, bbox_inches = "tight")
+                runtime.savefig(fname= os.path.join(route, "time_compute_linearized.png"), dpi = 300, bbox_inches = "tight")
+            else:
+                plt.show()
 
         else:
 
@@ -485,17 +486,20 @@ def compute(data: bool = False, flag:bool = False, stored: bool = False):
             heat = heatmaps(grid = grid)
             vertical = vertical_plane(grid = grid)
             
-            conver.savefig(fname= os.path.join(route, "convergence.png"), dpi = 300, bbox_inches = "tight")
-            stab.savefig(fname= os.path.join(route, "stability.png"), dpi = 300, bbox_inches = "tight")
-            kde.savefig(fname= os.path.join(route, "kde_phase_space.png"), dpi = 300, bbox_inches = "tight")
-            heat.savefig(fname= os.path.join(route, "heat.png"), dpi = 300, bbox_inches = "tight")
-            vertical.savefig(fname= os.path.join(route, "vertical.png"), dpi = 300, bbox_inches = "tight")
-            runtime.savefig(fname= os.path.join(route, "time_compute.png"), dpi = 300, bbox_inches = "tight")
+            if stored:
 
+                conver.savefig(fname= os.path.join(route, "convergence.png"), dpi = 300, bbox_inches = "tight")
+                stab.savefig(fname= os.path.join(route, "stability.png"), dpi = 300, bbox_inches = "tight")
+                kde.savefig(fname= os.path.join(route, "kde_phase_space.png"), dpi = 300, bbox_inches = "tight")
+                heat.savefig(fname= os.path.join(route, "heat.png"), dpi = 300, bbox_inches = "tight")
+                vertical.savefig(fname= os.path.join(route, "vertical.png"), dpi = 300, bbox_inches = "tight")
+                runtime.savefig(fname= os.path.join(route, "time_compute.png"), dpi = 300, bbox_inches = "tight")
+            else:
+                plt.show()
     else:   
         plt.plot()
 
 
 if __name__ == "__main__":
 
-    compute(data = True, stored = True)
+    compute(data = True, flag = True, stored = True)

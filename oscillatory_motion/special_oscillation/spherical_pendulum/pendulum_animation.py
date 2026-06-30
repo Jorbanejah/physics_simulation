@@ -234,7 +234,7 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
         Friendly reminder:
             The spherical unitary vector are three: Ur, U_theta, U_phi
 
-            U_r = ( sin(theta) cos(phi), cos(theta) cos(phi), cos(theta))
+            U_r = (sin(theta) cos(phi), cos(theta) cos(phi), cos(theta))
 
             U_theta = (cos(theta) cos(phi), cos(theta) sin(theta), -sin(theta))
 
