@@ -323,9 +323,9 @@ def compute(flag:bool = False, stored: bool = False):
 
     if flag:
             
-        grid = upload_data(name = "linearized_stored_data.npz")
+        grid = upload_data(name = "store_data_linearized.npz")
             
-        nut_press = nutation_precession(grid = grid, numeber = 4)
+        nut_press = nutation_precession(grid = grid, number = 4)
 
         if stored:
             phase.savefig(fname= os.path.join(route, "phase_space_linearized.png"), dpi = 300, bbox_inches = "tight")
@@ -351,7 +351,7 @@ def compute(flag:bool = False, stored: bool = False):
 
 if __name__ == "__main__":
     
-    compute(flag = False, stored = True)
+    compute(flag = True, stored = True)
 
 plt.show()
 
