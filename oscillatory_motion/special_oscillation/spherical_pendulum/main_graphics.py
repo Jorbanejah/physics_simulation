@@ -239,12 +239,13 @@ def nutation_precession(grid:Sequence[float], number: int) -> Tuple[plt.Figure, 
     for i, (th, ph) in enumerate(zip(thetas, phis)):
 
         solution, _, _ = grid[th][ph]
-        polar = wrapped_theta(angle = solution[:, 0])
-        axial = wrapped_theta(angle = solution[:, 2])
-        theta.append(polar)
-        phi.append(axial)
-        dtheta.append(solution[:, 1])
-        dphi.append(solution[:, 3])
+      
+        theta.append(wrapped_theta(solution[:, 0]))   # theta(t)
+        phi.append(wrapped_theta(solution[:, 1]))     # phi(t)
+
+        dtheta.append(solution[:, 2])                 # dtheta/dt
+        dphi.append(solution[:, 3])                   # dphi/dt
+
 
     fig = plt.figure(figsize = (10,6))
 
@@ -255,11 +256,16 @@ def nutation_precession(grid:Sequence[float], number: int) -> Tuple[plt.Figure, 
 
     for i in range(number):
         color = i/number
-        ax.plot(dtheta[i], dphi[i], color = cmap(color), linewidth = 1, label = rf"$\theta_0 ={thetas[i]}, \phi_0 = {phis[i]}$")
+        ax.plot(theta[i], dtheta[i], color = cmap(color), linewidth = 1, label = rf"$\theta_0 ={thetas[i]}, \phi_0 = {phis[i]}$")
         ax1.plot(phi[i], dphi[i], color = cmap(color), linewidth = 1, label = rf"$\theta_0 ={thetas[i]}, \phi_0 = {phis[i]}$")
 
     ax.set_xlabel(r"$\theta$")
     ax.set_ylabel(r"$\phi$")
+    ax.set_xlim(-np.pi/2, np.pi/2)
+    ax.set_ylim(-np.pi/2, np.pi/2)
+
+    ax1.set_xlim(-np.pi/2, np.pi/2)
+    ax1.set_ylim(-np.pi/2, np.pi/2)
     ax1.set_xlabel(r"$\dot{\theta}$")
     ax1.set_ylabel(r"$\dot{\phi}$")
     ax.legend()
@@ -341,7 +347,7 @@ def compute(flag:bool = False, stored: bool = False):
 
 if __name__ == "__main__":
     grid =upload_data(name = "stored_data.npz")
-    nutation_precession(grid, number =8)
+    nutation_precession(grid, number =4)
     #compute(flag = False, stored = True)
 
 plt.show()
