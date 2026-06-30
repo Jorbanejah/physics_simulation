@@ -188,14 +188,16 @@ def phase_space(variable_list: list[str], **kwargs)->plt.Figure:
             k +=1
 
     return fig
-            
-            
+                        
 def angular_velocity_time(times:Sequence[float], dtheta:Sequence[float], dphi:Sequence[float]) -> plt.Figure:
 
     fig, (ax1, ax2) = plt.subplots(nrows=1, ncols =2, tight_layout = True, figsize = (10,6))
 
     if len(times) != len(dtheta) or len(times) != len(dphi):
-        raise TypeError("Something goes wrong. Please run again the simulation. If the problem persist, fix it :)")
+        t = len(times)
+        dth =len(dtheta)
+        dph = len(dphi)
+        raise TypeError(f"Something goes wrong. Length of times: {t} do not correspond with dtheta = {dth} or dphi = {dph}. If the problem persist, fix it :)")
     
     cmap= plt.colormaps["viridis"]
     ax1.plot(times, dtheta, color = cmap(0.2))
@@ -235,41 +237,43 @@ def nutation_precession(grid:Sequence[float], number: int) -> Tuple[plt.Figure, 
     phi = []
     dtheta =[]
     dphi = []
- 
+    times =[]
+
     for i, (th, ph) in enumerate(zip(thetas, phis)):
 
-        solution, _, _ = grid[th][ph]
+        solution, time, _ = grid[th][ph]
       
-        theta.append(wrapped_theta(solution[:, 0]))   # theta(t)
-        phi.append(wrapped_theta(solution[:, 1]))     # phi(t)
+        theta.append(wrapped_theta(solution[0, :]))   # theta(t)
+        phi.append(wrapped_theta(solution[2, :]))     # phi(t)
 
-        dtheta.append(solution[:, 2])                 # dtheta/dt
-        dphi.append(solution[:, 3])                   # dphi/dt
+        dtheta.append(solution[1, :])                 # dtheta/dt
+        dphi.append(solution[3, :])                   # dphi/dt
 
+        times.append(time)
 
-    fig = plt.figure(figsize = (10,6))
+    fig = plt.figure(figsize = (10,8))
 
     ax = fig.add_subplot(121)
     ax1 = fig.add_subplot(122)
 
     cmap = plt.colormaps["viridis"]
-
+    
     for i in range(number):
         color = i/number
-        ax.plot(theta[i], dtheta[i], color = cmap(color), linewidth = 1, label = rf"$\theta_0 ={thetas[i]}, \phi_0 = {phis[i]}$")
-        ax1.plot(phi[i], dphi[i], color = cmap(color), linewidth = 1, label = rf"$\theta_0 ={thetas[i]}, \phi_0 = {phis[i]}$")
+        ax.plot(theta[i], phi[i], color = cmap(color), linewidth = 1, label = rf"$\theta_0 ={thetas[i]}, \phi_0 = {phis[i]}$")
+        ax1.plot(phi[i], dphi[i], color = cmap(color), linewidth = 1)
 
-    ax.set_xlabel(r"$\theta$")
-    ax.set_ylabel(r"$\phi$")
-    ax.set_xlim(-np.pi/2, np.pi/2)
-    ax.set_ylim(-np.pi/2, np.pi/2)
-
-    ax1.set_xlim(-np.pi/2, np.pi/2)
-    ax1.set_ylim(-np.pi/2, np.pi/2)
-    ax1.set_xlabel(r"$\dot{\theta}$")
-    ax1.set_ylabel(r"$\dot{\phi}$")
+    ax.set_xlabel(r"$\theta$ [rad]")
+    ax.set_ylabel(r"$\phi$ [rad/s]")
+    ax.set_xlim(-np.pi, np.pi)
+    ax.set_ylim(-np.pi, np.pi)
     ax.legend()
-    ax1.legend()
+
+    ax1.set_xlabel(r"$\phi$ [rad]")
+    ax1.set_ylabel(r"$\dot{\phi}$ [rad/s]")
+    ax1.set_xlim(-np.pi, np.pi)
+    
+
     fig.suptitle("Phase space with continuos colormap")
     plt.tight_layout()
 
@@ -301,10 +305,10 @@ def compute(flag:bool = False, stored: bool = False):
     solution, _, _ = results
     sol = solution["y"]
     times = solution["t"]
-    theta = sol[:, 0]
-    dtheta =sol[:, 1]
-    phi = sol[:, 2]
-    dphi = sol[:, 3]
+    theta = sol[0, :]
+    dtheta =sol[1, :]
+    phi = sol[2, :]
+    dphi = sol[3, :]
 
     print("Starting with figures:")
     
@@ -335,7 +339,7 @@ def compute(flag:bool = False, stored: bool = False):
 
         grid = upload_data(name = "stored_data.npz")
 
-        nut_press = nutation_precession(grid = grid, numeber = 4)
+        nut_press = nutation_precession(grid = grid, number = 8)
             
         if stored:
 
@@ -346,9 +350,8 @@ def compute(flag:bool = False, stored: bool = False):
             plt.show()
 
 if __name__ == "__main__":
-    grid =upload_data(name = "stored_data.npz")
-    nutation_precession(grid, number =4)
-    #compute(flag = False, stored = True)
+    
+    compute(flag = False, stored = True)
 
 plt.show()
 
