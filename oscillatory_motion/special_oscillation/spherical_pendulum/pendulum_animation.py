@@ -1,10 +1,7 @@
-
 """
-En la animacion de las subplots, haz un vector unitario en la bola n(t) = r(t)/L
-
+The following code make two animations base on the spherical pendulum class. The first one describe the pendulum motion with a wall projection in the XY, XZ and YZ plane,
+the other one, describe the pendulum motion with the current energy and phase space
 """
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 from spherical_pendulum import Spherical_Pendulum
@@ -43,7 +40,8 @@ class Params:
         self.q0 = _as_pair(self.q0, "q0")
         self.dq0 = _as_pair(self.dq0, "dq0")
 
-def contour_animation(params:Params,t:Sequence[float], x:Sequence[float], y: Sequence[float], z:Sequence[float], name:str = "Projections", Flag:bool = False,):
+def contour_animation(params:Params,t:Sequence[float], x:Sequence[float], y: Sequence[float], z:Sequence[float], name:str = "Projections", 
+                      Flag:bool = False,) -> plt.Figure:
     """
     Animated spherical pendulum with projected trajectories on the walls.
     """
@@ -135,9 +133,10 @@ def contour_animation(params:Params,t:Sequence[float], x:Sequence[float], y: Seq
     return anim
     return anim
 
-
 def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Sequence[float], position:Sequence[float], name: str = "Subplots_animation", Flag:bool = False)-> plt.Figure:
-
+    """
+    Animated spherical
+    """
     theta, dtheta, phi, dphi = sol
     def wrapped_theta(theta:Sequence[float])->np.ndarray:
         return (theta + np.pi) % (2*np.pi) - np.pi
@@ -201,24 +200,25 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
     ps1, = ax_top.plot([], [], "--", color=colors["ps1"], lw=2)
     dot1, = ax_top.plot([], [], "o", color=colors["mass"])
 
-    ax_top.set_title(r"Phase space $\theta$ vs $\phi$")
+    ax_top.set_title(r"Phase space $\phi$ vs $\dot{\phi}$")
     ax_top.set_xlim([-np.pi, np.pi])
-    ax_top.set_ylim([-np.pi, np.pi])
-    ax_top.set_xlabel(r"$\theta$ [rad]")
-    ax_top.set_ylabel(r"$\phi$ [rad]")
+    ax_top.set_ylim([min(dphi) - 1, max(dphi) + 1])
+    ax_top.set_xlabel(r"$\phi$ [rad]")
+    ax_top.set_ylabel(r"$\dot{\phi}$ [rad/s]")
 
-    # --- Angular plane ---
+    # --- Energies ---
     x_values = np.arange(0, len(time))
     line1, = ax_bot.plot([], [], "-", color = colors["Kinetic"], lw =2, label= "Kinetic")
     line2, = ax_bot.plot([], [], "-", color = colors["Potential"], lw =2, label = "Potential")
     line3, = ax_bot.plot([], [], "-", color = colors["Total"], lw =2, label = "Total")
 
     ax_bot.set_title(r"Energies")
-    ax_bot.set_xlabel(r"Time $x$ Time step")
+    ax_bot.set_xlabel(r"Time [t unit]")
     ax_bot.set_ylabel(r"Energy [E unit]")
-    ax_bot.set_xlim([0, len(time)])
+    ax_bot.set_xlim([0, len(time)/15])
     ax_bot.set_ylim([min(U) -1, max(T) +1 ])
-    ax_bot.legend(loc = "center right")
+    ax_bot.legend(loc = "center right", fontsize =8)
+    ax_bot.text(x = 0.2, y = -4.8, s = rf"$\Delta E{Et[-1] - Et[0] :.1e}$", fontsize = 8, color = "black")
 
 
     # --- UPDATE FUNCTION ---
@@ -244,9 +244,9 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
         """
         unitary_vector[0].remove()
 
-        ux = np.sin(theta[i]) * np.cos(phi[i])
-        uy = np.cos(theta[i]) * np.cos(phi[i])
-        uz = np.cos(theta[i])
+        ux = np.cos(theta[i]) * np.cos(phi[i])
+        uy = np.cos(theta[i]) * np.sin(phi[i])
+        uz = - np.sin(phi[i])
 
         unitary_vector[0] = ax_anim.quiver(x[i], y[i], z[i], # origin
                                         ux, uy, uz, # Components
@@ -258,13 +258,12 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
         m.set_3d_properties([z[i]])
 
         # Phase space (angular coordenates)
-        ps1.set_data([theta[:i]], [phi[:i]])
-        dot1.set_data([theta[i]], [phi[i]])
+        dot1.set_data([phi[i]], [dphi[i]])
 
         #Energies
-        line1.set_data([x_values[:i]], [T[:i]])
-        line2.set_data([x_values[:i]], [U[:i]])
-        line3.set_data([x_values[:i]], [Et[:i]])
+        line1.set_data([x_values[:i]/15], [T[:i]])
+        line2.set_data([x_values[:i]/15], [U[:i]])
+        line3.set_data([x_values[:i]/15], [Et[:i]])
 
         return rod1, unitary_vector,  m, ps1, dot1, line1, line2, line3,
     
@@ -288,7 +287,7 @@ def subplots_animation(sol: Sequence[float], times:Sequence[float], energy:Seque
 
 params = Params()
 
-sim = Spherical_Pendulum(small_angle= False, method="Rk4")
+sim = Spherical_Pendulum(small_angle= False, method="DOP853")
 
 results, _ = sim.run(params=Params)
 
@@ -299,5 +298,5 @@ x, y, z = sim.transform()
 energies = sim.energies()
 
 #anim1 = contour_animation(params=Params, t = times, x= x, y= y, z =z, Flag=True)
-anim2 = subplots_animation(sol = solution, times = times, energy=energies, position=(x, y, z), Flag = False)
+anim2 = subplots_animation(sol = solution, times = times, energy=energies, position=(x, y, z), Flag = True)
 plt.show()
