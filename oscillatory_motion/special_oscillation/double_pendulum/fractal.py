@@ -101,7 +101,7 @@ class DoublePendulumFlipSimulator:
             fun=self.equations,
             t_span=(0.0, params.t_max_flip),
             y0=y0,
-            method="DOP",
+            method="DOP853",
             max_step=params.dt_intermediate,
             rtol=params.rtol,
             atol=params.atol,
