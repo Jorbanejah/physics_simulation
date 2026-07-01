@@ -4,7 +4,7 @@ The double pendulum is a classic example of nonlinear, chaotic system. Despite i
 
 - **Lagrangian formulation:**
   
- As always, identifying the system's degrees of freedom (the angular coordinates $\theta_1$ and $\theta_2$), we derive the equations of motion using the Euler-Lagrangeequations.
+ As always, identifying the system's degrees of freedom (the angular coordinates $\theta_1$ and $\theta_2$), we derive the equations of motion using the Euler-Lagrange equations.
 
 <p align="center">
   <img src="figures/Regime_summary.png" width="500"><br>
