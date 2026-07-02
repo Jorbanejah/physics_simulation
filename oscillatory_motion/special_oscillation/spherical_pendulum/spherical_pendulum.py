@@ -38,11 +38,11 @@ Dynamics = Callable[[float, State, "Params"], State] # Input (Time, State, Param
 
 
 ###
-# -------------Params and functions where control the physics --------------
+# -------------Params and functions that controls the physics --------------
 ###
 
 
-# Watch if the current initial state have two parameters q0 = [theta0, phi0] and dq0 = [dtheta, dphi]
+# Control if the current initial state have two parameters q0 = [theta0, phi0] and dq0 = [dtheta, dphi]
 def _as_pair(values: Sequence[float], name: str) -> tuple[float, float]:
     
     if len(values) != 2:
