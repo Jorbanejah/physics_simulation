@@ -43,6 +43,7 @@ Dynamics = Callable[[float, State, "Params"], State] #Input -> [time, state, par
 ##
 # -------------------------- Params and quations -----------------------
 ##
+
 def _as_pair(values: Sequence[float], name: str) -> tuple[float, float]:
     
     if len(values) != 2:
@@ -128,7 +129,7 @@ def spherical_pendulum_equation(t: float, y:State, p:Params) -> State:
 
 
 ##
-# ------------------- energy, energy levels and initial conditions grid --------
+# ------------------- Energy, energy levels and initial conditions grid --------
 ##
 
 def energy(y: State, p: Params)-> float:
@@ -169,7 +170,7 @@ def classify_energy(Et: float, params: Params) -> str:
 # The tricky part is, given a E0 energy, you have to find the initial conditions who generate this surface. 
 # Given a theta_0, and phi_0, the unique form to reach the level E0 is through conjugate momenta
 
-def generate_initial_conditions(E0: float, params: Params, N: int =50)-> list[np.ndarray]:
+def generate_initial_conditions(E0: float, params: Params, Ntheta: int =50, Nphi:int = 50)-> list[np.ndarray]:
     """
     Description
     -------------
@@ -188,36 +189,39 @@ def generate_initial_conditions(E0: float, params: Params, N: int =50)-> list[np
         Energy surface
     params: Params
         The current parameters which describe the motion
-    N: int
-        Grid configuration N x N
+    Ntheta and Nphi: int, int
+        Grid configuration Ntheta x Nphi
     """
 
     m, L, g = params.m, params.L, params.g
 
     phi_max = np.arccos(-E0/(m*g*L)) # Threshold
 
-    phis = np.linspace(0.05, phi_max, N)
-
+    phis = np.linspace(0.05, phi_max, Nphi)
+    thetas = np.linspace(-np.pi, np.pi, Ntheta)
+    i =0
     initials = []
-  
-    for ph in phis:
+    for th in thetas:
+        for ph in phis:
            
-        # Once you decide the initial angle, you have to choose the momenta to energy = E0
-        # Choose mtheta = 0 and th =0.0 for simplicity
-        mtheta = 0.0
-        th =0.0
+            # Once you decide the initial angle, you have to choose the momenta to energy = E0
+            # Choose mtheta = 0 and th =0.0 for simplicity
+            mtheta = 0.0
 
-        # Solve for mphi from energy equation
-        V = -m*g*L*np.cos(ph)
-        T_needed = E0 - V
+            # Solve for mphi from energy equation
+            V = -m*g*L*np.cos(ph)
+            T_needed = E0 - V
 
-        if T_needed <= 1e-12:
-            continue
+            if T_needed <= 1e-12:
+                i +=1
+                continue
 
-        mphi = np.sqrt(2*m*L**2*np.sin(ph)**2 * T_needed)
-        #mphi = -np.squrt(2*m*L**2*np.sin(ph)**2 * T_needed) -> if you descomment this line you have to store in initials list the whole results too. In this way, the odds will be the -mphi and evens the mphi results
-        initials.append(np.array([th, ph, mtheta, mphi]))
+            mphi1 = np.sqrt(2*m*L**2*np.sin(ph)**2 * T_needed)
+            mphi2 = -np.sqrt(2*m*L**2*np.sin(ph)**2 * T_needed) #-> if you descomment this line you have to store in initials list the whole results too. In this way, the odds will be the -mphi and evens the mphi results
 
+            initials.append(np.array([th, ph, mtheta, mphi1]))
+            initials.append(np.array([th, ph, mtheta, mphi2]))
+    print(f"Trajectories discard for non-positive kinetic energy: {i}")
     return initials
 
 ##
@@ -507,11 +511,9 @@ def analyse_trajectory(y0, params,):
 # Entire grid
 
 def compute_frequency_map(initial_conditions, params):
-
     """
     Computes the frequency map for every initial condition.
     """
-
     results = []
 
     total = len(initial_conditions)
@@ -539,31 +541,24 @@ def compute_frequency_map(initial_conditions, params):
 # Convert to arrays
 
 def unpack_results(results):
-
     theta0 = np.array(
-        [r.theta0 for r in results]
-    )
-
+        [r.theta0 for r in results])
+    
     phi0 = np.array(
-        [r.phi0 for r in results]
-    )
-
+        [r.phi0 for r in results])
+    
     omega_theta = np.array(
-        [r.omega_theta for r in results]
-    )
-
+        [r.omega_theta for r in results])
+    
     omega_phi = np.array(
-        [r.omega_phi for r in results]
-    )
-
+        [r.omega_phi for r in results])
+    
     drift_theta = np.array(
-        [r.drift_theta for r in results]
-    )
-
+        [r.drift_theta for r in results])
+    
     drift_phi = np.array(
-        [r.drift_phi for r in results]
-    )
-
+        [r.drift_phi for r in results])
+    
     return (theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi,)
 
 # Frequency-frequency map
@@ -571,27 +566,16 @@ def unpack_results(results):
 def plot_frequency_map(results):
 
     theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
-
     ratio = omega_theta / omega_phi
-
     plt.figure(figsize=(8,7))
-
-    plt.scatter(omega_theta, omega_phi, c=ratio, cmap="turbo", s=18,)
-
+    plt.scatter(omega_theta, omega_phi, c=ratio, cmap="turbo", s=18, label = r"$Ratio = \omega_\theta/\omega_\phi$")
     plt.xlabel(r"$\omega_\theta$")
-
     plt.ylabel(r"$\omega_\phi$")
-
     plt.title("Frequency Map")
-
     cbar = plt.colorbar()
-
     cbar.set_label(r"$\omega_\theta/\omega_\phi$")
-
     plt.grid(True)
-
     plt.tight_layout()
-
     plt.show()
 
 # Frequency diffusion map
@@ -599,27 +583,16 @@ def plot_frequency_map(results):
 def plot_diffusion_map(results):
 
     theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
-
     diffusion = np.maximum(drift_theta, drift_phi,)
-
     diffusion = np.log10(diffusion + 1e-16)
-
     plt.figure(figsize=(8,7))
-
     plt.scatter(theta0, phi0, c=diffusion, cmap="inferno", s=20,)
-
     plt.xlabel(r"$\theta_0$")
-
     plt.ylabel(r"$\phi_0$")
-
     plt.title("Laskar Diffusion Map")
-
     cbar = plt.colorbar()
-
     cbar.set_label(r"$\log_{10}(\Delta\omega)$")
-
     plt.tight_layout()
-
     plt.show()
 
 # Resonance map
@@ -627,47 +600,28 @@ def plot_diffusion_map(results):
 def plot_resonance_map(results):
 
     theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
-
     ratio = omega_theta / omega_phi
-
     plt.figure(figsize=(8,7))
-
     plt.scatter(theta0, phi0, c=ratio, cmap= "twilight", s =20)
-
     plt.xlabel(r"$\theta_0$")
-
     plt.ylabel(r"$\phi_0$")
-
     plt.title("Frequency Ratio")
-
     cbar = plt.colorbar()
-
     cbar.set_label(r"$\omega_\theta/\omega_\phi$")
-
     plt.tight_layout()
-
     plt.show()
 
 # Frequency drift histogram
 
 def plot_drift_histogram(results):
-
     theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
-
     diffusion = np.maximum(drift_theta, drift_phi,)
-
     plt.figure(figsize=(7,5))
-
     plt.hist(np.log10(diffusion+1e-16),bins=40,)
-
     plt.xlabel(r"$\log_{10}(\Delta\omega)$")
-
     plt.ylabel("Counts")
-
     plt.title("Frequency Drift Distribution")
-
     plt.tight_layout()
-
     plt.show()
 
 ##
@@ -686,19 +640,12 @@ def results_to_dataframe(results):
     for r in results:
 
         rows.append({
-
             "theta0": r.theta0,
-
             "phi0": r.phi0,
-
             "omega_theta": r.omega_theta,
-
             "omega_phi": r.omega_phi,
-
             "drift_theta": r.drift_theta,
-
             "drift_phi": r.drift_phi,
-
         })
 
     return pd.DataFrame(rows)
@@ -724,31 +671,20 @@ def load_results(filename):
 def plot_dataframe(df):
 
     diffusion = np.maximum(
-
         df["drift_theta"],
-
         df["drift_phi"]
-
     )
 
     diffusion = np.log10(diffusion + 1e-16)
 
     plt.figure(figsize=(8,7))
-
     plt.scatter(df["theta0"], df["phi0"], c=diffusion, cmap="inferno", s=15,)
-
     plt.xlabel(r"$\theta_0$")
-
     plt.ylabel(r"$\phi_0$")
-
     plt.title("Laskar Diffusion Map")
-
     cbar = plt.colorbar()
-
     cbar.set_label(r"$\log_{10}\Delta\omega$")
-
     plt.tight_layout()
-
     plt.show()
 
 # 
@@ -760,10 +696,12 @@ def main():
     params = Params(g=9.81, m=1.0, L=2.0, t=250, dt=0.01)
 
     # Choose the energy surface
-    energy_level = (-params.m* params.g* params.L * np.cos(np.deg2rad(45)))
-    #energy_level = 0
+    energy_level = (-params.m* params.g* params.L * np.cos(np.deg2rad(30)))
+
     # Initial-condition grid
-    initials = generate_initial_conditions(E0=energy_level, params=params, N = 50)
+    print("=" *60)
+
+    initials = generate_initial_conditions(E0=energy_level, params=params, Nphi= 30, Ntheta=30)
     
     print()
 
@@ -777,11 +715,10 @@ def main():
     # Frequency map
     results = compute_frequency_map(initials,params,)
 
-
     # Save    
     output = Path("frequency_map.csv")
 
-    save_results(results,output,)
+    save_results(results, output,)
 
 
     plot_frequency_map(results)
