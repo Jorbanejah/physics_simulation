@@ -1,26 +1,26 @@
 """
-Special graphics:
 
-- Frequency-maps analysis or Frequency Laskar maps.
+├── Params
+├── spherical_pendulum_equations()
+├── energy()
+├── generate_initial_conditions()
+├── integrate_trajectory()
+│
+├── hann_window()
+├── analytic_signal()
+├── fft_guess()
+├── scalar_product()
+├── refine_frequency()
+├── naff()
+├── naff_decomposition()
+├── frequency_drift()
+│
+├── compute_frequency_map()
+├── plot_frequency_map()
+│
+└── main()
 
-    - 1_ Write the equation 
-    - 2_ Choose a grid of initial conditions: 
-            1_ Choose an energy level
-            2_ Scan over initial conditions angles
-    - 3_Integrate the equation long enough times. (DOP853 with t_times = 250)
-    - 4_Build a complex signal for frequency extraction -> E.g: Z (t) = theta(t) + j * phi(t)
-    - 5_Apply Laskar-style frequency analysis (NAFF): use a Fourier to approximate Z(t), extract the fundamental omega_k and take a frequency vector (v_1, v_2)
-    - 6_Construct the frequency map: associate the initial conditions with its frequencies, plot the frequencies vector v_1/ v_2vs the peak parameter with a fancy colormap
-
-
-    A POWERFUL Laskar map could be: 
-        
-    - Two-window analysis: compute frequencies over two successive time windows for each trajectory.
-
-    - Frequency drift: measure  Δv = v(1)-v(2); large drifts signal chaotic diffusion.
-
-
-    Friendly note: the polar angle is phi and the axial angle is theta 
+    Friendly note: the polar angle is phi and the azimuthal angle is theta 
 """
 from __future__ import annotations
 
@@ -28,8 +28,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from scipy.integrate import solve_ivp
+from scipy.signal import hilbert
+from scipy.optimize import minimize_scalar
 from dataclasses import dataclass
-from typing import Dict, Any, Tuple, Callable
+from typing import Any, Tuple, Callable
 from collections.abc import Sequence
 
  
@@ -104,13 +106,15 @@ def spherical_pendulum_equation(t: float, y:State, p:Params) -> State:
     theta, phi, mtheta, mphi = np.asarray(y, dtype = float)
 
     eps = 1e-8
-    if np.abs(phi) <eps:
-        phi = np.sign(phi) * eps
+    if np.abs(np.sin(phi)) < eps:
+        phi = np.copysign(eps, np.sin(phi))
 
+  
+    #Generalized velocities
     dtheta = mtheta/(m * L **2)
-    dphi = mphi/(m *L**2 * np.sin(phi))
+    dphi = mphi/(m *L**2 * np.sin(phi) **2)
 
-    dmphi = mphi**2/(m * L**2 * np.sin(phi) **3) *np.cos(phi) - m * g * L * np.sin(phi) 
+    dmphi = (mphi**2 *np.cos(phi))/(m * L**2 * np.sin(phi) **3) - m * g * L * np.sin(phi) 
     dmtheta = 0
    
     return np.array([dtheta, dphi, dmtheta, dmphi])
@@ -139,7 +143,7 @@ def classify_energy(Et: float, params: Params) -> str:
     "The function classify the current energy of the state base on potential energy"
     m, L, g = params.m, params.L, params.g
 
-    E_min = m*g*L
+    E_min = m * g * L
 
     # Energy thresholds based on maximum reachable polar angle.
     E_small  = m*g*L*np.cos(np.deg2rad(15))   # small oscillations
@@ -184,7 +188,7 @@ def generate_initial_conditions(E0: float, params: Params, N: int =50)-> np.arra
 
     m, L, g = params.m, params.L, params.g
 
-    thetas = np.linspace(0, 2*np.pi, N)
+    thetas = np.linspace(0, 2*np.pi, N, endpoint= False)
     phis   = np.linspace(0.05, np.pi-0.05, N)
 
     initials = []
@@ -210,98 +214,571 @@ def generate_initial_conditions(E0: float, params: Params, N: int =50)-> np.arra
     return initials
 
 ##
-# ------------------- Integration -------------------
+# ------------------- Trajectory integration -------------------
 ##
+@dataclass
+class Trajectory:
+    t: np.ndarray
+    theta: np.ndarray
+    phi: np.ndarray
+    mtheta: np.ndarray
+    mphi: np.ndarray
+
+# Angle wrapped
+def unwrap_angle(theta, phi):
+    theta = np.unwrap(theta)
+    phi = np.unwrap(phi)
+
+    return theta, phi
 
 def integrate_trajectory(y0: State, params: Params) -> Tuple[Any, Any]:
 
-    tgrid = np.arange(0, params.t, params.dt)
-    sol = solve_ivp(lambda t, y: spherical_pendulum_equation(t, y, params), [0, params.t], y0, t_eval=tgrid, rtol=1e-9, atol=1e-9)
+    t = _time_grid(duration= params.t, dt = params.dt)
+  
+    sol = solve_ivp(lambda t, y: spherical_pendulum_equation(t, y, params), [0, params.t], y0, t_eval=t, method = "DOP853", rtol=1e-9, atol=1e-9)
 
-    return sol.t, sol.y
+    if not sol.success:
+        raise RuntimeError(sol.message)
+    
+    theta = sol.y[0]
+    phi = sol.y[1]
+
+    theta, phi = unwrap_angle(theta, phi)
+
+
+    return Trajectory(sol.t, theta, phi, sol.y[2], sol.y[3])
+
+def split_trajectory(traj: Trajectory):
+
+    n = len(traj.t)
+
+    mid = n//2
+
+    first = Trajectory(traj.t[:mid], traj.theta[:mid], traj.phi[:mid], traj.mtheta[:mid], traj.mphi[:mid])
+
+    second = Trajectory(traj.t[mid:], traj.theta[mid:], traj.phi[mid:], traj.mtheta[mid:], traj.mphi[mid:])
+    
+    return first, second
+##
+# ---------------- Complex canonical signal -------------
+##
+
+def canonical_signals(traj: Trajectory):
+
+    """
+    Canonical complex varaibles
+
+    We describe two complex signal through Hilbert signal
+    """
+
+    z_theta = hilbert(traj.theta)
+    z_phi = hilbert(traj.phi)
+
+    return z_theta, z_phi
 
 ##
-# ---------------- Complex signal and extract the frequencies -------------
+# ---------------------- NAFF algorithms ----------------------
+# - Window function: we use a Hann window. However, Laskar typically uses a high-order cosine window
+# (order 4 or even 6). This improves convergence from approximately O(T-2)
+#
+# - After extracting each frequency, the original NAFF algorithm re-orthogonalizes the basis and recomputes all previosly found amplitudes.
+# Simply subtracting Ae^(iwt) is good approximation but not mathematically exact.
+#
+# - Cosine window
+# - fft_guess
+# - scalar product
+# - Refine frequencies
+#
+#
 ##
 
-def build_signal(theta: Sequence[float], phi: Sequence[float]):
-    return theta + 1j*phi
+def cosine_window(N: int, order: int = 4):
 
-def extract_frequency(signal, dt: float)-> Sequence[float]:
     """
-    Through the Discrete Fourier transform we can extract the different frequencies from the current signal.
-    This is not a complete NAFF - is too complex and I do not understand at all.
+    Generalized cosine window used in NAFF.
+
+    Parameters
+    ----------
+    order : int
+        Window order.
+        order=1 -> Hann window
+        order=4 -> typical Laskar choice
     """
-    S = np.fft.fft(signal)
-    freqs = np.fft.fftfreq(len(signal), dt)
 
-    # Dominant frequency
-    idx = np.argmax(np.abs(S))
-    return abs(freqs[idx])
+    x = np.linspace(-1.0, 1.0, N)
 
-def compute_frequencies(t:Sequence[float], y:State) -> Tuple:
+    window = (1.0 + np.cos(np.pi*x))**order
 
-    "For a spherical pendulum, we need two angles so two frequencies. "
+    # normalize so <1,1>=1
 
-    theta, phi = y[0], y[1] #Extract the current trajectory
+    window /= np.sum(window)
 
-    #Build both complex signal
-    sig_theta = build_signal(theta, phi)
-    sig_phi   = build_signal(phi, theta)
+    return window
 
-    #Extract the current frequencies for each signal
-    f1 = extract_frequency(sig_theta, t[1]-t[0])
-    f2 = extract_frequency(sig_phi, t[1]-t[0])
+def fft_guess(signal, t):
+    "FFT is only used to produce an initial guess"
 
-    return f1, f2
+    dt = t[1] - t[0]
 
+    signal = signal - np.mean(signal)
+
+    signal *= cosine_window(len(signal))
+
+    F = np.fft.rfft(signal)
+
+    freq = np.fft.rfftfreq(len(signal), dt)
+
+    positive = freq > 0
+
+    spectrum = F[positive]
+
+    freq = freq[positive]
+
+    k = np.argmax(np.abs(spectrum))
+
+    return 2*np.pi*freq[k]
+
+def scalar_product(signal, omega, t, window):
+    """
+    Computes the dot product using the Hann-weighted scalar product
+    """
+    exponential = np.exp(-1j*omega*t)
+
+    return np.vdot(window*exponential, signal)
+
+def refine_frequency(signal, omega0, t):
+
+    w = cosine_window(len(signal))
+
+    domega = 2*np.pi/(t[-1]-t[0])
+
+    result = minimize_scalar(
+        lambda om: -scalar_product(signal, om, t, w),
+        bounds=(omega0-domega, omega0+domega),
+        method="Brent"
+    )
+
+    return result.x
+
+# ----------------- Refine amplitude ------------------
+
+def estimate_amplitude(signal, omega, t, window, ):
+    """
+    Projection of the signal over e^(iwt).
+
+    Returns the complex Fourier coefficient.
+    """
+    exponential = np.exp(-1j*omega*t)
+
+    numerator = np.vdot(exponential*window, signal)
+
+    denominator = np.vdot(exponential*window, exponential)
+    
+    return numerator/denominator
+
+# ---------------------- One-frequency NAFF -------------------
+
+def naff(signal, t,):
+    """
+    Extract the dominant frequency
+
+    Returns (omega, amplitude)
+    """
+    signal = signal.astype(complex)
+
+    signal -= np.mean(signal)
+
+    window = cosine_window(len(signal), order =4)
+
+    omega0 = fft_guess(signal, t)
+
+    omega = refine_frequency(signal, omega0, t)
+
+    amplitude = estimate_amplitude(signal, omega, t, window)
+
+    return omega, amplitude
+
+# -------------------- Multi-frequency extraction -------------
+
+def naff_decomposition(signal, t, nfreq=5):
+    """
+    Iteratively extracts the dominant frequencies.
+    """
+    residual = signal.copy().astype(complex)
+
+    omegas = []
+
+    amplitudes = []
+
+    for _ in range(nfreq):
+
+        omega, A = naff(residual, t)
+
+        residual -= A*np.exp(1j*omega*t)
+
+        omegas.append(omega)
+
+        amplitudes.append(A)
+
+    return np.asarray(omegas), np.asarray(amplitudes)
+
+# ------------------ Fundamental frequencies and frequencies diffusion ----------------
+
+def fundamental_frequencies(trajectory: Trajectory,):
+
+    """
+    Computes the two fundamental frequencies of the spherical pendulum.
+
+    Returns: omega_theta, omega_phi
+    """
+
+    z_theta, z_phi = canonical_signals(trajectory)
+
+    omega_theta, _ = naff(z_theta, trajectory.t)
+
+    omega_phi, _ = naff(z_phi, trajectory.t)
+
+    return (omega_theta, omega_phi)
+
+def frequency_drift(trajectory: Trajectory, ):
+
+    """
+    Computes Laskar's chaos indicator. 
+    Delta = abs(omega1 - omega2) / omega1
+    """
+
+    first, second = split_trajectory(trajectory)
+
+    w1_theta, w1_phi = fundamental_frequencies(first)
+
+    w2_theta, w2_phi = fundamental_frequencies(second)
+
+    drift_theta = np.abs(w2_theta - w1_theta)/np.abs(w1_theta)
+    drift_phi = np.abs(w2_phi - w1_phi)/np.abs(w1_phi)
+
+    return (w1_theta, w1_phi, drift_theta, drift_phi)
 ##
 # ------------------------- Construct the frequency map and plot it --------------
 ##
 
-def frequency_map(initial_conditions: Sequence[float], params: Params):
-    freqs = []
-    count =0 
-    total_steps = len(initial_conditions)
-    for y0 in initial_conditions:
-        count +=1
-        print(f"Grid Progress: {100*count/total_steps:.1f}%", end="\r")
-        t, y = integrate_trajectory(y0, params)
-        f1, f2 = compute_frequencies(t, y)
-        freqs.append((f1, f2))
+@dataclass(slots=True)
 
-    return np.array(freqs)
+class FrequencyPoint:
 
-def plot_frequency_map(freqs):
-    f1 = freqs[:,0]
-    f2 = freqs[:,1]
+    theta0: float
+    phi0: float
 
-    plt.figure(figsize=(8,6))
-    plt.scatter(f1, f2, s=5, c='blue')
-    plt.xlabel("Frequency 1")
-    plt.ylabel("Frequency 2")
-    plt.title("Laskar Frequency Map")
+    omega_theta: float
+    omega_phi: float
+
+    drift_theta: float
+    drift_phi: float
+
+# Analyse one trajectory
+
+def analyse_trajectory(y0, params,):
+    """
+    Performs the complete frequency analysis
+    of one trajectory.
+    """
+
+    traj = integrate_trajectory(y0,params)
+
+    omega_theta, omega_phi, drift_theta, drift_phi = frequency_drift(traj)
+
+    return FrequencyPoint(theta0=y0[0], phi0=y0[1],
+        omega_theta=omega_theta, omega_phi=omega_phi, 
+        drift_theta=drift_theta, drift_phi=drift_phi,)
+
+# Entire grid
+
+def compute_frequency_map(initial_conditions, params):
+
+    """
+    Computes the frequency map for every initial condition.
+    """
+
+    results = []
+
+    total = len(initial_conditions)
+
+    for k, y0 in enumerate(initial_conditions):
+
+        print(f"\r{k+1}/{total}", end="", flush=True,)
+
+        try:
+
+            point = analyse_trajectory(y0,params)
+
+            results.append(point)
+
+        except Exception as err:
+
+            print()
+
+            print("Skipped trajectory:", err)
+
+    print()
+
+    return results
+
+# Convert to arrays
+
+def unpack_results(results):
+
+    theta0 = np.array(
+        [r.theta0 for r in results]
+    )
+
+    phi0 = np.array(
+        [r.phi0 for r in results]
+    )
+
+    omega_theta = np.array(
+        [r.omega_theta for r in results]
+    )
+
+    omega_phi = np.array(
+        [r.omega_phi for r in results]
+    )
+
+    drift_theta = np.array(
+        [r.drift_theta for r in results]
+    )
+
+    drift_phi = np.array(
+        [r.drift_phi for r in results]
+    )
+
+    return (theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi,)
+
+# Frequency-frequency map
+
+def plot_frequency_map(results):
+
+    theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
+
+    ratio = omega_theta / omega_phi
+
+    plt.figure(figsize=(8,7))
+
+    plt.scatter(omega_theta, omega_phi, c=ratio, cmap="turbo", s=18,)
+
+    plt.xlabel(r"$\omega_\theta$")
+
+    plt.ylabel(r"$\omega_\phi$")
+
+    plt.title("Frequency Map")
+
+    cbar = plt.colorbar()
+
+    cbar.set_label(r"$\omega_\theta/\omega_\phi$")
+
     plt.grid(True)
+
+    plt.tight_layout()
+
     plt.show()
 
+# Frequency diffusion map
+
+def plot_diffusion_map(results):
+
+    theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
+
+    diffusion = np.maximum(drift_theta, drift_phi,)
+
+    diffusion = np.log10(diffusion + 1e-16)
+
+    plt.figure(figsize=(8,7))
+
+    plt.scatter(theta0, phi0, c=diffusion, cmap="inferno", s=20,)
+
+    plt.xlabel(r"$\theta_0$")
+
+    plt.ylabel(r"$\phi_0$")
+
+    plt.title("Laskar Diffusion Map")
+
+    cbar = plt.colorbar()
+
+    cbar.set_label(r"$\log_{10}(\Delta\omega)$")
+
+    plt.tight_layout()
+
+    plt.show()
+
+# Resonance map
+
+def plot_resonance_map(results):
+
+    theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
+
+    ratio = omega_theta / omega_phi
+
+    plt.figure(figsize=(8,7))
+
+    plt.scatter(theta0, phi0, c=ratio, cmap= "twilight", s =20)
+
+    plt.xlabel(r"$\theta_0$")
+
+    plt.ylabel(r"$\phi_0$")
+
+    plt.title("Frequency Ratio")
+
+    cbar = plt.colorbar()
+
+    cbar.set_label(r"$\omega_\theta/\omega_\phi$")
+
+    plt.tight_layout()
+
+    plt.show()
+
+# Frequency drift histogram
+
+def plot_drift_histogram(results):
+
+    theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
+
+    diffusion = np.maximum(drift_theta, drift_phi,)
+
+    plt.figure(figsize=(7,5))
+
+    plt.hist(np.log10(diffusion+1e-16),bins=40,)
+
+    plt.xlabel(r"$\log_{10}(\Delta\omega)$")
+
+    plt.ylabel("Counts")
+
+    plt.title("Frequency Drift Distribution")
+
+    plt.tight_layout()
+
+    plt.show()
 
 ##
-# -------------------------- Main --------------------
+# -------------------------- Save results and load CSV --------------------
 ##
 
-params = Params()
+from pathlib import Path
+import pandas as pd
 
-# Choose energy level
-E0 = params.m * params.g * params.L * np.cos(np.deg2rad(45))  # medium energy
+# Save results
 
-# Generate initial conditions
-print("Generating the initial conditions")
-initials = generate_initial_conditions(E0, params, N=10)
+def results_to_dataframe(results):
 
-# Compute frequency map
-print("Computing the frequency map")
-freqs = frequency_map(initials, params)
+    rows = []
 
-# Plot
-print("Plotting")
-plot_frequency_map(freqs)
+    for r in results:
+
+        rows.append({
+
+            "theta0": r.theta0,
+
+            "phi0": r.phi0,
+
+            "omega_theta": r.omega_theta,
+
+            "omega_phi": r.omega_phi,
+
+            "drift_theta": r.drift_theta,
+
+            "drift_phi": r.drift_phi,
+
+        })
+
+    return pd.DataFrame(rows)
+
+# Save CSV
+
+def save_results(results, filename):
+
+    df = results_to_dataframe(results)
+
+    df.to_csv(filename, index=False)
+
+    print(f"Saved {len(df)} trajectories")
+
+# Load CSV
+
+def load_results(filename):
+
+    return pd.read_csv(filename)
+
+# Plot directly from dataframe
+
+def plot_dataframe(df):
+
+    diffusion = np.maximum(
+
+        df["drift_theta"],
+
+        df["drift_phi"]
+
+    )
+
+    diffusion = np.log10(diffusion + 1e-16)
+
+    plt.figure(figsize=(8,7))
+
+    plt.scatter(df["theta0"], df["phi0"], c=diffusion, cmap="inferno", s=15,)
+
+    plt.xlabel(r"$\theta_0$")
+
+    plt.ylabel(r"$\phi_0$")
+
+    plt.title("Laskar Diffusion Map")
+
+    cbar = plt.colorbar()
+
+    cbar.set_label(r"$\log_{10}\Delta\omega$")
+
+    plt.tight_layout()
+
+    plt.show()
+
+# 
+# ------------------------ Main ----------------
+# 
+
+def main():
+
+    params = Params(g=9.81, m=1.0, L=2.0, t=250, dt=0.01)
+
+    # Choose the energy surface
+    #energy_level = (-params.m* params.g* params.L * np.cos(np.deg2rad(5)))
+    energy_level = 0
+    # Initial-condition grid
+    initials = generate_initial_conditions(E0=energy_level, params=params, N = 50)
+
+    print()
+
+    print("-"*20)
+    print("Energy level")
+    print(energy_level)
+    print("Trajectories")
+    print(len(initials))
+    print("-"*20)
+
+    # Frequency map
+    results = compute_frequency_map(initials,params,)
+
+
+    # Save    
+    output = Path("frequency_map.csv")
+
+    save_results(results,output,)
+
+
+    plot_frequency_map(results)
+    plot_diffusion_map(results)
+
+    plot_resonance_map(results)
+    plot_drift_histogram(results)
+
+    df = load_results(output)
+    plot_dataframe(df)
+
+if __name__ == "__main__":
+
+    main()
