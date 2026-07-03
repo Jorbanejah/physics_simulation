@@ -97,6 +97,8 @@ def spherical_pendulum_equation(t: float, y:State, p:Params) -> State:
 
     State vector: [theta, phi, mtheta, mphi] where the mtheta and mphi correspond to the conjugate momentum
     define through hamiltonian equation.
+
+    Friendly reminder: theta is the azimuthal angle and phi the polar angle
     """
 
     del t
@@ -105,35 +107,41 @@ def spherical_pendulum_equation(t: float, y:State, p:Params) -> State:
 
     theta, phi, mtheta, mphi = np.asarray(y, dtype = float)
 
-    eps = 1e-8
-    if np.abs(np.sin(phi)) < eps:
-        phi = np.copysign(eps, np.sin(phi))
+    eps =1e-8 # Avoid the singularity
 
-  
+    sin_phi = np.sin(phi)
+
+    if abs(sin_phi) < eps:
+        sin_phi = eps if sin_phi >= 0 else -eps
+
     #Generalized velocities
-    dtheta = mtheta/(m * L **2)
-    dphi = mphi/(m *L**2 * np.sin(phi) **2)
+    dphi = mphi/(m * L **2)
+    dtheta = mtheta/(m *L**2 * sin_phi **2)
 
-    dmphi = (mphi**2 *np.cos(phi))/(m * L**2 * np.sin(phi) **3) - m * g * L * np.sin(phi) 
+    dmphi = (mtheta**2 *np.cos(phi))/(m * L**2 * sin_phi **3) - m * g * L * np.sin(phi) 
     dmtheta = 0
+
+    #if abs(dmphi) > 1e6:
+    #    print(phi, sin_phi, dmphi)
    
     return np.array([dtheta, dphi, dmtheta, dmphi])
 
 
 ##
-# ------------------- Energy level, initial conditions grid and integration --------
+# ------------------- energy, energy levels and initial conditions grid --------
 ##
 
 def energy(y: State, p: Params)-> float:
 
     theta, phi, mtheta, mphi = np.asarray(y, dtype = float)
+
     m, L, g = p.m, p.L, p.g
-    T = mtheta**2/(2*m*L**2) + mphi**2/(2*m*L**2*np.sin(phi)**2)
-    V = m*g*L*np.cos(phi)
+    T = mphi**2/(2*m*L**2) + mtheta**2/(2*m*L**2*np.sin(phi)**2)
+    V = - m*g*L*np.cos(phi)
 
     return T + V
 
-# Knowing that the minimun energy is when phi = 0 -> E_min = mgL then my energy level have to be E_0 > E_min.
+# Knowing that the minimun energy is when phi = 0 -> E_min = -mgL then my energy level have to be E_0 > E_min.
 # After that, we are going to consider three kind of level energy:
 # small level energy (E0 + deltaE, where deltaE << mgL), 
 # medium level energy (E0 can reach between 30-60) 
@@ -157,13 +165,11 @@ def classify_energy(Et: float, params: Params) -> str:
     else:
         return "strong"
 
-##
-# ---------------------- Generate initial conditions ----------------
-##
+
 # The tricky part is, given a E0 energy, you have to find the initial conditions who generate this surface. 
 # Given a theta_0, and phi_0, the unique form to reach the level E0 is through conjugate momenta
 
-def generate_initial_conditions(E0: float, params: Params, N: int =50)-> np.array:
+def generate_initial_conditions(E0: float, params: Params, N: int =50)-> list[np.ndarray]:
     """
     Description
     -------------
@@ -188,28 +194,29 @@ def generate_initial_conditions(E0: float, params: Params, N: int =50)-> np.arra
 
     m, L, g = params.m, params.L, params.g
 
-    thetas = np.linspace(0, 2*np.pi, N, endpoint= False)
-    phis   = np.linspace(0.05, np.pi-0.05, N)
+    phi_max = np.arccos(-E0/(m*g*L)) # Threshold
+
+    phis = np.linspace(0.05, phi_max, N)
 
     initials = []
   
-    for th in thetas:
-        for ph in phis:
+    for ph in phis:
            
-            # Once you decide the initial angle, you have to choose the momenta to energy = E0
-            # Choose mtheta = 0 for simplicity
-            mtheta = 0.0
+        # Once you decide the initial angle, you have to choose the momenta to energy = E0
+        # Choose mtheta = 0 and th =0.0 for simplicity
+        mtheta = 0.0
+        th =0.0
 
-            # Solve for mphi from energy equation
-            V = m*g*L*np.cos(ph)
-            T_needed = E0 - V
+        # Solve for mphi from energy equation
+        V = -m*g*L*np.cos(ph)
+        T_needed = E0 - V
 
-            if T_needed <= 0:
-                continue
+        if T_needed <= 1e-12:
+            continue
 
-            mphi = np.sqrt(2*m*L**2*np.sin(ph)**2 * T_needed)
-
-            initials.append(np.array([th, ph, mtheta, mphi]))
+        mphi = np.sqrt(2*m*L**2*np.sin(ph)**2 * T_needed)
+        #mphi = -np.squrt(2*m*L**2*np.sin(ph)**2 * T_needed) -> if you descomment this line you have to store in initials list the whole results too. In this way, the odds will be the -mphi and evens the mphi results
+        initials.append(np.array([th, ph, mtheta, mphi]))
 
     return initials
 
@@ -227,16 +234,15 @@ class Trajectory:
 # Angle wrapped
 def unwrap_angle(theta, phi):
     theta = np.unwrap(theta)
-    phi = np.unwrap(phi)
 
     return theta, phi
 
-def integrate_trajectory(y0: State, params: Params) -> Tuple[Any, Any]:
+def integrate_trajectory(y0: State, params: Params) -> Trajectory:
 
     t = _time_grid(duration= params.t, dt = params.dt)
   
     sol = solve_ivp(lambda t, y: spherical_pendulum_equation(t, y, params), [0, params.t], y0, t_eval=t, method = "DOP853", rtol=1e-9, atol=1e-9)
-
+    
     if not sol.success:
         raise RuntimeError(sol.message)
     
@@ -245,8 +251,16 @@ def integrate_trajectory(y0: State, params: Params) -> Tuple[Any, Any]:
 
     theta, phi = unwrap_angle(theta, phi)
 
+    #Check the drift energy and rejects those trajectories whose drift energy exceeds a tolerance
 
-    return Trajectory(sol.t, theta, phi, sol.y[2], sol.y[3])
+    tol = 1e-2
+    Et = energy(y = sol.y, p = params)
+
+    if np.abs(max(Et) - min(Et)) > tol:
+        raise ValueError("The energy drift exceeds the tolerance. This trajectory will be rejected")
+    
+    else:
+        return Trajectory(sol.t, theta, phi, sol.y[2], sol.y[3])
 
 def split_trajectory(traj: Trajectory):
 
@@ -268,11 +282,11 @@ def canonical_signals(traj: Trajectory):
     """
     Canonical complex varaibles
 
-    We describe two complex signal through Hilbert signal
+    We describe two complex signal.
     """
 
-    z_theta = hilbert(traj.theta)
-    z_phi = hilbert(traj.phi)
+    z_theta = traj.theta  -1j *traj.mtheta
+    z_phi = traj.phi -  1j * traj.mphi
 
     return z_theta, z_phi
 
@@ -324,9 +338,9 @@ def fft_guess(signal, t):
 
     signal *= cosine_window(len(signal))
 
-    F = np.fft.rfft(signal)
+    F = np.fft.fft(signal)
 
-    freq = np.fft.rfftfreq(len(signal), dt)
+    freq = np.fft.fftfreq(len(signal), dt)
 
     positive = freq > 0
 
@@ -353,9 +367,9 @@ def refine_frequency(signal, omega0, t):
     domega = 2*np.pi/(t[-1]-t[0])
 
     result = minimize_scalar(
-        lambda om: -scalar_product(signal, om, t, w),
+        lambda om: np.abs(scalar_product(signal, om, t, w)),
         bounds=(omega0-domega, omega0+domega),
-        method="Brent"
+        method="Bounded"
     )
 
     return result.x
@@ -746,11 +760,11 @@ def main():
     params = Params(g=9.81, m=1.0, L=2.0, t=250, dt=0.01)
 
     # Choose the energy surface
-    #energy_level = (-params.m* params.g* params.L * np.cos(np.deg2rad(5)))
-    energy_level = 0
+    energy_level = (-params.m* params.g* params.L * np.cos(np.deg2rad(45)))
+    #energy_level = 0
     # Initial-condition grid
     initials = generate_initial_conditions(E0=energy_level, params=params, N = 50)
-
+    
     print()
 
     print("-"*20)
@@ -775,9 +789,6 @@ def main():
 
     plot_resonance_map(results)
     plot_drift_histogram(results)
-
-    df = load_results(output)
-    plot_dataframe(df)
 
 if __name__ == "__main__":
 
