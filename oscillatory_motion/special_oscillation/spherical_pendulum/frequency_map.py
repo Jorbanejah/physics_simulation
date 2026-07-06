@@ -28,10 +28,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from scipy.integrate import solve_ivp
-from scipy.signal import hilbert
 from scipy.optimize import minimize_scalar
 from dataclasses import dataclass
-from typing import Any, Tuple, Callable
+from typing import Callable
 from collections.abc import Sequence
 
  
@@ -152,16 +151,13 @@ def classify_energy(Et: float, params: Params) -> str:
     "The function classify the current energy of the state base on potential energy"
     m, L, g = params.m, params.L, params.g
 
-    E_min = m * g * L
-
     # Energy thresholds based on maximum reachable polar angle.
-    E_small  = m*g*L*np.cos(np.deg2rad(15))   # small oscillations
-    E_medium = m*g*L*np.cos(np.deg2rad(45))   # medium oscillations
-    E_strong = m*g*L*np.cos(np.deg2rad(90))   # strong oscillations
+    E_small  = -m*g*L*np.cos(np.deg2rad(15))   # small oscillations
+    E_medium = -m*g*L*np.cos(np.deg2rad(45))   # medium oscillations
 
-    if Et >= E_small:
+    if Et <= E_small:
         return "small"
-    elif Et >= E_medium:
+    elif Et <= E_medium:
         return "medium"
     else:
         return "strong"
@@ -170,18 +166,22 @@ def classify_energy(Et: float, params: Params) -> str:
 # The tricky part is, given a E0 energy, you have to find the initial conditions who generate this surface. 
 # Given a theta_0, and phi_0, the unique form to reach the level E0 is through conjugate momenta
 
-def generate_initial_conditions(E0: float, params: Params, Ntheta: int =50, Nphi:int = 50)-> list[np.ndarray]:
+def generate_initial_conditions(E0: float, params: Params, Ntheta: int = 50, Nphi: int = 50, both_mphi_signs: bool = False,) -> list[np.ndarray]:
     """
     Description
     -------------
-    The function calculate the family of initial conditions [theta, phi, mtheta, mphi] that describe the energy surface E0.
-    How does it work? The program choose N theta and phi as initial angle, then, for simplicity, mtheta = 0 -conjugate momentum of theta.
-    The following steps are:
+    The function calculates a family of initial conditions [theta, phi, mtheta, mphi] on the
+    energy surface E0.
 
-        - Calculate the current potential energy: V = mgL cos(phi)
-        - Calculate the T_needed = E0 - V
-        - From kinetic energy equation, we solve for the conjugate momentum of phi as: 
-        mphi = np.sqrt(2*m*L**2*np.sin(ph)**2 * T_needed)
+    Since theta is cyclic, changing theta0 alone only duplicates the same torus. For a frequency
+    map, the second grid variable should be the conserved angular momentum mtheta. The argument
+    Ntheta is kept for compatibility, but it now controls the number of mtheta samples.
+
+        - Calculate the current potential energy: V = -mgL cos(phi)
+        - Calculate the available kinetic energy: T_available = E0 - V
+        - Choose mtheta inside the allowed interval
+        - Solve the remaining kinetic energy for mphi:
+          mphi = sqrt(2*m*L**2*T_remaining)
 
     Parameters
     --------------
@@ -190,38 +190,61 @@ def generate_initial_conditions(E0: float, params: Params, Ntheta: int =50, Nphi
     params: Params
         The current parameters which describe the motion
     Ntheta and Nphi: int, int
-        Grid configuration Ntheta x Nphi
+        Grid configuration in angular momentum and polar angle
+    both_mphi_signs: bool
+        If True, include both signs of mphi. For a surface of section, False is usually enough.
     """
 
     m, L, g = params.m, params.L, params.g
 
-    phi_max = np.arccos(-E0/(m*g*L)) # Threshold
+    E_min = -m*g*L
+    E_top = m*g*L
 
-    phis = np.linspace(0.05, phi_max, Nphi)
-    thetas = np.linspace(-np.pi, np.pi, Ntheta)
-    i =0
+    if E0 <= E_min:
+        raise ValueError("E0 must be larger than the minimum energy -m*g*L.")
+
+    phi_min = 0.05
+    if E0 >= E_top:
+        phi_max = np.pi - phi_min
+    else:
+        phi_max = np.arccos(np.clip(-E0/(m*g*L), -1.0, 1.0))
+
+    if phi_max <= phi_min:
+        raise ValueError("The requested energy leaves no usable phi interval above phi_min.")
+
+    phis = np.linspace(phi_min, phi_max, Nphi, endpoint=False)
+    momentum_fractions = np.linspace(0.0, 0.95, Ntheta)
+    theta0 = 0.0
+    discarded = 0
     initials = []
-    for th in thetas:
-        for ph in phis:
-           
-            # Once you decide the initial angle, you have to choose the momenta to energy = E0
-            # Choose mtheta = 0 and th =0.0 for simplicity
-            mtheta = 0.0
 
-            # Solve for mphi from energy equation
-            V = -m*g*L*np.cos(ph)
-            T_needed = E0 - V
+    for ph in phis:
+        sin_ph = np.sin(ph)
+        V = -m*g*L*np.cos(ph)
+        T_available = E0 - V
 
-            if T_needed <= 1e-12:
-                i +=1
+        if T_available <= 1e-12:
+            discarded += Ntheta
+            continue
+
+        mtheta_max = np.sqrt(2*m*L**2*sin_ph**2*T_available)
+
+        for fraction in momentum_fractions:
+            mtheta = fraction*mtheta_max
+            T_theta = mtheta**2/(2*m*L**2*sin_ph**2)
+            T_remaining = T_available - T_theta
+
+            if T_remaining < -1e-12:
+                discarded += 1
                 continue
 
-            mphi1 = np.sqrt(2*m*L**2*np.sin(ph)**2 * T_needed)
-            mphi2 = -np.sqrt(2*m*L**2*np.sin(ph)**2 * T_needed) #-> if you descomment this line you have to store in initials list the whole results too. In this way, the odds will be the -mphi and evens the mphi results
+            mphi = np.sqrt(2*m*L**2*max(T_remaining, 0.0))
+            signs = (1.0, -1.0) if both_mphi_signs and mphi > 1e-12 else (1.0,)
 
-            initials.append(np.array([th, ph, mtheta, mphi1]))
-            initials.append(np.array([th, ph, mtheta, mphi2]))
-    print(f"Trajectories discard for non-positive kinetic energy: {i}")
+            for sign in signs:
+                initials.append(np.array([theta0, ph, mtheta, sign*mphi]))
+
+    print(f"Trajectories discarded for non-positive kinetic energy: {discarded}")
     return initials
 
 ##
@@ -289,7 +312,7 @@ def canonical_signals(traj: Trajectory):
     We describe two complex signal.
     """
 
-    z_theta = traj.theta  -1j *traj.mtheta
+    z_theta = np.exp(1j*traj.theta)
     z_phi = traj.phi -  1j * traj.mphi
 
     return z_theta, z_phi
@@ -306,8 +329,6 @@ def canonical_signals(traj: Trajectory):
 # - fft_guess
 # - scalar product
 # - Refine frequencies
-#
-#
 ##
 
 def cosine_window(N: int, order: int = 4):
@@ -340,17 +361,20 @@ def fft_guess(signal, t):
 
     signal = signal - np.mean(signal)
 
+    if np.allclose(signal, 0.0):
+        return 0.0
+
     signal *= cosine_window(len(signal))
 
     F = np.fft.fft(signal)
 
     freq = np.fft.fftfreq(len(signal), dt)
 
-    positive = freq > 0
+    nonzero = freq != 0
 
-    spectrum = F[positive]
+    spectrum = F[nonzero]
 
-    freq = freq[positive]
+    freq = freq[nonzero]
 
     k = np.argmax(np.abs(spectrum))
 
@@ -360,7 +384,7 @@ def scalar_product(signal, omega, t, window):
     """
     Computes the dot product using the Hann-weighted scalar product
     """
-    exponential = np.exp(-1j*omega*t)
+    exponential = np.exp(1j*omega*t)
 
     return np.vdot(window*exponential, signal)
 
@@ -370,8 +394,11 @@ def refine_frequency(signal, omega0, t):
 
     domega = 2*np.pi/(t[-1]-t[0])
 
+    if omega0 == 0.0:
+        return 0.0
+
     result = minimize_scalar(
-        lambda om: np.abs(scalar_product(signal, om, t, w)),
+        lambda om: -np.abs(scalar_product(signal, om, t, w)),
         bounds=(omega0-domega, omega0+domega),
         method="Bounded"
     )
@@ -386,7 +413,7 @@ def estimate_amplitude(signal, omega, t, window, ):
 
     Returns the complex Fourier coefficient.
     """
-    exponential = np.exp(-1j*omega*t)
+    exponential = np.exp(1j*omega*t)
 
     numerator = np.vdot(exponential*window, signal)
 
@@ -405,6 +432,9 @@ def naff(signal, t,):
     signal = signal.astype(complex)
 
     signal -= np.mean(signal)
+
+    if np.allclose(signal, 0.0):
+        return 0.0, 0.0j
 
     window = cosine_window(len(signal), order =4)
 
@@ -471,8 +501,8 @@ def frequency_drift(trajectory: Trajectory, ):
 
     w2_theta, w2_phi = fundamental_frequencies(second)
 
-    drift_theta = np.abs(w2_theta - w1_theta)/np.abs(w1_theta)
-    drift_phi = np.abs(w2_phi - w1_phi)/np.abs(w1_phi)
+    drift_theta = np.abs(w2_theta - w1_theta)/max(np.abs(w1_theta), 1e-15)
+    drift_phi = np.abs(w2_phi - w1_phi)/max(np.abs(w1_phi), 1e-15)
 
     return (w1_theta, w1_phi, drift_theta, drift_phi)
 ##
@@ -485,6 +515,8 @@ class FrequencyPoint:
 
     theta0: float
     phi0: float
+    mtheta0: float
+    mphi0: float
 
     omega_theta: float
     omega_phi: float
@@ -504,7 +536,7 @@ def analyse_trajectory(y0, params,):
 
     omega_theta, omega_phi, drift_theta, drift_phi = frequency_drift(traj)
 
-    return FrequencyPoint(theta0=y0[0], phi0=y0[1],
+    return FrequencyPoint(theta0=y0[0], phi0=y0[1], mtheta0=y0[2], mphi0=y0[3],
         omega_theta=omega_theta, omega_phi=omega_phi, 
         drift_theta=drift_theta, drift_phi=drift_phi,)
 
@@ -546,6 +578,12 @@ def unpack_results(results):
     
     phi0 = np.array(
         [r.phi0 for r in results])
+
+    mtheta0 = np.array(
+        [r.mtheta0 for r in results])
+
+    mphi0 = np.array(
+        [r.mphi0 for r in results])
     
     omega_theta = np.array(
         [r.omega_theta for r in results])
@@ -559,70 +597,90 @@ def unpack_results(results):
     drift_phi = np.array(
         [r.drift_phi for r in results])
     
-    return (theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi,)
+    return (theta0, phi0, mtheta0, mphi0, omega_theta, omega_phi, drift_theta, drift_phi,)
+
+
+def _safe_ratio(numerator, denominator):
+    return np.divide(
+        numerator,
+        denominator,
+        out=np.full_like(numerator, np.nan, dtype=float),
+        where=np.abs(denominator) > 1e-15,
+    )
 
 # Frequency-frequency map
 
-def plot_frequency_map(results):
+def plot_frequency_map(results) ->plt.Figure:
 
-    theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
-    ratio = omega_theta / omega_phi
-    plt.figure(figsize=(8,7))
-    plt.scatter(omega_theta, omega_phi, c=ratio, cmap="turbo", s=18, label = r"$Ratio = \omega_\theta/\omega_\phi$")
-    plt.xlabel(r"$\omega_\theta$")
-    plt.ylabel(r"$\omega_\phi$")
-    plt.title("Frequency Map")
-    cbar = plt.colorbar()
-    cbar.set_label(r"$\omega_\theta/\omega_\phi$")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    theta0, phi0, mtheta0, mphi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
+
+    diffusion = np.log10(np.maximum(drift_theta, drift_phi) + 1e-16)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10,8))
+    sc = ax1.scatter(omega_theta, omega_phi, c=diffusion, cmap="viridis", s=18, edgecolors="none")
+    ax1.set_xlabel(r"$\omega_\theta$")
+    ax1.set_ylabel(r"$\omega_\phi$")
+    ax1.set_title("Frequency Map")
+    ax1.grid(True, alpha=0.25)
+
+
+    sc1 = ax2.scatter(omega_theta, omega_phi, c=diffusion, cmap="viridis", s=18, edgecolors="none")
+    ax2.set_xlim(2.15, 2.3)
+    ax2.set_ylim(4.3, 4.4)
+    ax2.set_xlabel(r"$\omega_\theta$")
+    ax2.set_ylabel(r"$\omega_\phi$")
+    ax2.set_title("Frequency Map")
+    ax2.grid(True, alpha=0.25)
+
+    cbar = fig.colorbar(sc, ax=ax1)
+    cbar.set_label(r"$\log_{10}(\Delta\omega)$")
+    fig.tight_layout()
+    return fig
 
 # Frequency diffusion map
 
-def plot_diffusion_map(results):
+def plot_diffusion_map(results) -> plt.Figure:
 
-    theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
+    theta0, phi0, mtheta0, mphi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
     diffusion = np.maximum(drift_theta, drift_phi,)
     diffusion = np.log10(diffusion + 1e-16)
-    plt.figure(figsize=(8,7))
-    plt.scatter(theta0, phi0, c=diffusion, cmap="inferno", s=20,)
-    plt.xlabel(r"$\theta_0$")
-    plt.ylabel(r"$\phi_0$")
-    plt.title("Laskar Diffusion Map")
-    cbar = plt.colorbar()
+    fig, ax = plt.subplots(figsize=(8,7))
+    sc = ax.scatter(mtheta0, phi0, c=diffusion, cmap="inferno", s=20, edgecolors="none")
+    ax.set_xlabel(r"$m_{\theta,0}$")
+    ax.set_ylabel(r"$\phi_0$")
+    ax.set_title("Laskar Diffusion Map")
+    cbar = fig.colorbar(sc, ax=ax)
     cbar.set_label(r"$\log_{10}(\Delta\omega)$")
-    plt.tight_layout()
-    plt.show()
+    fig.tight_layout()
+    return fig
 
 # Resonance map
 
-def plot_resonance_map(results):
+def plot_resonance_map(results) -> plt.Figure:
 
-    theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
-    ratio = omega_theta / omega_phi
-    plt.figure(figsize=(8,7))
-    plt.scatter(theta0, phi0, c=ratio, cmap= "twilight", s =20)
-    plt.xlabel(r"$\theta_0$")
-    plt.ylabel(r"$\phi_0$")
-    plt.title("Frequency Ratio")
-    cbar = plt.colorbar()
+    theta0, phi0, mtheta0, mphi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
+    ratio = _safe_ratio(omega_theta, omega_phi)
+    fig, ax = plt.subplots(figsize=(8,7))
+    sc = ax.scatter(mtheta0, phi0, c=ratio, cmap= "turbo", s =20, edgecolors="none")
+    ax.set_xlabel(r"$m_{\theta,0}$")
+    ax.set_ylabel(r"$\phi_0$")
+    ax.set_title("Frequency Ratio")
+    cbar = fig.colorbar(sc, ax=ax)
     cbar.set_label(r"$\omega_\theta/\omega_\phi$")
-    plt.tight_layout()
-    plt.show()
+    fig.tight_layout()
+    return fig
 
 # Frequency drift histogram
 
-def plot_drift_histogram(results):
-    theta0, phi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
+def plot_drift_histogram(results) -> plt.Figure:
+    theta0, phi0, mtheta0, mphi0, omega_theta, omega_phi, drift_theta, drift_phi, = unpack_results(results)
     diffusion = np.maximum(drift_theta, drift_phi,)
-    plt.figure(figsize=(7,5))
-    plt.hist(np.log10(diffusion+1e-16),bins=40,)
-    plt.xlabel(r"$\log_{10}(\Delta\omega)$")
-    plt.ylabel("Counts")
-    plt.title("Frequency Drift Distribution")
-    plt.tight_layout()
-    plt.show()
+    fig, ax = plt.subplots(figsize=(7,5))
+    ax.hist(np.log10(diffusion+1e-16), bins=40)
+    ax.set_xlabel(r"$\log_{10}(\Delta\omega)$")
+    ax.set_ylabel("Counts")
+    ax.set_title("Frequency Drift Distribution")
+    fig.tight_layout()
+    return fig
 
 ##
 # -------------------------- Save results and load CSV --------------------
@@ -642,6 +700,8 @@ def results_to_dataframe(results):
         rows.append({
             "theta0": r.theta0,
             "phi0": r.phi0,
+            "mtheta0": r.mtheta0,
+            "mphi0": r.mphi0,
             "omega_theta": r.omega_theta,
             "omega_phi": r.omega_phi,
             "drift_theta": r.drift_theta,
@@ -677,15 +737,32 @@ def plot_dataframe(df):
 
     diffusion = np.log10(diffusion + 1e-16)
 
-    plt.figure(figsize=(8,7))
-    plt.scatter(df["theta0"], df["phi0"], c=diffusion, cmap="inferno", s=15,)
-    plt.xlabel(r"$\theta_0$")
-    plt.ylabel(r"$\phi_0$")
-    plt.title("Laskar Diffusion Map")
-    cbar = plt.colorbar()
+    if "mtheta0" in df:
+        x = df["mtheta0"]
+        xlabel = r"$m_{\theta,0}$"
+    else:
+        x = df["theta0"]
+        xlabel = r"$\theta_0$"
+
+    fig, ax = plt.subplots(figsize=(8,7))
+    sc = ax.scatter(x, df["phi0"], c=diffusion, cmap="inferno", s=15, edgecolors="none")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(r"$\phi_0$")
+    ax.set_title("Laskar Diffusion Map")
+    cbar = fig.colorbar(sc, ax=ax)
     cbar.set_label(r"$\log_{10}\Delta\omega$")
-    plt.tight_layout()
+    fig.tight_layout()
     plt.show()
+
+def saved_image(fig1, fig2, fig3, fig4):
+    import os
+    directory = os.getcwd()
+    route = os.path.join(directory, "figures")
+
+    fig1.savefig(fname= os.path.join(route, "frequency_map.png"), dpi = 300, bbox_inches = "tight")    
+    fig2.savefig(fname= os.path.join(route, "diffusion_map.png"), dpi = 300, bbox_inches = "tight")
+    fig3.savefig(fname= os.path.join(route, "resonance_map.png"), dpi = 300, bbox_inches = "tight")
+    fig4.savefig(fname= os.path.join(route, "drift_histogram.png"), dpi = 300, bbox_inches = "tight")
 
 # 
 # ------------------------ Main ----------------
@@ -701,7 +778,7 @@ def main():
     # Initial-condition grid
     print("=" *60)
 
-    initials = generate_initial_conditions(E0=energy_level, params=params, Nphi= 30, Ntheta=30)
+    initials = generate_initial_conditions(E0=energy_level, params=params, Nphi= 20, Ntheta=20)
     
     print()
 
@@ -721,11 +798,13 @@ def main():
     save_results(results, output,)
 
 
-    plot_frequency_map(results)
-    plot_diffusion_map(results)
+    fig1 = plot_frequency_map(results)
+    fig2 = plot_diffusion_map(results)
 
-    plot_resonance_map(results)
-    plot_drift_histogram(results)
+    fig3 = plot_resonance_map(results)
+    fig4 = plot_drift_histogram(results)
+
+    saved_image(fig1, fig2, fig3, fig4)
 
 if __name__ == "__main__":
 
