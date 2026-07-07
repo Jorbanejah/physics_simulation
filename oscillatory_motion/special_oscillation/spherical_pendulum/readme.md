@@ -27,7 +27,7 @@ These equations describe the motion of the spherical pendulum.
 A curious description of this system is about angular momentum conservation. The first equation can be written through Euler-Lagrangian equation:
 
 $$
-\frac{\partial{mL^2 sin(\theta)^2 \dot{\phi}}}{\partial{t}} = 0
+\frac{\partial}{\partial{t}} \left(mL^2 sin(\theta)^2 \dot{\phi}\right) = 0
 $$
 
 through this equation we can describe the effective potential like:
@@ -132,4 +132,199 @@ This equation have two terms. The first one is called centrifugal - it pushes ou
 
 The thrid figure indicates a continuous probabiliy distribution, where - at the same time as in second figure - the closed curves indicate nutation (modulating the amplitude) and the pattern repetition indicates the precession (modulating the phase). Also, in this figure we can appreciate diffetent densities - places where the pendulum takes a long time - that it coincide with maximus of nutation and slow preccesion.
 
-  <img src="figures/kde_phase_space.png" width="400" style = "margin: 5px 0;">
+  <p align="center">
+  <img src="figures/kde_phase_space.png" width="500"><br>
+</p>
+
+## Laskar's map
+
+The last section is about frequency map analysis. In a few words, the FMA is a numerical method based on refined Fourier techniques which porovides a clear representation of the global dynamics of many multi-dimensional system, which is particulary adapted for systems of 3-degrees of freedom and more.
+In the main code called: frequency_map.py every single function is explained with its performs. However, firstly, we have to introduce the Hamiltonian mechanics.
+
+These kind of graphics work better with conjugate momenta defined as: $p_j = \frac{\partial L}{\partial \dot{q_j}}$. This definition allows for the extension of the concept of momentum beyond linear and angular momentum to include other types of motion, such as rotational motion or motion in a potential field. Futhermore, in hamiltonian's equation defined as:
+
+$$
+H = T + U
+$$
+
+where T is the kinetic energy and U the potential energy, they are expressed with their generalized coordenates and their conjugate momenta, providing a powerful framework for analyzing dynamical system. The hamiltonian spherical-pendulum equations are defined as:
+
+$$
+\dot{\phi} = \frac{p_{\phi}}{m L^2} 
+$$
+
+$$
+\dot{\theta}= \frac{p_{\theta}}{m L^2 sin(\phi)^2}
+$$
+
+$$
+\dot{p_{\phi}} = \frac{p_{\theta} cos(\phi)}{m L^2 sin(\phi)^3} - mgL sin(\phi)
+$$
+
+$$
+\dot{p_{\theta}} = 0 
+$$
+
+Now, we are going to explain how or which step have taken.
+
+**Initial conditions and energy surface**
+
+The frequency map works inside a constant-energy surface, and a $N_{\theta} x N_{\phi}$ initial condition grid. The constant-energy surface is provided by a single $\phi$ and calculated by $E_{min} = -m gL cos(\phi)$. For this surface we define a grid of $\theta, \phi$ initial conditions and we calculate the conjugate momenta $\left( p_{\theta}, p_{\phi} \right)$ for this constant surface.
+At this step, we have calculated all given trajectories except those which has not the kinetic positive energy.
+
+**Complex canonical signals:**
+
+The next step in the frequency map analysis is the construction of the canonical complex variables. These signals are extracted directly from the trajectory and are the input for the NAFF algorithm.
+
+In the code, the canonical signals are defined as:
+
+$$
+    z_{\theta} = e^{i  \theta}
+$$
+
+$$
+    z_{\phi} = \phi - i  p_{\phi}
+$$
+
+These definitions come from the function *canonical_signals()* and are the only complex signals used in the frequency extraction. They are not arbitrary: each one isolates the oscillatory behaviour of one degree of freedom. The variable $z_{\theta}$ captures the angular evolution of the azimuthal coordinate, while $z_{\phi}$ combines the polar angle with its conjugate momentum.
+
+Both signals are evaluated along the full integrated trajectory and passed to the NAFF algorithm. But, what is NAFF algorithm?
+
+**NAFF frequency extraction**
+
+The NAFF (Numerical Analysis of Fundamental Frequencies) algorithm is implemented in several steps:
+
+1. **Windowing**  
+   A generalized cosine window of order 4 is applied:
+
+$$
+       w(x) = (1 + cos(\pi  x))^4
+$$
+   
+   normalized such that the scalar product $<1,1> = 1$.
+
+3. **FFT initial guess**  
+   The dominant frequency is estimated using the FFT of the windowed signal:
+   
+$$
+       \omega_0 = 2  \pi  freq_{max}
+$$
+   
+4. **Refinement**  
+   The frequency is refined by maximizing the scalar product:
+
+$$
+       S(\omega) = < signal , e^{i \omega t} >
+$$
+   
+   using a bounded scalar minimization of $-abs(S(\omega))$.
+
+5. **Amplitude estimation**  
+   Once the refined frequency $\omega$ is found, the complex amplitude is:
+
+$$
+       A = \frac{< signal , e^{i \omega t} >}{< e^{i \omega  t} , e^{i \omega t} >}
+$$
+
+The function *naff()* returns the pair *(omega, A)* for one frequency.
+The multi-frequency extraction *naff_decomposition()* iteratively
+subtracts each extracted component:
+
+$$
+       residual = residual - A  e^{i \omega t}
+$$
+
+**Fundamental frequencies**
+
+For each trajectory, the two fundamental frequencies of the spherical pendulum are computed as:
+
+    (omega_theta, _) = naff(z_theta, t)
+    (omega_phi,   _) = naff(z_phi,   t)
+
+These frequencies characterize the quasi-periodic motion on the constant-energy surface.
+
+**Frequency drift and chaos indicator**
+
+To detect chaotic behaviour, each trajectory is split into two halves:
+
+    first_half, second_half = split_trajectory(traj)
+
+The fundamental frequencies are computed separately:
+
+    (w1_theta, w1_phi) = fundamental_frequencies(first_half)
+    (w2_theta, w2_phi) = fundamental_frequencies(second_half)
+
+The diffusion (Laskar drift) is then:
+
+    drift_theta = abs(w2_theta - w1_theta) / max(abs(w1_theta), 1e-15)
+    drift_phi   = abs(w2_phi - w1_phi)   / max(abs(w1_phi),   1e-15)
+
+A small drift indicates regular motion; a large drift indicates chaotic
+behaviour.
+
+## Frequency map construction
+
+For each initial condition on the constant-energy surface, the following
+quantities are stored:
+
+    theta_0
+    phi_0
+    m_theta_0
+    m_phi_0
+    omega_theta
+    omega_phi
+    drift_theta
+    drift_phi
+
+These values form a *FrequencyPoint* object and are collected into the frequency map.
+
+ **Visualisation**
+
+The code provides four main plots:
+
+1. **Frequency map**  
+   Scatter plot of `(omega_theta, omega_phi)` colored by  
+   `log10(max(drift_theta, drift_phi))`.
+
+<p align="center">
+  <img src="figures/frequency_map.png" width="500"><br>
+</p>
+
+2. **Diffusion map**  
+   Scatter plot of `(m_theta_0, phi_0)` colored by the same diffusion
+   indicator.
+
+<p align="center">
+  <img src="figures/diffusion_map.png" width="500"><br>
+</p>
+
+3. **Resonance map**  
+   Scatter plot of `(m_theta_0, phi_0)` colored by the ratio:
+
+       omega_theta / omega_phi
+
+<p align="center">
+  <img src="figures/resonance_map.png" width="500"><br>
+</p>
+
+4. **Drift histogram**  
+   Histogram of `log10(drift)` values across all trajectories.
+
+<p align="center">
+  <img src="figures/drift_histogram.png" width="500"><br>
+</p>
+
+Each plot reveals different aspects of the dynamics: regular tori,
+resonances, and chaotic layers.
+
+
+
+
+
+
+
+
+
+
+
+
