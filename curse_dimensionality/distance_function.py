@@ -10,6 +10,8 @@ The main purpose of this class are both curiosity and show one performance of Ma
 '''
 
 import time
+import numpy as np
+from typing import Sequence
 
 def auditor(func):
     def wrapper(*arg, **kwargs):
@@ -32,13 +34,33 @@ def auditor(func):
         return score
     return wrapper
 
+def ecludian_distant(dimension:int, point_1:Sequence, point_2:Sequence)->float:
+    "Calculus of the ecludian distance of two given points in a p-dimension space"
+
+    Xp = 0
+    for p in dimension-1:
+        Xp += (point_1[p] - point_2[p])**2
+
+    return np.sqrt(Xp)
+
+def hypercircle(dimension: int, radium: float, center: Sequence, point: Sequence)-> bool:
+
+    Xp = ecludian_distant(dimension=dimension, point_1 = center, point_2 = point)
+
+    if Xp >= radium:
+        return False
+    else:
+        return True
+
 @auditor
-class distance_function(dimension: int, n_sampling: int,  type_norm: str = "Euclidean", graphics: bool = True):
-"""
+class Curse_of_dimensionality():
+    """
     Description:
     ------------
+
     This class provides a reasonable example about how the dimensional scale is counterintuitive.
     The curse of dimensionality, also called, 
+
     Parameters:
     -----------
 
@@ -50,7 +72,40 @@ class distance_function(dimension: int, n_sampling: int,  type_norm: str = "Eucl
         This parameter controls which kind of distance use. Distance available so far: ["Euclidean"]
     graphics: bool
         This parameter controls wheter plot the results in two-dimension graphics: number of sampling vs distance average or not. In case of False, the output will be the final distance average.
-"""
-    def __init__():
+    """
+    def __init__(self, dimension: int, n_sampling: int,  type_norm: str = "Euclidean", graphics: bool = True):
         pass
-    pass
+
+    def lenght():
+        pass
+
+    def hypercubes():
+        pass
+    def correlation():
+        pass
+
+
+class Hypercircles():
+    """
+    Description:
+    -------------
+    The class calculates the percent of samples that they are within the hypercircle of center(X) and radius r.
+
+    The class performance with two outside function: ecludian_distant that calculates the distance between the sample and the center, and the hypercircle that create it 
+    and its ouput tells whether the points is inside or not. The class works splitting the dataset in diferent subset of lower dimensionality, then describing the hypercircle and  
+    look for the points that are within it.
+
+    The main purpose of this class is to verify that data tend to be sparse in higher dimensions. So the output, 
+
+    Parameters:
+    -------------
+    dataset:Sequence
+        The dataset contains the dimension and any sample of it.
+    Center: Sequence
+        A vector of float numbers that describes the center of the hypercircle
+    Radius: float
+    """
+    def __init__(self, dataset: Sequence, center: Sequence, radius: float):
+        pass
+    def graphics():
+        pass
