@@ -9,9 +9,13 @@ d-dimensional points N times and plot it in a two-dimensional graphic (N vs aver
 The main purpose of this class are both curiosity and show one performance of Machine Learning: dimensionaly reduction.
 '''
 
-import time
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+import time
 from typing import Sequence
+from matplotlib.figure import Figure
 
 def auditor(func):
     def wrapper(*arg, **kwargs):
@@ -34,30 +38,6 @@ def auditor(func):
         return score
     return wrapper
 
-def ecludian_distant(dimension:int, point_1:Sequence, point_2:Sequence)->float:
-    "Calculus of the ecludian distance of two given points in a p-dimension space"
-
-    Xp = 0
-    for p in dimension-1:
-        Xp += (point_1[p] - point_2[p])**2
-
-    return np.sqrt(Xp)
-
-def hypercircle(dimension: int, radium: float, center: Sequence, point: Sequence)-> bool:
-
-    Xp = ecludian_distant(dimension=dimension, point_1 = center, point_2 = point)
-
-    if Xp >= radium:
-        return False
-    else:
-        return True
-
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
-import pandas as pd
-from typing import Sequence
-import time
 
 class Hypercircle():
     """
@@ -209,8 +189,136 @@ class Hypercircle():
 
         plt.plot()
 
+class Hypercube():
+    """
+    Description:
+    -------------
 
+    This class calculates the distance of two random samples inside the unit hypercube with a given dimension (p) and number of samples (n). This class works generating a dataset (p x n) and calculating the average distance in each dimension.
 
+    The main purpose of this class is showing both the correlation decreases and the distance increases beetween the same point adding one dimension per iteration. The 
+
+    Parameters:
+    ------------
+
+    p: int
+        dimension.
+    n: int
+        number of samples
+    correlation: bool
+        this parameter controls whether the correlation beetween points is made and plot it or not.
+    """
+
+    def __init__(self, p: int, n: int, correlation: bool):
+
+        self.p: int = p
+        self.n: int = n
+        self.correlation: bool = correlation
+
+    def generate_data(self, p:int, n:int ):
+
+        try: 
+            x0 = np.random.uniform(low = 0, high = 1, size = (n, p))
+            self.df = pd.DataFrame(x0)
+            return self.df
+        except:
+            raise ValueError("Both the dimension and number of samples must be integers")
+      
+    def avr_distance(self, p:int, n:int)-> Sequence:
+
+        average_distance = []
+        for d in range(p):
+            if d == 0: continue
+            distance = 0
+            for i in n+1:
+
+                if i == n+1: continue
+                point_1 = self.df[:d][i]
+                point_2 = self.df[:d][i+1]
+
+                distance += self.distance(point1= point_1, point2=point_2)
+
+            average_distance.append(distance)
+
+        return average_distance
+
+    def same_point(self, p:int)->list:
+
+        distance_per_dimension = []
+
+        if self.correlation == True:
+            correlation_per_dimension = []
+
+            for d in range(p):
+                point_1 = self.df[:d][0]
+                point_2 = self.df[:d][1]
+
+                distance_per_dimension.append(self.distance(point1=point_1, point2=point_2))    
+                correlation_per_dimension.append(self.correla(point1 = point_1, point2 = point_2))
+
+            return distance_per_dimension, correlation_per_dimension
+        
+        else:
+            for d in range(p):
+                point_1 = self.df[:d][0]
+                point_2 = self.df[:d][1]
+            
+                distance_per_dimension.append(self.distance(point1=point_1, point2=point_2))   
+            return distance_per_dimension
+
+    def distance(self, point1: Sequence, point2: Sequence) -> float:
+
+        point1 = np.array(point1)
+        point2 = np.array(point2)
+
+        distance = np.linalg.norm(point1 - point2)
+
+        return distance
+
+    def correla(self, point1: Sequence, point2:Sequence)->float:    
+
+        point1 = pd.Series([point1])
+        point2 = pd.Series([point2])
+
+        cor = point1.corr(point2)
+
+        return cor
+
+    def graphics(self) -> Figure:
+
+        if self.correlation == True:
+
+            fig = plt.figure(figsize = (8,6))
+            from matplotlib.gridspec import GridSpec
+            gs = GridSpec(2,2)
+
+            avr_d_gr = fig.add_subplot(gs[:, 0])
+            corr_gr = fig.add_subplot(gs[0, 1])
+            d_gr = fig.add_subplot(gs[1, 1])
+
+            dis, cor = dis =  self.same_point(p = self.p)
+            avr_distance = self.avr_distance(p= self.p, n = self.n)
+
+            avr_d_gr.plot(np.arange(1, self.p, 1), avr_distance, linstyle = "-", color = "purple")
+            x = np.linspace(0, self.p, 100)
+            avr_d_gr.plot(x, np.sqrt(x), linestyle = "--")
+
+            corr_gr.plot(np.arange(1, self.p, 1), cor, linstyle= "-", color = "orange")
+            d_gr.plot(np.arange(1, self.p, 1), dis, linestyle = "-", color = "green")
+
+            return fig
+        
+        else:
+            fig_normal = plt.figure(figsize=(8,6))
+            ax1 = fig_normal.add_subplot(0, 0)
+            ax2 = fig_normal.add_subplot(0, 1)
+
+            avr_dis = self.avr_distance(p =self.p, n = self.n)
+            s_point = self.same_point()
+            ax1.plot(np.arange(1, self.p + 1, 1), avr_dis, linestyle = "-", color = "purple")
+            ax2.plot(np.arange(1, self.p +1, 1), s_point, linestyle = "-", color = "orange")
+
+            return fig_normal
 
 @auditor
 class Curse_of_dimensionality():
