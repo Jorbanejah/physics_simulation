@@ -1,12 +1,19 @@
 '''
-The following program contains a class calls as the file.
+The following program contains two classes related to the curse of dimensionality.
 
-This class shows us how high-dimensional space makes bigger when the dimension increase. 
+The first class shows how the proportion of points contained inside a hypersphere
+decreases as the dimensionality increases.
 
-Given the dimension (d), the numbers of point (N) and the norm type, the following class will calculate the distance (norm type) between two random 
-d-dimensional points N times and plot it in a two-dimensional graphic (N vs avergare distance between points).
+The second class shows how, as dimensionality increases:
+    1. The average distance between random points increases.
+    2. The correlation between random vectors tends to decrease.
+    3. The distance between the same two points increases as dimensions are added.
 
-The main purpose of this class are both curiosity and show one performance of Machine Learning: dimensionaly reduction.
+The main purpose of this program is both educational and to illustrate one of
+the consequences of the curse of dimensionality in Machine Learning:
+dimensionality reduction.
+
+Author: Jorge Orbaneja Huerta
 '''
 
 import numpy as np
@@ -14,340 +21,524 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import time
+import sys
+import functools
 from typing import Sequence
 from matplotlib.figure import Figure
+from scipy.stats import pearsonr
+
 
 def auditor(func):
-    def wrapper(*arg, **kwargs):
+    """
+    Decorator that measures and prints the execution time of a function
+    and its returned result.
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
 
-        if not arg:
-            raise ValueError("The function requieres an argument")
-        if not isinstance(*arg[0], int):
-            raise TypeError("The first argument must be an int")
-        
-        print(f"Log... calling {func.__name__} with arg = {arg} and kwargs = {kwargs}")
+        if not args:
+            raise ValueError("The function requires an argument.")
 
         start = time.time()
-        score = func(*arg, **kwargs)
+        score = func(*args, **kwargs)
         end = time.time()
 
-        duracion = (start - end) *1000
+        duration = (end - start) * 1000
 
         print(f"Score: {score}")
+        print(f"Duration: {duration:.2f} ms")
 
         return score
+
     return wrapper
 
 
-class Hypercircle():
+class Hypersphere():
     """
-    Description
-    ------------
+    This class calculates the percentage of p-dimensional data points
+    that fall inside a hypersphere with a given center and radius.
 
-    This class calculates the percentage of p-dimensional data points that fall inside a hypersphere with a given center and radius. The data is generated from a normal distribution with a given mean and s.t.d.
+    The data is generated from a normal distribution with a given mean
+    and standard deviation.
 
-    The class works as follows: first, the data is generated from p-dimensional normal distribution, and transformed into a dataset of size (n x p), called X. Finally, the proportion of points lying within the hypersphere is computed by a function called: in_or_out.
+    Parameters
+    ----------
+    p : int
+        Dimension of the dataset.
+    n : int
+        Number of samples.
+    center : list
+        Center of the hypersphere.
+    radius : int or float
+        Radius of the hypersphere.
+    graphic_pd : bool, default=True
+        If True, the class generates the 2D/3D graphics together with
+        the percentage-versus-dimension graphic.
 
-    Parameters:
-    -----------
-
-    p: int
-        Dimension of the whole dataset
-    n: int
-        number of samples
-    center: Array
-        center of the hypercircle
-    ratio: int
-        ratio of the hypercircle 
-    graphics_2d: bool
-        the class generated a scatter picture of two dimensional data with a circle. 
-    graphics_3d: bool
-        the class generated a scatter picture of three dimensional data with a sphere.
-    pd-graphcis: bool
-        the class generate a curve about how the porcentage of points inside the hypercircle decrease with dimesion.
+    Optional parameters
+    -------------------
+    mean : float
+        Mean of the normal distribution. Default is 0.
+    std : float
+        Standard deviation of the normal distribution. Default is 1.
+    title : str
+        Title of the main figure.
     """
 
-    def __init__(self, p: int, n: int, center: list, radius: int, graphics_2d: bool = False, graphics_3d: bool= False, graphics_pd: bool = True, **kwargs):
+    def __init__(self, p: int, n: int, center: list, radius: int, graphic_pd: bool = True, **kwargs):
+
+        if not isinstance(p, int) or p < 1:
+            raise ValueError("The dimension variable (p) must be a positive integer.")
+
+        if not isinstance(n, int) or n < 1:
+            raise ValueError("The number of samples (n) must be a positive integer.")
+
+        if len(center) < p:
+            raise ValueError("The center must contain at least p coordinates.")
+
+        if radius <= 0:
+            raise ValueError("The radius must be greater than zero.")
 
         self.p: int = p
         self.n: int = n
         self.center: list = center
-        self.radius:int = radius
-        self.graphics_pd:bool = graphics_pd
-        self.graphics_3d:bool = graphics_3d
-        self.graphics_2d: bool = graphics_2d
+        self.radius: int = radius
+        self.graphic_pd: bool = graphic_pd
 
-        self.kwargs = kwargs
+        self.kwargss = kwargs
 
-    def generate_data(self, p:int, n:int, ):
+    def generate_data(self):
         """
-        This function generate a DataFrame with the whole generate p-dimensional data given a mean and std. 
-        By default, the mean and the std are 0 and 1, respectively.
+        Generate a DataFrame containing n samples of p-dimensional data.
+
+        By default, the data is generated from a standard normal distribution
+        with mean 0 and standard deviation 1.
         """
 
-        mean = 0 if self.kwargs["mean"] is None else mean = self.kwargs["mean"]
-        scale = 1 if self.kwargs["std"] is None else scale = self.kwargs["std"]
+        mean = self.kwargss.get("mean", 0)
+        scale = self.kwargss.get("std", 1)
 
-        try: 
-            x0 = np.random.normal(loc = mean, scale = scale, size = (p, n))
-            self.df = pd.DataFrame(x0.reshape(n, p))
+        if not isinstance(mean, (int, float)):
+            raise ValueError("The mean must be a number.")
 
-            return self.df
-        except:
-            raise ValueError("The mean and the standard desviation (std) must be integer")
+        if not isinstance(scale, (int, float)) or scale <= 0:
+            raise ValueError("The standard deviation (std) must be a positive number.")
 
-    def stratified(self, df, p:int) ->list[float]:
+        x0 = np.random.normal(loc=mean, scale=scale, size=(self.n, self.p))
+
+        self.df = pd.DataFrame(x0)
+
+        return self.df
+
+    @auditor
+    def stratified(self, df, p: int) -> list[float]:
+        """
+        Calculate the percentage of points inside the hypersphere
+        for every dimension from 1 to p.
+        """
+
+        if p < 1:
+            raise ValueError("The dimension must be greater than zero.")
+
+        if df.shape[1] < p:
+            raise ValueError("The DataFrame does not contain enough dimensions.")
 
         self.porcentage = []
 
-        for dimension in range(p + 1):
+        for dimension in range(1, p + 1):
 
-            if dimension == 0: continue
+            percent = dimension / p * 100
+            sys.stdout.write(f"\rProgress: {percent:.1f}%")
+            sys.stdout.flush()
 
-            new_df = df[:p][:]
+            new_df = df.iloc[:, :dimension]
 
-            self.porcentage.append(self.porcentage_inside(df = new_df, p = dimension, n = self.n))
+            percentage = self.porcentage_inside(df=new_df, p=dimension, n=self.n)
+
+            self.porcentage.append(percentage)
+
+        print()
 
         return self.porcentage
 
-    def porcentage_inside(self, df, p: int, n:int,)-> float:
+    def porcentage_inside(self, df, p: int, n: int) -> float:
         """
-        This function calculates the porcentage of p-dimensional points that it falls inside the hypersphere with given radius and p-dimensional center.
+        Calculate the percentage of p-dimensional points that fall
+        inside the hypersphere.
         """
-        j = 0
+
+        if p < 1:
+            raise ValueError("The dimension must be greater than zero.")
+
+        if len(self.center) < p:
+            raise ValueError("The center does not contain enough coordinates.")
+
+        center_coordinate = self.center[:p]
+
+        points_inside = 0
 
         for i in range(n):
-            #We make a p-dimensional list for the whole points in the same column DataFrame
 
-            point = [df[d][i] for d in range(p)]
-            
-            center_coordenate = [self.center[d] for d in range(p)]
+            point = df.iloc[i, :p].to_numpy()
 
-            if self.in_or_out(self, center = center_coordenate, radio = self.radius, point = point) == True:
-                j += 1
+            if self.in_or_out(center=center_coordinate, radio=self.radius, point=point):
+                points_inside += 1
 
-        porcent = j/n * 100
+        percentage = points_inside / n * 100
 
-        return porcent
+        return percentage
 
-    def in_or_out(self, center:list, radio:int, point:list) -> bool:
+    def in_or_out(self, center: list, radio: int, point: list) -> bool:
         """
-        This boolean function tells you whether a point is inside the hypersphere with a given radius and center or not.
+        Determine whether a point is inside the hypersphere.
         """
-        center= np.array(center)
-        point = np.array(point)
+
+        center = np.asarray(center)
+        point = np.asarray(point)
+
         distance = np.linalg.norm(center - point)
 
-        if distance > radio:
-            return False
-        else:
-            return True
+        return distance <= radio
 
-    def graphics(self, d2:bool, d3:bool, pd:bool)-> None:
+    def graphics(self, porcentage: list) -> Figure:
 
-        if d2 == True:
-            theta = np.linspace(0, 2*np.pi, 100)
-            x = self.center[0] + self.ratio * np.cos(theta)
-            y =  self.center[1] + self.ratio * np.sin(theta)
+        if self.graphic_pd:
 
-            fig_d2 = plt.figure(figsize=(8,5))
-            sns.jointplot(data = self.df[:1][:], x = 0, y = 1)
-            plt.axis("on")
-            plt.plot(x, y, linestyle = "--", color = "black")
-            plt.axhline(self.center[1] - self.radius, linestyle ="--",color = "black")
-            plt.axhline(self.center[1] + self.radius, linestyle ="--", color = "black")
-            plt.axvline(self.center[0] - self.radius, linestyle ="--", color = "black")
-            plt.axvline(self.center[0] + self.radius, linestyle ="--", color = "black")
-            plt.text(x = 0, y = 1, s = f"{self.porcentage[0]}")
+            fig = plt.figure(figsize=(10, 10))
 
-            plt.title(f"{self.kwargs["d2_title"]}") if self.kwargs["d2_title"] is not None else None
+            from matplotlib.gridspec import GridSpec
 
-        if d3 == True:
+            sp = GridSpec(2, 2, fig)
 
-            theta = np.linspace(0, 2*np.pi, 100)
-            phi = np.linspace(0, np.pi, 100)
+            # Since jointplot cannot be directly embedded into a nested
+            # figure, create a scatter plot and two marginal histograms
+            # manually.
 
-            x = self.center[0] + self.radius * np.cos(theta) * np.sin(phi)
+            sp_joint = sp[0, 1].subgridspec(
+                2,
+                2,
+                width_ratios=[1, 1],
+                height_ratios=[1, 1],
+                wspace=0.05,
+                hspace=0.05
+            )
+
+            ax_joint = fig.add_subplot(sp_joint[1, 0]) #Bottom-left
+            ax_margs_x = fig.add_subplot(sp_joint[0, 0])#Upper-right
+            ax_margs_y = fig.add_subplot(sp_joint[1, 1])#Bottom- right
+            ax_margs_tl = fig.add_subplot(sp_joint[0, 1])#Upper right
+            ax_margs_tl.set_visible(False)
+
+            # The rest of the figures.
+
+            ax_3d = fig.add_subplot(sp[1, 1], projection="3d")
+            ax_pd = fig.add_subplot(sp[:, 0])
+
+            # ---------------------------------------------------------
+            # 2D GRAPHIC
+            # ---------------------------------------------------------
+
+            theta = np.linspace(0, 2 * np.pi, 100)
+
+            x = (self.center[0] + self.radius * np.cos(theta))
+
+            y = (self.center[1] + self.radius * np.sin(theta))
+
+            sns.scatterplot(data= self.df.iloc[:, :2], x = 0, y =1, ax = ax_joint)
+            sns.histplot(data = self.df.iloc[:, :2], x =0, ax = ax_margs_x)
+            sns.histplot(data = self.df.iloc[:, :2], y =0, ax = ax_margs_y)
+
+            ax_joint.plot(x, y, linestyle = "--", color = "black")
+            ax_joint.axhline(self.center[1] - self.radius, linestyle ="--",color = "black")
+            ax_joint.axhline(self.center[1] + self.radius, linestyle ="--", color = "black")
+            ax_joint.axvline(self.center[0] - self.radius, linestyle ="--", color = "black")
+            ax_joint.axvline(self.center[0] + self.radius, linestyle ="--", color = "black")
+            
+            # Establish the axes.
+
+            max_x = np.max(np.abs(self.df.iloc[:, 0]))
+            max_y = np.max(np.abs(self.df.iloc[:, 1]))
+            maximus = max(max_x, max_y, self.radius)
+
+            ax_joint.set_xlim([-maximus, maximus])
+            ax_joint.set_ylim([-maximus, maximus])
+
+            ax_margs_x.set_title(f"Percentage inside: {self.porcentage[0]:.2f} %")
+
+            ax_joint.set_xlabel(r"$x_1$")
+            ax_joint.set_ylabel(r"$x_2$")
+
+            # ---------------------------------------------------------
+            # 3D GRAPHIC
+            # ---------------------------------------------------------
+
+            resolution = 100
+            theta, phi = np.meshgrid( np.linspace(0, np.pi, resolution), np.linspace(0, 2*np.pi, resolution))
+
+            x = self.center[0] + self.radius * np.sin(theta) * np.cos(phi)
             y = self.center[1] + self.radius * np.sin(theta) * np.sin(phi)
-            z = self.center[2] + self.radius * np.cos(phi)
+            z = self.center[2] + self.radius * np.cos(theta)
+           
+            ax_3d.scatter(xs = self.df[0][:], ys = self.df[1][:], zs = self.df[2][:], s =1, c = "blue")
+            ax_3d.plot3D(xs = x, ys = y, zs = z, linestyle = "--", color = "red")
 
-            fig_d3 = plt.figure(figsize = (8, 5))
+            # Establish the axes.
+            max_x = np.max(np.abs(self.df[0]))
+            max_y = np.max(np.abs(self.df[1]))
+            max_z = np.max(np.abs(self.df[2]))
 
-            ax = fig_d3.add_subplot(projection = "3d")
+            maximus = max(max_x, max_y,max_z,self.radius)
 
-            ax.scatter(xs = self.df[0][:], ys = self.df[1][:], zs = self.df[2][:], s =1, c = "blue")
-            ax.plot3D(xs = x, ys = y, zs = z, linestyle = "--")
-            ax.set_title(f"{self.kwargs["d3_title"]}") if self.kwargs["d3_title"] is not None else None
+            ax_3d.set_xlim([-maximus, maximus])
+            ax_3d.set_ylim([-maximus, maximus])
+            ax_3d.set_zlim([-maximus, maximus])
 
-        if pd == True:
+            ax_3d.set_xlabel(r"$x_1$")
+            ax_3d.set_ylabel(r"$x_2$")
+            ax_3d.set_zlabel(r"$x_3$")
+
+            ax_3d.set_title(f"Percentage inside: {self.porcentage[1]:.2f} %")
+
+            # ---------------------------------------------------------
+            # PERCENTAGE VS DIMENSION
+            # ---------------------------------------------------------
+
+            dimensions = np.arange(1, self.p + 1)
+            ax_pd.plot(dimensions, porcentage, linestyle = "-", linewidth = 2, color = "purple")
+            ax_pd.plot(dimensions, porcentage, "*", linewidth = 2, color = "orange")
+            ax_pd.set_xlabel("Dimension (p)")
+            ax_pd.set_ylabel("Porcentage %")
+
+            title = self.kwargss.get("title")
+
+            if title is not None:
+                fig.suptitle(title)
+
+            plt.tight_layout()
+            return fig
+
+        else:
 
             fig_pd = plt.figure(figsize=(8, 5))
-            plt.plot(self.porcentage, np.arange(1, self.p + 1, 1), linestyle = "-", linewidth = 2)
-            plt.xlabel("Dimension (p)")
-            plt.ylabel("Porcentage %")
-            plt.title("Porcentage inside the hypersphere vs dimension")
 
-        plt.plot()
+            dimensions = np.arange(1, self.p + 1)
+            plt.plot( np.arange(1, self.p + 1, 1), porcentage, linestyle = "-", linewidth = 2, color = "purple")
+            plt.xlabel("Dimension (p)")
+            plt.ylabel("Percentage %")
+
+            title = self.kwargss.get("title")
+
+            if title is not None:
+                plt.title(title)
+
+            return fig_pd
+
 
 class Hypercube():
     """
-    Description:
-    -------------
+    This class calculates distances between random samples inside
+    the unit hypercube as dimensionality increases.
 
-    This class calculates the distance of two random samples inside the unit hypercube with a given dimension (p) and number of samples (n). This class works generating a dataset (p x n) and calculating the average distance in each dimension.
+    It shows three effects associated with the curse of dimensionality:
 
-    The main purpose of this class is showing both the correlation decreases and the distance increases beetween the same point adding one dimension per iteration. The 
+        1. The average distance between random points increases.
+        2. The correlation between random vectors tends toward zero.
+        3. The distance between the same two points increases as dimensions
+           are added.
 
-    Parameters:
-    ------------
-
-    p: int
-        dimension.
-    n: int
-        number of samples
-    correlation: bool
-        this parameter controls whether the correlation beetween points is made and plot it or not.
+    Parameters
+    ----------
+    p : int
+        Dimension of the hypercube.
+    n : int
+        Number of random samples.
     """
 
-    def __init__(self, p: int, n: int, correlation: bool):
+    def __init__(self, p: int, n: int):
+
+        if not isinstance(p, int) or p < 1:
+            raise ValueError("The dimension variable (p) must be a positive integer.")
+
+        if not isinstance(n, int) or n < 1:
+            raise ValueError("The number of samples (n) must be a positive integer.")
 
         self.p: int = p
         self.n: int = n
-        self.correlation: bool = correlation
 
-    def generate_data(self, p:int, n:int ):
+    def generate_data(self):
+        """
+        Generate n random points inside a p-dimensional unit hypercube.
+        Every coordinate is sampled independently from Uniform(0, 1).
+        """
 
-        try: 
-            x0 = np.random.uniform(low = 0, high = 1, size = (n, p))
-            self.df = pd.DataFrame(x0)
-            return self.df
-        except:
-            raise ValueError("Both the dimension and number of samples must be integers")
-      
-    def avr_distance(self, p:int, n:int)-> Sequence:
+        x0 = np.random.uniform( low=0,high=1,size=(self.n, self.p))
+
+        self.df = pd.DataFrame(x0)
+
+        return self.df
+
+    @auditor
+    def avr_distance(self,p: int,n: int) -> Sequence:
 
         average_distance = []
-        for d in range(p):
-            if d == 0: continue
-            distance = 0
-            for i in n+1:
+        correlation = []
+        max_dis = []
+        min_dis = []
 
-                if i == n+1: continue
-                point_1 = self.df[:d][i]
-                point_2 = self.df[:d][i+1]
+        for d in range(1, p + 1):
 
-                distance += self.distance(point1= point_1, point2=point_2)
+            percent = d / p * 100
 
-            average_distance.append(distance)
+            sys.stdout.write(f"\rProgress: {percent:.1f}%" )
+            sys.stdout.flush()
 
-        return average_distance
+            distance = []
+            corr_values = []
 
+            for _ in range(n):
+
+
+                p1, p2  = np.random.sample((2,))
+                point_1 = self.df.iloc[int(self.n*p1),:d]
+                point_2 = self.df.iloc[int(self.n*p2),:d]
+
+                distance.append(self.distance(point1= point_1, point2=point_2))
+                cor = self.correla(point1=point_1, point2= point_2)
+
+                if cor is not None:
+                    corr_values.append(cor)
+
+            max_dis.append(max(distance))
+            min_dis.append(min(distance))
+
+            average_distance.append(sum(distance) / n)
+
+            if corr_values:
+                correlation.append(sum(corr_values) / len(corr_values))
+
+        print()
+
+        return (average_distance,correlation,max_dis,min_dis)
+
+    @auditor
     def same_point(self, p:int)->list:
 
         distance_per_dimension = []
 
-        if self.correlation == True:
-            correlation_per_dimension = []
+        p1, p2  = np.random.sample((2,))
 
-            for d in range(p):
-                point_1 = self.df[:d][0]
-                point_2 = self.df[:d][1]
+        for d in range(p+1):
+            porcentage = d/p*100
+            sys.stdout.write(f"\rProgress: {porcentage:.1f} %")
+            sys.stdout.flush()
 
-                distance_per_dimension.append(self.distance(point1=point_1, point2=point_2))    
-                correlation_per_dimension.append(self.correla(point1 = point_1, point2 = point_2))
+            if d == 0: continue
 
-            return distance_per_dimension, correlation_per_dimension
-        
-        else:
-            for d in range(p):
-                point_1 = self.df[:d][0]
-                point_2 = self.df[:d][1]
+            point_1 = self.df.iloc[int(self.n * p1), :d]
+            point_2 = self.df.iloc[int(self.n * p2), :d]
             
-                distance_per_dimension.append(self.distance(point1=point_1, point2=point_2))   
-            return distance_per_dimension
+            distance_per_dimension.append(self.distance(point1=point_1, point2=point_2)) 
 
-    def distance(self, point1: Sequence, point2: Sequence) -> float:
+        print()#new line  
+        return distance_per_dimension
 
-        point1 = np.array(point1)
-        point2 = np.array(point2)
+    def distance(self, point1: Sequence,point2: Sequence) -> float:
 
-        distance = np.linalg.norm(point1 - point2)
+        point1 = np.asarray(point1)
+        point2 = np.asarray(point2)
 
-        return distance
+        return np.linalg.norm(point1 - point2)
 
-    def correla(self, point1: Sequence, point2:Sequence)->float:    
+    def correla( self,point1: Sequence,point2: Sequence) -> float:
 
-        point1 = pd.Series([point1])
-        point2 = pd.Series([point2])
+        if len(point1) <= 1:
+            return None
 
-        cor = point1.corr(point2)
+        point1 = np.asarray(point1)
+        point2 = np.asarray(point2)
+
+        _, cor = pearsonr(point1, point2)
 
         return cor
 
     def graphics(self) -> Figure:
 
-        if self.correlation == True:
+        fig = plt.figure(figsize=(8, 6))
 
-            fig = plt.figure(figsize = (8,6))
-            from matplotlib.gridspec import GridSpec
-            gs = GridSpec(2,2)
+        from matplotlib.gridspec import GridSpec
 
-            avr_d_gr = fig.add_subplot(gs[:, 0])
-            corr_gr = fig.add_subplot(gs[0, 1])
-            d_gr = fig.add_subplot(gs[1, 1])
+        gs = GridSpec(2, 2)
 
-            dis, cor = dis =  self.same_point(p = self.p)
-            avr_distance = self.avr_distance(p= self.p, n = self.n)
+        avr_d_gr = fig.add_subplot(gs[:, 0])
+        corr_gr = fig.add_subplot(gs[0, 1])
+        d_gr = fig.add_subplot(gs[1, 1])
 
-            avr_d_gr.plot(np.arange(1, self.p, 1), avr_distance, linstyle = "-", color = "purple")
-            x = np.linspace(0, self.p, 100)
-            avr_d_gr.plot(x, np.sqrt(x), linestyle = "--")
+        #Functions
+        dis =  self.same_point(p = self.p)
+        avr_distance, cor, max_dis, min_dis = self.avr_distance(p= self.p, n = self.n)
 
-            corr_gr.plot(np.arange(1, self.p, 1), cor, linstyle= "-", color = "orange")
-            d_gr.plot(np.arange(1, self.p, 1), dis, linestyle = "-", color = "green")
+        dimensions = np.arange(1, self.p + 1)
 
-            return fig
-        
-        else:
-            fig_normal = plt.figure(figsize=(8,6))
-            ax1 = fig_normal.add_subplot(0, 0)
-            ax2 = fig_normal.add_subplot(0, 1)
+        # ---------------------------------------------------------
+        # AVERAGE DISTANCE
+        # ---------------------------------------------------------
+        arange_avr_distance = np.arange(1, self.p+1, 1)
+        avr_d_gr.set_xscale("log")
+        avr_d_gr.plot(arange_avr_distance, avr_distance, linestyle = "-", color = "purple")
+        avr_d_gr.plot(arange_avr_distance, max_dis, "--", color = "black")
+        avr_d_gr.plot(arange_avr_distance, min_dis, "--", color = "black")
+        avr_d_gr.plot(arange_avr_distance, avr_distance, "*", color = "orange")
+        #x = np.linspace(1, self.p, 100)
+        #avr_d_gr.plot(x, (x/2)**(1/2), linestyle ="--")
+        avr_d_gr.set_xlabel("Dimension (p)")
+        avr_d_gr.set_ylabel("Average distance")
+        avr_d_gr.set_title("Avrg. distance through dimension")
+  
+        # ---------------------------------------------------------
+        # CORRELATION
+        # ---------------------------------------------------------
 
-            avr_dis = self.avr_distance(p =self.p, n = self.n)
-            s_point = self.same_point()
-            ax1.plot(np.arange(1, self.p + 1, 1), avr_dis, linestyle = "-", color = "purple")
-            ax2.plot(np.arange(1, self.p +1, 1), s_point, linestyle = "-", color = "orange")
+        corr_gr.set_xscale("log")
 
-            return fig_normal
+        # Pearson correlation is undefined for one-dimensional
+        # vectors, so correlation starts at dimension 2.
 
-@auditor
-class Curse_of_dimensionality():
-    """
-    Description:
-    ------------
+        correlation_dimensions = np.arange(2,self.p + 1)
 
-    This class provides a reasonable example about how the dimensional scale is counterintuitive.
-    The curse of dimensionality, also called, 
+        #Correlation:
+        corr_gr.set_xscale("log")
+        corr_gr.plot(correlation_dimensions, cor, linestyle= "-", color = "purple")
+        corr_gr.plot(correlation_dimensions, cor, "*", color = "orange")
+        corr_gr.set_xlabel("Dimension")
+        corr_gr.set_ylabel("Correlation")
+        corr_gr.set_title("Correlation through dimension")
 
-    Parameters:
-    -----------
+        # ---------------------------------------------------------
+        # DISTANCE BETWEEN THE SAME TWO POINTS
+        # ---------------------------------------------------------
 
-    dimension: int
-        This parameter controls the dimension space.
-    n_sampling: int
-        This paramenter controls how many points will generate in the d-dimensional space. A large number will provide better results. See the readme.md
-    type_norm: str
-        This parameter controls which kind of distance use. Distance available so far: ["Euclidean"]
-    graphics: bool
-        This parameter controls wheter plot the results in two-dimension graphics: number of sampling vs distance average or not. In case of False, the output will be the final distance average.
-    """
-    def __init__(self, dimension: int, n_sampling: int,  type_norm: str = "Euclidean", graphics: bool = True):
-        pass
+        d_gr.plot(arange_avr_distance, dis, linestyle = "-", color = "green")
+        d_gr.plot(arange_avr_distance, dis, "*", color = "yellow")
+        d_gr.set_xlabel("Dimension")
+        d_gr.set_ylabel("Distance")
+        d_gr.set_title("Distance through dimension")
 
-    def lenght():
-        pass
+        plt.tight_layout()
+        return fig
 
-    def hypercubes():
-        pass
-    def correlation():
-        pass
+
+if __name__ == "__main__":
+
+    dimension = 10
+    n_samples = 10000
+
+    Hc = Hypercube(
+        p=dimension,
+        n=n_samples
+    )
+
+    df = Hc.generate_data()
+
+    fig = Hc.graphics()
+
+    plt.show()
