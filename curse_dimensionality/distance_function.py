@@ -45,7 +45,7 @@ def auditor(func):
 
         duration = (end - start) * 1000
 
-        print(f"Score: {score}")
+        #print(f"Score: {score}")
         print(f"Duration: {duration:.2f} ms")
 
         return score
@@ -200,11 +200,11 @@ class Hypersphere():
 
         return distance <= radio
 
-    def graphics(self, porcentage: list) -> Figure:
+    def graphics(self, percentage: list) -> Figure:
 
         if self.graphic_pd:
 
-            fig = plt.figure(figsize=(10, 10))
+            fig = plt.figure(figsize=(8, 8))
 
             from matplotlib.gridspec import GridSpec
 
@@ -220,7 +220,7 @@ class Hypersphere():
                 width_ratios=[1, 1],
                 height_ratios=[1, 1],
                 wspace=0.05,
-                hspace=0.05
+                hspace=0.05, 
             )
 
             ax_joint = fig.add_subplot(sp_joint[1, 0]) #Bottom-left
@@ -248,12 +248,14 @@ class Hypersphere():
             sns.histplot(data = self.df.iloc[:, :2], x =0, ax = ax_margs_x)
             sns.histplot(data = self.df.iloc[:, :2], y =0, ax = ax_margs_y)
 
+            ax_margs_x.set_xticklabels([])
+            ax_margs_y.set_yticklabels([])
+
             ax_joint.plot(x, y, linestyle = "--", color = "black")
             ax_joint.axhline(self.center[1] - self.radius, linestyle ="--",color = "black")
             ax_joint.axhline(self.center[1] + self.radius, linestyle ="--", color = "black")
             ax_joint.axvline(self.center[0] - self.radius, linestyle ="--", color = "black")
             ax_joint.axvline(self.center[0] + self.radius, linestyle ="--", color = "black")
-            
             # Establish the axes.
 
             max_x = np.max(np.abs(self.df.iloc[:, 0]))
@@ -302,12 +304,15 @@ class Hypersphere():
             # ---------------------------------------------------------
             # PERCENTAGE VS DIMENSION
             # ---------------------------------------------------------
-
-            dimensions = np.arange(1, self.p + 1)
-            ax_pd.plot(dimensions, porcentage, linestyle = "-", linewidth = 2, color = "purple")
-            ax_pd.plot(dimensions, porcentage, "*", linewidth = 2, color = "orange")
+            percentage_new = [per for per in percentage if per != 0]
+            for i in range(2):
+                percentage_new.append(0)
+            dimensions = np.arange(1, len(percentage_new) +1)
+            ax_pd.plot(dimensions, percentage_new, linestyle = "-", linewidth = 2, color = "purple")
+            ax_pd.plot(dimensions, percentage_new, "*", linewidth = 2, color = "orange")
+            ax_pd.axhline(y = 0, linestyle = "--", color = "black")
             ax_pd.set_xlabel("Dimension (p)")
-            ax_pd.set_ylabel("Porcentage %")
+            ax_pd.set_ylabel("Percentage %")
 
             title = self.kwargss.get("title")
 
@@ -320,9 +325,12 @@ class Hypersphere():
         else:
 
             fig_pd = plt.figure(figsize=(8, 5))
+            percentage_new = [per for per in percentage if per != 0]
+            for i in range(2):
+                percentage_new.append(0)
 
             dimensions = np.arange(1, self.p + 1)
-            plt.plot( np.arange(1, self.p + 1, 1), porcentage, linestyle = "-", linewidth = 2, color = "purple")
+            plt.plot(dimensions, percentage_new, linestyle = "-", linewidth = 2, color = "purple")
             plt.xlabel("Dimension (p)")
             plt.ylabel("Percentage %")
 
@@ -371,14 +379,14 @@ class Hypercube():
         Every coordinate is sampled independently from Uniform(0, 1).
         """
 
-        x0 = np.random.uniform( low=0,high=1,size=(self.n, self.p))
+        x0 = np.random.uniform(low=0,high=1,size=(self.n, self.p))
 
         self.df = pd.DataFrame(x0)
 
         return self.df
 
     @auditor
-    def avr_distance(self,p: int,n: int) -> Sequence:
+    def avr_distance(self,df, p: int,n: int) -> Sequence:
 
         average_distance = []
         correlation = []
@@ -393,17 +401,20 @@ class Hypercube():
             sys.stdout.flush()
 
             distance = []
-            corr_values = []
-
+            corr_values =[]
             for _ in range(n):
 
+                point1, point2 = np.random.choice(a = self.n, size = 2, replace = False)
 
-                p1, p2  = np.random.sample((2,))
-                point_1 = self.df.iloc[int(self.n*p1),:d]
-                point_2 = self.df.iloc[int(self.n*p2),:d]
+                point_1 = self.df.iloc[point1,:d]
+                point_2 = self.df.iloc[point2,:d]
+
+                idx = np.random.choice(a = self.p, size =2, replace = False)
+                vector1 = df.iloc[:d, idx[0]] - df.iloc[:d, idx[0]].mean()
+                vector2 = df.iloc[:d, idx[1]] - df.iloc[:d, idx[1]].mean()
 
                 distance.append(self.distance(point1= point_1, point2=point_2))
-                cor = self.correla(point1=point_1, point2= point_2)
+                cor = self.correla(vector1=vector1, vector2= vector2)
 
                 if cor is not None:
                     corr_values.append(cor)
@@ -449,16 +460,13 @@ class Hypercube():
 
         return np.linalg.norm(point1 - point2)
 
-    def correla( self,point1: Sequence,point2: Sequence) -> float:
+    def correla( self,vector1: Sequence,vector2: Sequence) -> float:
 
-        if len(point1) <= 1:
+        if len(vector1) <= 1:
             return None
 
-        point1 = np.asarray(point1)
-        point2 = np.asarray(point2)
-
-        _, cor = pearsonr(point1, point2)
-
+        cor = (vector1 * vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
+        cor = np.abs(cor).mean()
         return cor
 
     def graphics(self) -> Figure:
@@ -484,15 +492,14 @@ class Hypercube():
         # ---------------------------------------------------------
         arange_avr_distance = np.arange(1, self.p+1, 1)
         avr_d_gr.set_xscale("log")
-        avr_d_gr.plot(arange_avr_distance, avr_distance, linestyle = "-", color = "purple")
-        avr_d_gr.plot(arange_avr_distance, max_dis, "--", color = "black")
+        avr_d_gr.plot(arange_avr_distance, avr_distance, linestyle = "-", color = "purple", label = "Avrg")
+        avr_d_gr.plot(arange_avr_distance, max_dis, "--", color = "black", label = "max/min")
         avr_d_gr.plot(arange_avr_distance, min_dis, "--", color = "black")
-        avr_d_gr.plot(arange_avr_distance, avr_distance, "*", color = "orange")
-        #x = np.linspace(1, self.p, 100)
-        #avr_d_gr.plot(x, (x/2)**(1/2), linestyle ="--")
         avr_d_gr.set_xlabel("Dimension (p)")
         avr_d_gr.set_ylabel("Average distance")
         avr_d_gr.set_title("Avrg. distance through dimension")
+        avr_d_gr.legend()
+
   
         # ---------------------------------------------------------
         # CORRELATION
@@ -508,9 +515,8 @@ class Hypercube():
         #Correlation:
         corr_gr.set_xscale("log")
         corr_gr.plot(correlation_dimensions, cor, linestyle= "-", color = "purple")
-        corr_gr.plot(correlation_dimensions, cor, "*", color = "orange")
         corr_gr.set_xlabel("Dimension")
-        corr_gr.set_ylabel("Correlation")
+        corr_gr.set_ylabel("E[|r|]")
         corr_gr.set_title("Correlation through dimension")
 
         # ---------------------------------------------------------
@@ -518,7 +524,6 @@ class Hypercube():
         # ---------------------------------------------------------
 
         d_gr.plot(arange_avr_distance, dis, linestyle = "-", color = "green")
-        d_gr.plot(arange_avr_distance, dis, "*", color = "yellow")
         d_gr.set_xlabel("Dimension")
         d_gr.set_ylabel("Distance")
         d_gr.set_title("Distance through dimension")
@@ -529,16 +534,22 @@ class Hypercube():
 
 if __name__ == "__main__":
 
-    dimension = 10
-    n_samples = 10000
+    dimension = 100
+    n_samples = 1000
 
-    Hc = Hypercube(
-        p=dimension,
-        n=n_samples
+    Hp = Hypersphere(
+        p = dimension,
+        n = n_samples,
+        center = np.repeat(0, 100),
+        radius = 1,
     )
 
-    df = Hc.generate_data()
+    df = Hp.generate_data()
 
-    fig = Hc.graphics()
+    percentage = Hp.stratified(df, p = dimension)
 
-    plt.show()
+    fig = Hp.graphics(percentage=percentage)
+    import os
+    directory = os.getcwd()
+    path = os.path.join(directory, "figures\\hypersphere.png")
+    plt.savefig(path,dpi =300, bbox_inches = "tight" )
