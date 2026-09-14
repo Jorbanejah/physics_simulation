@@ -51,29 +51,10 @@ To tackle these issues, data scientists use techniques like:
 *   **Feature Selection** to remove irrelevant dimensions.
 *   **Regularization** to prevent overfitting in sparse spaces.
 
-If you want to search for more about these terms, don’t hesitate to look up the bibliography below.
-
----
-
+If you want to search for more about these terms, don’t hesitate to look up the bibliography below:
 ## References & Further Reading
 
 *   **Bellman, R. E.** (1961). *Adaptive Control Processes: A Guided Tour*. (Origin of the term "Curse of Dimensionality")
 *   **MathWorld: Hypercube Line Picking** – For the exact mean distances in hypercubes.
 *   **Stack Exchange: Distances between random points in a hypercube** – For the derivation of $\sqrt{d/6}$.
 *   **Scikit-Learn Documentation** – For practical implementations of PCA and Manifold Learning.
-
----
-
-## Key Corrections Made
-
-1.  **Mathematical Accuracy:**
-    *   Changed "average distance tends to infinite" to "grows as $\sqrt{d/6}$" (which grows without bound but is finite for any fixed $d$).
-    *   Corrected the 2D average distance from 0.5 to **0.521** (Robbins' constant approximation).
-    *   Corrected the 3D average distance from 0.66 to **0.662**.
-    *   Removed the incorrect claim that "average correlation follows $1/\sqrt{d}$." Instead, clarified that distances *concentrate* (variance relative to mean shrinks), which is the actual phenomenon.
-2.  **Grammar & Style:**
-    *   Fixed run-on sentences and awkward phrasing (e.g., "as long as as increase the dimension all gets mores difficult").
-    *   Improved flow and clarity for educational purposes.
-3.  **Clarity:**
-    *   Explicitly distinguished between the *mean* distance growing and the *relative* distance shrinking (concentration of measure).
-    *   Clarified the analogy of the "hypotenuse vs. cathetus" to better explain why corners dominate in high dimensions.
